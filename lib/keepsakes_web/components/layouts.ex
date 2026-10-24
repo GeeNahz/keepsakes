@@ -24,6 +24,8 @@ defmodule KeepsakesWeb.Layouts do
     * `:auth` - the split register/log-in screen: form on the left, the
       dark polaroid panel on the right.
     * `:plain` - just the logo bar, for dev pages and simple public pages.
+    * `:guest` - nothing but the flash messages, for the guest access,
+      timeline and slideshow pages (used with the `guest_root` layout).
 
   ## Examples
 
@@ -41,7 +43,7 @@ defmodule KeepsakesWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
-  attr :shell, :atom, values: [:owner, :auth, :plain], default: :owner
+  attr :shell, :atom, values: [:owner, :auth, :plain, :guest], default: :owner
 
   attr :owner, :map,
     default: nil,
@@ -168,6 +170,18 @@ defmodule KeepsakesWeb.Layouts do
     </div>
 
     <.new_album_dialog :if={@owner.albums != []} form={@owner.new_album_form} />
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  # Guest pages bring their own full-bleed night layout (with the guest root
+  # layout); the shell only adds the flash messages.
+  def app(%{shell: :guest} = assigns) do
+    ~H"""
+    <div class="min-h-screen bg-ks-night text-white">
+      {render_slot(@inner_block)}
+    </div>
+
     <.flash_group flash={@flash} />
     """
   end

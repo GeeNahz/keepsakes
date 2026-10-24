@@ -44,6 +44,32 @@ defmodule Keepsakes.AlbumsFixtures do
   end
 
   @doc """
+  A memory guests can see: published, complete and marked processed
+  (without running the pipeline, so its variant files don't exist).
+  """
+  def guest_memory_fixture(scope, album, attrs \\ %{}) do
+    attrs = Enum.into(attrs, %{title: "Memory", month: 4, year: 2019})
+    memory = memory_fixture(scope, album, attrs)
+
+    {:ok, memory} =
+      memory |> Ecto.Changeset.change(processing: "ready") |> Keepsakes.Repo.update()
+
+    memory
+  end
+
+  @doc "Shares the album with the code `482917` (plus any settings attrs)."
+  def share_link_fixture(scope, album, settings \\ %{}) do
+    {:ok, link} = Keepsakes.Sharing.create_link(scope, album, "manual", "482917")
+
+    if settings == %{} do
+      link
+    else
+      {:ok, link} = Keepsakes.Sharing.update_settings(scope, link, settings)
+      link
+    end
+  end
+
+  @doc """
   JPEG bytes, optionally with EXIF.
 
   Options: `:width` (1200), `:height` (800), `:taken` ("2019:04:12 10:00:00"

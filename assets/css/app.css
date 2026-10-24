@@ -116,6 +116,14 @@
   --color-ks-amber-deep: #8A5A12;
   --color-ks-night: #14161C;
   --color-ks-night-text: #B8BDC8;
+  /* Guest (night) surfaces: back polaroids, dividers, code boxes, control bar */
+  --color-ks-night-card: #2A2E38;
+  --color-ks-night-line: #3A3F4B;
+  --color-ks-night-field: #1F222A;
+  --color-ks-night-bar: #22252E;
+  /* Date stamp printed on a photo, and soft caption ink on paper */
+  --color-ks-stamp: #9A4508;
+  --color-ks-ink-soft: #3F4654;
   --color-ks-gold: #F2C27A;
   --color-ks-gold-hover: #F7D7A6;
 
@@ -204,12 +212,15 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
-/* This file is for your main application CSS */
-body {
-  font-family: var(--font-sans);
-}
+/* This file is for your main application CSS. Element defaults live in the
+   base layer so utilities like `font-hand` on a heading still win. */
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
 
-h1, h2, h3 {
-  font-family: var(--font-display);
-  letter-spacing: -0.01em;
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
 }

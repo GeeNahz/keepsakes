@@ -64,4 +64,70 @@ else
   end
 
   IO.puts("Sample photos: #{dir}")
+
+  # A shared sample album with the canvas memories, processed and ready for
+  # the guest views (code 482917). Created once; delete it to re-seed.
+  alias Keepsakes.{Albums, Sharing}
+
+  scope = Accounts.Scope.for_user(user)
+
+  if not Enum.any?(Albums.list_albums(scope), &(&1.slug == "our-little-one")) do
+    {:ok, album} =
+      Albums.create_album(scope, %{
+        name: "Our Little One",
+        description: "Ada's first years, one memory at a time."
+      })
+
+    memories = [
+      {"First birthday", 4, 2019, "Fun and games, and it was a colorful day.", "Ikeja, Lagos",
+       ["Ada", "Mum", "Dad"], [241, 223, 199]},
+      {"Grandma's visit", 4, 2019, "She arrived a day late and stayed three weeks.",
+       "Ikeja, Lagos", ["Ada", "Grandma"], [217, 228, 225]},
+      {"First steps in the garden", 5, 2019,
+       "Four wobbly steps, then straight into the flowerbed.", "Home", ["Ada"], [228, 232, 210]},
+      {"Beach day", 12, 2019, "Sand everywhere. Worth it.", "Elegushi Beach", ["Ada", "Dad"],
+       [214, 226, 238]},
+      {"First day of school", 9, 2021, "New bag, new shoes, zero tears (until pickup).",
+       "Surulere", ["Ada"], [220, 217, 236]},
+      {"Christmas morning", 12, 2021, "Paper everywhere, and the box was the favourite gift.",
+       "Home", ["Ada", "Mum", "Dad", "Grandma"], [233, 214, 214]}
+    ]
+
+    for {title, month, year, caption, place, people, colour} <- memories do
+      path = Path.join(dir, "seed-#{System.unique_integer([:positive])}.jpg")
+      {:ok, image} = Image.new(2400, 1800, color: colour)
+      :ok = Vix.Vips.Image.write_to_file(image, path)
+
+      {:ok, memory} =
+        Albums.create_draft(scope, album, %{
+          path: path,
+          filename: Path.basename(path),
+          bytes: File.stat!(path).size
+        })
+
+      File.rm!(path)
+
+      {:ok, memory} =
+        Albums.update_memory(scope, memory, %{
+          title: title,
+          month: month,
+          year: year,
+          caption: caption,
+          place: place
+        })
+
+      {:ok, _} = Albums.set_people(scope, memory, people)
+      # Run the media pipeline now instead of waiting for Oban
+      :ok =
+        Keepsakes.Media.ProcessMemory.perform(%Oban.Job{
+          args: %{"memory_id" => memory.id},
+          attempt: 1,
+          max_attempts: 3
+        })
+    end
+
+    {:ok, _} = Albums.publish_drafts(scope, album)
+    {:ok, link} = Sharing.create_link(scope, album, "manual", "482917")
+    IO.puts("Shared sample album: #{Sharing.url(link)} (code 482917)")
+  end
 end

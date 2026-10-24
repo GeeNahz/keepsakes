@@ -192,19 +192,20 @@ defmodule KeepsakesWeb.MemoryComponents do
         <span class="size-12 shrink-0 overflow-hidden rounded-md">
           <.photo memory={memory} width={480} class="size-12" compact />
         </span>
-        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span class="truncate text-[15px] font-bold">{memory.title || "Untitled photo"}</span>
-          <span class="truncate font-mono text-xs text-ks-muted">
+        <span class="flex min-w-0 flex-1 flex-col items-start gap-1">
+          <%!-- Badge above the title so long names keep the full row width --%>
+          <%= if missing = Memory.missing(memory) do %>
+            <.badge variant="pending" class="px-2 py-0.5 text-[11px]">Needs {missing}</.badge>
+          <% else %>
+            <.badge variant="ready" class="px-2 py-0.5 text-[11px]">Ready</.badge>
+          <% end %>
+          <span class="w-full truncate text-[15px] font-bold">{memory.title || "Untitled photo"}</span>
+          <span class="w-full truncate font-mono text-xs text-ks-muted">
             {[Memory.short_date_label(memory), memory.original_filename]
             |> Enum.reject(&is_nil/1)
             |> Enum.join(" · ")}
           </span>
         </span>
-        <%= if missing = Memory.missing(memory) do %>
-          <.badge variant="pending" class="shrink-0">Needs {missing}</.badge>
-        <% else %>
-          <.badge variant="ready" class="shrink-0">Ready</.badge>
-        <% end %>
       </button>
 
       <p :for={err <- upload_errors(@upload)} class="px-2 text-sm text-error">

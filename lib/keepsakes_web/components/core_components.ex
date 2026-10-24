@@ -101,7 +101,8 @@ defmodule KeepsakesWeb.CoreComponents do
   Pass `class` to add classes on top of the variant.
   """
   attr :rest, :global,
-    include: ~w(href navigate patch method download name value disabled type form formnovalidate)
+    include:
+      ~w(href navigate patch method download name value disabled type form formnovalidate target rel)
 
   attr :class, :any, default: nil
   attr :variant, :string, values: ~w(primary secondary outline ghost danger), default: "ghost"

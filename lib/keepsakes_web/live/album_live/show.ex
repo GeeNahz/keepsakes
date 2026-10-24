@@ -155,17 +155,25 @@ defmodule KeepsakesWeb.AlbumLive.Show do
           </div>
           <div class="flex flex-col items-end gap-1.5">
             <div class="flex flex-wrap gap-2.5">
-              <.button :if={@stats.count > 0} id="preview-as-guest" type="button" disabled>
-                Preview as guest
-              </.button>
-              <.button id="share-album" type="button" variant="primary" disabled>
-                <.icon name="hero-link" class="size-[18px]" /> Share album
-              </.button>
+              <%= if @stats.count > 0 do %>
+                <.button id="preview-as-guest" href={~p"/a/preview/#{@album.slug}/timeline"}>
+                  Preview as guest
+                </.button>
+                <.button
+                  id="share-album"
+                  variant="primary"
+                  navigate={~p"/albums/#{@album.slug}/share"}
+                >
+                  <.icon name="hero-link" class="size-[18px]" /> Share album
+                </.button>
+              <% else %>
+                <.button id="share-album" type="button" variant="primary" disabled>
+                  <.icon name="hero-link" class="size-[18px]" /> Share album
+                </.button>
+              <% end %>
             </div>
-            <span class="text-[13px] text-ks-muted">
-              {if @stats.count == 0,
-                do: "Add at least one photo to share",
-                else: "Sharing arrives in the next update"}
+            <span :if={@stats.count == 0} class="text-[13px] text-ks-muted">
+              Add at least one photo to share
             </span>
           </div>
         </div>
