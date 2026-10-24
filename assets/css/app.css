@@ -20,78 +20,143 @@
   themes: false;
 }
 
-/* daisyUI theme plugin. You can update this file by fetching the latest version with:
-  curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui-theme.js
-  We ship with two themes, a light one inspired on Phoenix colors and a dark one inspired
-  on Elixir colors. Build your own at: https://daisyui.com/theme-generator/ */
+/* Keepsake themes, built from the design canvas tokens.
+   `keepsake` is the owner/admin UI (paper + ink + teal). `keepsake-night`
+   is the dark guest experience (access code, timeline, slideshow) and
+   doubles as the owner's dark mode. */
 @plugin "../vendor/daisyui-theme" {
-  name: "dark";
-  default: false;
-  prefersdark: true;
-  color-scheme: "dark";
-  --color-base-100: oklch(30.33% 0.016 252.42);
-  --color-base-200: oklch(25.26% 0.014 253.1);
-  --color-base-300: oklch(20.15% 0.012 254.09);
-  --color-base-content: oklch(97.807% 0.029 256.847);
-  --color-primary: oklch(58% 0.233 277.117);
-  --color-primary-content: oklch(96% 0.018 272.314);
-  --color-secondary: oklch(58% 0.233 277.117);
-  --color-secondary-content: oklch(96% 0.018 272.314);
-  --color-accent: oklch(60% 0.25 292.717);
-  --color-accent-content: oklch(96% 0.016 293.756);
-  --color-neutral: oklch(37% 0.044 257.287);
-  --color-neutral-content: oklch(98% 0.003 247.858);
-  --color-info: oklch(58% 0.158 241.966);
-  --color-info-content: oklch(97% 0.013 236.62);
-  --color-success: oklch(60% 0.118 184.704);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
-  --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.21875rem;
-  --size-field: 0.21875rem;
-  --border: 1.5px;
-  --depth: 1;
+  name: "keepsake";
+  default: true;
+  prefersdark: false;
+  color-scheme: "light";
+  --color-base-100: #FFFFFF;
+  --color-base-200: #F5F6F8;
+  --color-base-300: #E2E4E9;
+  --color-base-content: #1B1E27;
+  --color-primary: #1F5F5B;
+  --color-primary-content: #FFFFFF;
+  --color-secondary: #1B1E27;
+  --color-secondary-content: #FFFFFF;
+  --color-accent: #E8A33D;
+  --color-accent-content: #1B1E27;
+  --color-neutral: #14161C;
+  --color-neutral-content: #FFFFFF;
+  --color-info: #2C5E8A;
+  --color-info-content: #FFFFFF;
+  --color-success: #1F5F5B;
+  --color-success-content: #FFFFFF;
+  --color-warning: #8A5A12;
+  --color-warning-content: #FFFFFF;
+  --color-error: #A33A2B;
+  --color-error-content: #FFFFFF;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.625rem;
+  --radius-box: 0.875rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
   --noise: 0;
 }
 
 @plugin "../vendor/daisyui-theme" {
-  name: "light";
-  default: true;
-  prefersdark: false;
-  color-scheme: "light";
-  --color-base-100: oklch(98% 0 0);
-  --color-base-200: oklch(96% 0.001 286.375);
-  --color-base-300: oklch(92% 0.004 286.32);
-  --color-base-content: oklch(21% 0.006 285.885);
-  --color-primary: oklch(70% 0.213 47.604);
-  --color-primary-content: oklch(98% 0.016 73.684);
-  --color-secondary: oklch(55% 0.027 264.364);
-  --color-secondary-content: oklch(98% 0.002 247.839);
-  --color-accent: oklch(0% 0 0);
-  --color-accent-content: oklch(100% 0 0);
-  --color-neutral: oklch(44% 0.017 285.786);
-  --color-neutral-content: oklch(98% 0 0);
-  --color-info: oklch(62% 0.214 259.815);
-  --color-info-content: oklch(97% 0.014 254.604);
-  --color-success: oklch(70% 0.14 182.503);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
-  --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.21875rem;
-  --size-field: 0.21875rem;
-  --border: 1.5px;
-  --depth: 1;
+  name: "keepsake-night";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: #1E2129;
+  --color-base-200: #14161C;
+  --color-base-300: #2E323D;
+  --color-base-content: #FFFFFF;
+  --color-primary: #E8A33D;
+  --color-primary-content: #14161C;
+  --color-secondary: #6FB3AC;
+  --color-secondary-content: #14161C;
+  --color-accent: #F2C27A;
+  --color-accent-content: #14161C;
+  --color-neutral: #FFFFFF;
+  --color-neutral-content: #14161C;
+  --color-info: #8DB8E0;
+  --color-info-content: #14161C;
+  --color-success: #6FB3AC;
+  --color-success-content: #14161C;
+  --color-warning: #F2C27A;
+  --color-warning-content: #14161C;
+  --color-error: #E58B7C;
+  --color-error-content: #14161C;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.625rem;
+  --radius-box: 0.875rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
   --noise: 0;
+}
+
+/* Design tokens daisyUI has no slot for. Use as `text-ks-muted`,
+   `bg-ks-amber-soft`, `font-display`, `font-hand`, etc. */
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-hand: "Caveat", "Segoe Print", cursive;
+
+  --color-ks-muted: #5A6070;
+  --color-ks-field: #8C93A1;
+  --color-ks-placeholder: #C9CDD5;
+  --color-ks-teal-hover: #164744;
+  --color-ks-teal-soft: #E6F0EF;
+  --color-ks-teal-tint: #F2F7F6;
+  --color-ks-teal-mist: #9DBFBB;
+  --color-ks-amber-soft: #FCEFD9;
+  --color-ks-amber-deep: #8A5A12;
+  --color-ks-night: #14161C;
+  --color-ks-night-text: #B8BDC8;
+  --color-ks-gold: #F2C27A;
+  --color-ks-gold-hover: #F7D7A6;
+
+  /* Placeholder photo tints from the canvas, shown until a photo loads */
+  --color-ks-tint-sand: #F1DFC7;
+  --color-ks-tint-sage: #D9E4E1;
+  --color-ks-tint-moss: #E4E8D2;
+  --color-ks-tint-sky: #D6E2EE;
+  --color-ks-tint-lilac: #DCD9EC;
+  --color-ks-tint-rose: #E9D6D6;
+}
+
+/* Self-hosted fonts in priv/static/fonts (SIL Open Font License; see the
+   README there). Until the files exist, the system fallbacks above apply. */
+@font-face {
+  font-family: "DM Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/dm-sans-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("/fonts/bricolage-grotesque-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "DM Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/dm-mono-500-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/caveat-latin.woff2") format("woff2");
 }
 
 /* Add variants based on LiveView classes */
@@ -100,9 +165,17 @@
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 
 /* Use the data attribute for dark mode  */
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+@custom-variant dark (&:where([data-theme=keepsake-night], [data-theme=keepsake-night] *));
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+body {
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}

@@ -11,6 +11,41 @@ config :keepsakes,
   ecto_repos: [Keepsakes.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+# Every table and foreign key defaults to UUIDs, matching `--binary-id`,
+# including hand-written migrations from `mix ecto.gen.migration`.
+config :keepsakes, Keepsakes.Repo,
+  migration_primary_key: [name: :id, type: :binary_id],
+  migration_foreign_key: [type: :binary_id],
+  migration_timestamps: [type: :utc_datetime]
+
+# Background jobs (Postgres-backed, no Redis)
+config :keepsakes, Oban,
+  engine: Oban.Engines.Basic,
+  repo: Keepsakes.Repo,
+  queues: [default: 10, media: 4, mailers: 10, billing: 5, domains: 2],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
+    {Oban.Plugins.Cron, crontab: []}
+  ]
+
+# Feature flags, persisted in Postgres, cache-busted across nodes over PubSub
+config :fun_with_flags, :persistence,
+  adapter: FunWithFlags.Store.Persistent.Ecto,
+  repo: Keepsakes.Repo,
+  ecto_primary_key_type: :binary_id
+
+config :fun_with_flags, :cache_bust_notifications,
+  enabled: true,
+  adapter: FunWithFlags.Notifications.PhoenixPubSub,
+  client: Keepsakes.PubSub
+
+# Self-hosted error tracking stored in our own database
+config :error_tracker,
+  repo: Keepsakes.Repo,
+  otp_app: :keepsakes,
+  enabled: true
+
 # Configure the endpoint
 config :keepsakes, KeepsakesWeb.Endpoint,
   url: [host: "localhost"],

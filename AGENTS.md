@@ -30,7 +30,8 @@ custom classes must fully style the input
 
 - **Always use and maintain this import syntax** in the app.css file for projects generated with `phx.new`
 - **Never** use `@apply` when writing raw css
-- **Always** manually write your own tailwind-based components instead of using daisyUI for a unique, world-class design
+- **Prefer daisyUI components** (btn, input, select, textarea, modal, card, tabs, badge, progress, table, dropdown, drawer, etc.) themed via the project's `keepsake` (owner/admin) and `keepsake-night` (guest) daisyUI themes in `assets/css/app.css`. Only hand-write Tailwind components where no daisyUI component fits (e.g. polaroids, the memory timeline trail, the slideshow)
+- Never hardcode the design's hex colours in templates; use the daisyUI theme tokens (`bg-base-100`, `text-primary`, `border-base-300`, …) or the `--color-ks-*` tokens defined in `app.css`
 - Out of the box **only the app.js and app.css bundles are supported**
   - You cannot reference an external vendor'd script `src` or link `href` in the layouts
   - You must import the vendor deps into app.js and app.css to use them

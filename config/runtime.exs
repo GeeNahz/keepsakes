@@ -1,4 +1,17 @@
 import Config
+import Dotenvy
+
+# Load env vars from a gitignored `.env` (and `.env.<env>`) at the project
+# root when present. Real environment variables always win. Releases have
+# no .env files, so only the container's environment applies there.
+# Every variable read below is documented in `.env.example`.
+project_root = Path.expand("..", __DIR__)
+
+source!([
+  Path.join(project_root, ".env"),
+  Path.join(project_root, ".env.#{config_env()}"),
+  System.get_env()
+])
 
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
@@ -20,8 +33,56 @@ if System.get_env("PHX_SERVER") do
   config :keepsakes, KeepsakesWeb.Endpoint, server: true
 end
 
-config :keepsakes, KeepsakesWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+config :keepsakes, KeepsakesWeb.Endpoint, http: [port: env!("PORT", :integer, 4000)]
+
+# Local Postgres for dev/test (prod uses DATABASE_URL below)
+if config_env() in [:dev, :test] do
+  config :keepsakes, Keepsakes.Repo,
+    username: env!("DB_USER", :string, "postgres"),
+    password: env!("DB_PASS", :string, "postgres"),
+    hostname: env!("DB_HOST", :string, "localhost"),
+    port: env!("DB_PORT", :integer, 5432)
+end
+
+# Encryption at rest for sensitive columns (access codes, TOTP secrets,
+# gateway tokens). The fallback key is for dev/test only.
+cloak_key =
+  if config_env() == :prod do
+    env!("CLOAK_KEY", :string)
+  else
+    env!("CLOAK_KEY", :string?, nil) || "slicKIYnX3WbZIL9SNNqZj8ULVZOxtSDCumAStf8nek="
+  end
+
+config :keepsakes, Keepsakes.Vault,
+  ciphers: [
+    default:
+      {Cloak.Ciphers.AES.GCM, tag: "AES.GCM.V1", key: Base.decode64!(cloak_key), iv_length: 12}
+  ]
+
+# Photo storage: S3-compatible (Cloudflare R2 / DigitalOcean Spaces) when
+# S3_BUCKET is set, otherwise local disk. Tests configure their own in test.exs.
+if config_env() != :test do
+  case env!("S3_BUCKET", :string?, nil) do
+    nil ->
+      default_dir =
+        if config_env() == :prod,
+          do: "/var/lib/keepsakes/uploads",
+          else: Path.join(project_root, "priv/uploads")
+
+      config :keepsakes, Keepsakes.Storage,
+        adapter: Keepsakes.Storage.Local,
+        root: env!("LOCAL_UPLOADS_DIR", :string?, nil) || default_dir
+
+    bucket ->
+      config :keepsakes, Keepsakes.Storage,
+        adapter: Keepsakes.Storage.S3,
+        bucket: bucket,
+        endpoint_url: env!("S3_ENDPOINT", :string),
+        region: env!("S3_REGION", :string?, nil) || "auto",
+        access_key_id: env!("S3_ACCESS_KEY_ID", :string),
+        secret_access_key: env!("S3_SECRET_ACCESS_KEY", :string)
+  end
+end
 
 if config_env() == :prod do
   database_url =

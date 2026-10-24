@@ -65,7 +65,19 @@ defmodule Keepsakes.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:dotenvy, "~> 1.2"},
+      {:oban, "~> 2.24"},
+      {:image, "~> 0.72.0"},
+      {:req_s3, "~> 0.2.5"},
+      {:hammer, "~> 7.5"},
+      {:cloak_ecto, "~> 1.3"},
+      {:nimble_totp, "~> 1.0"},
+      {:eqrcode, "~> 0.2.1"},
+      {:fun_with_flags, "~> 1.13"},
+      {:error_tracker, "~> 0.9.0"},
+      {:prom_ex, "~> 1.12"},
+      {:mox, "~> 1.3", only: :test}
     ]
   end
 

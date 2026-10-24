@@ -91,22 +91,41 @@ defmodule KeepsakesWeb.CoreComponents do
 
   ## Examples
 
-      <.button>Send!</.button>
-      <.button phx-click="go" variant="primary">Send!</.button>
-      <.button navigate={~p"/"}>Home</.button>
+      <.button>Cancel</.button>
+      <.button phx-click="go" variant="primary">Create album</.button>
+      <.button navigate={~p"/"} variant="outline">Upload one</.button>
+
+  Variants follow the design canvas: `primary` (teal, main action),
+  `secondary` (ink, e.g. "Bulk upload"), `outline` (teal outline),
+  `ghost` (neutral outline, e.g. "Preview as guest"), `danger`.
+  Pass `class` to add classes on top of the variant.
   """
-  attr :rest, :global, include: ~w(href navigate patch method download name value disabled)
-  attr :class, :any
-  attr :variant, :string, values: ~w(primary)
+  attr :rest, :global,
+    include: ~w(href navigate patch method download name value disabled type form)
+
+  attr :class, :any, default: nil
+  attr :variant, :string, values: ~w(primary secondary outline ghost danger), default: "ghost"
+  attr :size, :string, values: ~w(md lg sm), default: "md"
   slot :inner_block, required: true
 
   def button(%{rest: rest} = assigns) do
-    variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
+    variants = %{
+      "primary" => "btn-primary hover:bg-ks-teal-hover",
+      "secondary" => "btn-secondary",
+      "outline" => "btn-outline btn-primary",
+      "ghost" => "btn-outline border-ks-field bg-base-100 hover:bg-base-200",
+      "danger" => "btn-outline btn-error"
+    }
+
+    sizes = %{"sm" => "btn-sm min-h-9", "md" => "min-h-11 px-4", "lg" => "btn-lg min-h-12 px-5"}
 
     assigns =
-      assign_new(assigns, :class, fn ->
-        ["btn", Map.fetch!(variants, assigns[:variant])]
-      end)
+      assign(assigns, :class, [
+        "btn rounded-field font-bold shadow-none transition-colors",
+        Map.fetch!(variants, assigns.variant),
+        Map.fetch!(sizes, assigns.size),
+        assigns.class
+      ])
 
     if rest[:href] || rest[:navigate] || rest[:patch] do
       ~H"""
@@ -228,9 +247,9 @@ defmodule KeepsakesWeb.CoreComponents do
             name={@name}
             value="true"
             checked={@checked}
-            class={@class || "checkbox checkbox-sm"}
+            class={@class || "checkbox checkbox-primary checkbox-sm"}
             {@rest}
-          />{@label}
+          /><span class="text-[15px] text-base-content">{@label}</span>
         </span>
       </label>
       <.error :for={msg <- @errors}>{msg}</.error>
@@ -242,11 +261,14 @@ defmodule KeepsakesWeb.CoreComponents do
     ~H"""
     <div class="fieldset mb-2">
       <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class={label_class()}>{@label}</span>
         <select
           id={@id}
           name={@name}
-          class={[@class || "w-full select", @errors != [] && (@error_class || "select-error")]}
+          class={[
+            @class || "w-full select h-12 border-ks-field bg-base-100",
+            @errors != [] && (@error_class || "select-error")
+          ]}
           multiple={@multiple}
           {@rest}
         >
@@ -263,12 +285,12 @@ defmodule KeepsakesWeb.CoreComponents do
     ~H"""
     <div class="fieldset mb-2">
       <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class={label_class()}>{@label}</span>
         <textarea
           id={@id}
           name={@name}
           class={[
-            @class || "w-full textarea",
+            @class || "w-full textarea border-ks-field bg-base-100 px-3.5 py-3 text-[15px]",
             @errors != [] && (@error_class || "textarea-error")
           ]}
           {@rest}
@@ -284,14 +306,14 @@ defmodule KeepsakesWeb.CoreComponents do
     ~H"""
     <div class="fieldset mb-2">
       <label for={@id}>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class={label_class()}>{@label}</span>
         <input
           type={@type}
           name={@name}
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            @class || "w-full input",
+            @class || "w-full input h-12 border-ks-field bg-base-100 px-3.5 text-[15px]",
             @errors != [] && (@error_class || "input-error")
           ]}
           {@rest}
@@ -301,6 +323,8 @@ defmodule KeepsakesWeb.CoreComponents do
     </div>
     """
   end
+
+  defp label_class, do: "label mb-1.5 text-sm font-medium text-base-content"
 
   # Helper used by inputs to generate form errors
   defp error(assigns) do
@@ -321,18 +345,220 @@ defmodule KeepsakesWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
-      <div>
-        <h1 class="text-lg font-semibold leading-8">
+    <header class={[
+      @actions != [] && "flex flex-wrap items-end justify-between gap-4",
+      "pb-6"
+    ]}>
+      <div class="flex flex-col gap-1.5">
+        <h1 class="font-display text-3xl sm:text-4xl font-bold">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="text-sm text-base-content/70">
+        <p :if={@subtitle != []} class="text-[15px] text-ks-muted">
           {render_slot(@subtitle)}
         </p>
       </div>
-      <div class="flex-none">{render_slot(@actions)}</div>
+      <div class="flex flex-wrap gap-2.5">{render_slot(@actions)}</div>
     </header>
     """
+  end
+
+  @doc """
+  The Keepsake logo: two tilted photo cards plus the wordmark.
+
+      <.logo />
+      <.logo size={32} wordmark_class="text-[22px]" />
+  """
+  attr :size, :integer, default: 28
+  attr :wordmark, :boolean, default: true
+  attr :wordmark_class, :any, default: "text-xl"
+  attr :class, :any, default: nil
+
+  def logo(assigns) do
+    ~H"""
+    <span class={["inline-flex items-center gap-2.5", @class]}>
+      <svg width={@size} height={@size} viewBox="0 0 28 28" aria-hidden="true">
+        <rect
+          x="5"
+          y="4"
+          width="16"
+          height="19"
+          rx="2"
+          class="fill-accent"
+          transform="rotate(-10 13 13)"
+        />
+        <rect
+          x="8"
+          y="6"
+          width="16"
+          height="19"
+          rx="2"
+          class="fill-primary [[data-theme=keepsake-night]_&]:fill-ks-teal-mist"
+          transform="rotate(6 16 15)"
+        />
+      </svg>
+      <span :if={@wordmark} class={["font-display font-bold", @wordmark_class]}>Keepsake</span>
+    </span>
+    """
+  end
+
+  @doc """
+  Initials avatar.
+
+      <.avatar name="Godswill Nasara" />
+  """
+  attr :name, :string, required: true
+  attr :class, :any, default: "size-10 text-sm"
+
+  def avatar(assigns) do
+    ~H"""
+    <span
+      aria-label={@name}
+      role="img"
+      class={[
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-content",
+        @class
+      ]}
+    >
+      {initials(@name)}
+    </span>
+    """
+  end
+
+  @doc "Up to two uppercase initials for `name`."
+  def initials(name) when is_binary(name) do
+    name
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.take(2)
+    |> Enum.map_join(&String.first/1)
+    |> String.upcase()
+  end
+
+  def initials(_), do: "?"
+
+  @doc """
+  A pill badge.
+
+      <.badge>Cover</.badge>
+      <.badge variant="ready">Ready</.badge>
+  """
+  attr :variant, :string, values: ~w(dark ready pending muted), default: "dark"
+  attr :class, :any, default: nil
+  slot :inner_block, required: true
+
+  def badge(assigns) do
+    variants = %{
+      "dark" => "bg-secondary text-secondary-content",
+      "ready" => "bg-ks-teal-soft text-primary",
+      "pending" => "bg-ks-amber-soft text-ks-amber-deep",
+      "muted" => "bg-base-200 text-ks-muted"
+    }
+
+    assigns = assign(assigns, :variant_class, Map.fetch!(variants, assigns.variant))
+
+    ~H"""
+    <span class={[
+      "badge border-0 rounded-full px-2.5 py-1 h-auto text-xs font-bold",
+      @variant_class,
+      @class
+    ]}>
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
+
+  @doc """
+  A labelled usage meter, e.g. the storage bar in the sidebar.
+
+      <.meter id="storage-meter" label="Storage" value={38} max={1024} text="38 MB of 1 GB" />
+  """
+  attr :id, :string, required: true
+  attr :label, :string, required: true
+  attr :value, :integer, required: true
+  attr :max, :integer, required: true
+  attr :text, :string, default: nil
+
+  def meter(assigns) do
+    ~H"""
+    <div id={@id} class="flex flex-col gap-2">
+      <div class="flex justify-between text-[13px] text-ks-muted">
+        <span>{@label}</span>
+        <span>{@text || "#{@value} of #{@max}"}</span>
+      </div>
+      <progress
+        class="progress progress-primary h-1.5 w-full bg-base-300"
+        value={@value}
+        max={@max}
+        aria-label={@label}
+      ></progress>
+    </div>
+    """
+  end
+
+  @doc """
+  A daisyUI modal dialog driven by `JS` commands (no server round trip).
+
+      <.modal id="new-album" title="New album" subtitle="One album per story.">
+        ...form...
+      </.modal>
+
+      <.button phx-click={show_modal("new-album")}>New album</.button>
+  """
+  attr :id, :string, required: true
+  attr :title, :string, required: true
+  attr :subtitle, :string, default: nil
+  attr :show, :boolean, default: false
+  attr :on_cancel, JS, default: %JS{}
+  slot :inner_block, required: true
+
+  def modal(assigns) do
+    ~H"""
+    <dialog
+      id={@id}
+      class={["modal modal-bottom sm:modal-middle", @show && "modal-open"]}
+      aria-labelledby={"#{@id}-title"}
+      phx-mounted={@show && show_modal(@id)}
+      phx-remove={hide_modal(@id)}
+      data-cancel={JS.exec(@on_cancel, "phx-remove")}
+      phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
+      phx-key="escape"
+    >
+      <div class="modal-box flex max-w-[480px] flex-col gap-5 rounded-[18px] p-7 shadow-2xl">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex flex-col gap-1">
+            <h2 id={"#{@id}-title"} class="font-display text-[26px] font-bold">{@title}</h2>
+            <p :if={@subtitle} class="text-[15px] text-ks-muted">{@subtitle}</p>
+          </div>
+          <button
+            type="button"
+            class="btn btn-circle btn-ghost size-11 shrink-0 bg-base-200"
+            phx-click={JS.exec("data-cancel", to: "##{@id}")}
+            aria-label={gettext("Close")}
+          >
+            <.icon name="hero-x-mark" class="size-4" />
+          </button>
+        </div>
+        {render_slot(@inner_block)}
+      </div>
+      <button
+        type="button"
+        class="modal-backdrop bg-ks-night/55"
+        phx-click={JS.exec("data-cancel", to: "##{@id}")}
+        aria-label={gettext("Close")}
+      ></button>
+    </dialog>
+    """
+  end
+
+  def show_modal(js \\ %JS{}, id) when is_binary(id) do
+    js
+    |> JS.push_focus()
+    |> JS.add_class("modal-open", to: "##{id}")
+    |> JS.focus_first(to: "##{id} .modal-box")
+  end
+
+  def hide_modal(js \\ %JS{}, id) when is_binary(id) do
+    JS.remove_class(js, "modal-open", to: "##{id}")
+    |> JS.pop_focus()
   end
 
   @doc """

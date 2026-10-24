@@ -1,10 +1,8 @@
 import Config
 
-# Configure your database
+# Configure your database.
+# Credentials come from DB_* env vars (see config/runtime.exs and .env.example).
 config :keepsakes, Keepsakes.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
   database: "keepsakes_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,

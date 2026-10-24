@@ -35,3 +35,9 @@ keepsakes-*.tar
 npm-debug.log
 /assets/node_modules/
 
+
+# Local secrets and uploaded files
+/.env
+/.env.*
+!/.env.example
+/priv/uploads/

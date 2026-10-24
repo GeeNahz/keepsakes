@@ -12,8 +12,10 @@ defmodule Keepsakes.Application do
       Keepsakes.Repo,
       {DNSCluster, query: Application.get_env(:keepsakes, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Keepsakes.PubSub},
-      # Start a worker by calling: Keepsakes.Worker.start_link(arg)
-      # {Keepsakes.Worker, arg},
+      Keepsakes.Vault,
+      Keepsakes.Settings.Cache,
+      {Keepsakes.RateLimit, clean_period: :timer.minutes(10)},
+      {Oban, Application.fetch_env!(:keepsakes, Oban)},
       # Start to serve requests, typically the last entry
       KeepsakesWeb.Endpoint
     ]
