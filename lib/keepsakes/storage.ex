@@ -24,6 +24,8 @@ defmodule Keepsakes.Storage do
   @callback exists?(config, key) :: boolean()
   @callback url(config, key, opts :: keyword()) :: String.t()
 
+  @url_window 15 * 60
+
   @key_format ~r/\A[A-Za-z0-9_\-\.]+(\/[A-Za-z0-9_\-\.]+)*\z/
 
   @doc "Stores `body` under `key`. Options: `:content_type`."
@@ -39,11 +41,23 @@ defmodule Keepsakes.Storage do
   @spec exists?(key) :: boolean()
   def exists?(key), do: valid_key?(key) and adapter().exists?(config(), key)
 
-  @doc "Signed URL for `key`. Options: `:expires_in` seconds (default 3600)."
+  @doc """
+  Signed URL for `key`, valid for at least `:expires_in` seconds (default 3600).
+
+  The signing time is rounded down to a 15-minute window, so
+  every render within the window produces the same URL and the browser can
+  cache the image instead of refetching it each time a LiveView re-renders.
+  Adapters receive the rounded time as `:signed_at` (unix seconds).
+  """
   @spec url(key, keyword()) :: String.t()
   def url(key, opts \\ []) do
     unless valid_key?(key), do: raise(ArgumentError, "invalid storage key: #{inspect(key)}")
-    adapter().url(config(), key, opts)
+
+    now = Keyword.get_lazy(opts, :now, fn -> System.system_time(:second) end)
+    signed_at = now - rem(now, @url_window)
+    expires_in = Keyword.get(opts, :expires_in, 3600) + @url_window
+
+    adapter().url(config(), key, signed_at: signed_at, expires_in: expires_in)
   end
 
   @doc "Keys may only contain `[A-Za-z0-9_-.]` segments separated by `/`, never `..`."

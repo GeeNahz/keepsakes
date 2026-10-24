@@ -59,6 +59,17 @@ config :keepsakes, Keepsakes.Vault,
       {Cloak.Ciphers.AES.GCM, tag: "AES.GCM.V1", key: Base.decode64!(cloak_key), iv_length: 12}
   ]
 
+# Place names from photo GPS (OpenStreetMap Nominatim). Tests set :none.
+if config_env() != :test do
+  geocoder =
+    case env!("GEOCODER", :string?, nil) do
+      "none" -> :none
+      _ -> :nominatim
+    end
+
+  config :keepsakes, Keepsakes.Media.Geocoder, adapter: geocoder
+end
+
 # Photo storage: S3-compatible (Cloudflare R2 / DigitalOcean Spaces) when
 # S3_BUCKET is set, otherwise local disk. Tests configure their own in test.exs.
 if config_env() != :test do
@@ -71,7 +82,8 @@ if config_env() != :test do
 
       config :keepsakes, Keepsakes.Storage,
         adapter: Keepsakes.Storage.Local,
-        root: env!("LOCAL_UPLOADS_DIR", :string?, nil) || default_dir
+        root: env!("LOCAL_UPLOADS_DIR", :string?, nil) || default_dir,
+        x_accel_prefix: env!("LOCAL_X_ACCEL_PREFIX", :string?, nil)
 
     bucket ->
       config :keepsakes, Keepsakes.Storage,

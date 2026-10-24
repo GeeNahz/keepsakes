@@ -102,6 +102,9 @@
   --font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-hand: "Caveat", "Segoe Print", cursive;
 
+  /* Fixed ink for always-white paper (polaroids) in both themes */
+  --color-ks-ink: #1B1E27;
+  --color-ks-ink-muted: #5A6070;
   --color-ks-muted: #5A6070;
   --color-ks-field: #8C93A1;
   --color-ks-placeholder: #C9CDD5;
@@ -123,6 +126,37 @@
   --color-ks-tint-sky: #D6E2EE;
   --color-ks-tint-lilac: #DCD9EC;
   --color-ks-tint-rose: #E9D6D6;
+}
+
+/* Dark mode for the soft surface/text tokens above: the same selectors
+   daisyUI uses for keepsake-night (explicit, or system dark with no choice
+   made). Paper tokens (ks-ink*) and photo tints stay fixed on purpose. */
+@layer base {
+  [data-theme="keepsake-night"] {
+    --color-ks-muted: #A3A9B6;
+    --color-ks-field: #6B7280;
+    --color-ks-placeholder: #3A3F4B;
+    --color-ks-teal-hover: #F2C27A;
+    --color-ks-teal-soft: #2B3A3D;
+    --color-ks-teal-tint: #232D31;
+    --color-ks-teal-mist: #4F7F7A;
+    --color-ks-amber-soft: #3A2F1E;
+    --color-ks-amber-deep: #F2C27A;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      --color-ks-muted: #A3A9B6;
+      --color-ks-field: #6B7280;
+      --color-ks-placeholder: #3A3F4B;
+      --color-ks-teal-hover: #F2C27A;
+      --color-ks-teal-soft: #2B3A3D;
+      --color-ks-teal-tint: #232D31;
+      --color-ks-teal-mist: #4F7F7A;
+      --color-ks-amber-soft: #3A2F1E;
+      --color-ks-amber-deep: #F2C27A;
+    }
+  }
 }
 
 /* Self-hosted fonts in priv/static/fonts (SIL Open Font License; see the

@@ -17,6 +17,12 @@ defmodule KeepsakesWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Photos on local disk, authorised by the signed token in the URL itself
+  # (no session), so the same links work for owners and guests.
+  scope "/media", KeepsakesWeb do
+    get "/:token", MediaController, :show
+  end
+
   scope "/", KeepsakesWeb do
     pipe_through :browser
 
@@ -58,8 +64,13 @@ defmodule KeepsakesWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
-      on_mount: [{KeepsakesWeb.UserAuth, :require_authenticated}] do
+      on_mount: [{KeepsakesWeb.UserAuth, :require_authenticated}, KeepsakesWeb.OwnerShell] do
       live "/albums", AlbumLive.Index, :index
+      # One LiveView for the album, its upload screen and the memory editor,
+      # so files picked on the album page keep uploading across the patch
+      live "/albums/:slug", AlbumLive.Show, :show
+      live "/albums/:slug/upload", AlbumLive.Show, :upload
+      live "/albums/:slug/memories/:id", AlbumLive.Show, :edit
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end

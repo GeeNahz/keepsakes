@@ -30,6 +30,34 @@ defmodule KeepsakesWeb.AlbumLive.IndexTest do
       refute has_element?(lv, "#confirm-email-banner")
     end
 
+    test "creates the first album from the empty state", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/albums")
+
+      assert lv
+             |> form("#first-album-form", album: %{name: ""})
+             |> render_change() =~ "Give your album a name"
+
+      {:ok, show, _html} =
+        lv
+        |> form("#first-album-form", album: %{name: "Our Little One"})
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/albums/our-little-one")
+
+      assert has_element?(show, "#album-title", "Our Little One")
+      assert has_element?(show, "#sidebar-albums a[aria-current=page]", "Our Little One")
+    end
+
+    test "opens the newest album when there are albums", %{conn: conn, scope: scope} do
+      older = Keepsakes.AlbumsFixtures.album_fixture(scope, name: "Older")
+      Keepsakes.AlbumsFixtures.album_fixture(scope, name: "Newer")
+
+      older
+      |> Ecto.Changeset.change(inserted_at: DateTime.add(older.inserted_at, -3600))
+      |> Keepsakes.Repo.update!()
+
+      assert {:error, {:live_redirect, %{to: "/albums/newer"}}} = live(conn, ~p"/albums")
+    end
+
     test "unconfirmed users see the confirm-email banner", %{conn: conn} do
       conn = log_in_user(conn, unconfirmed_user_fixture())
       {:ok, lv, _html} = live(conn, ~p"/albums")

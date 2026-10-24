@@ -61,7 +61,11 @@ defmodule Keepsakes.Storage.S3 do
       region: Keyword.fetch!(config, :region),
       access_key_id: Keyword.fetch!(config, :access_key_id),
       secret_access_key: Keyword.fetch!(config, :secret_access_key),
-      expires: Keyword.get(opts, :expires_in, 3600)
+      expires: Keyword.get(opts, :expires_in, 3600),
+      datetime:
+        opts
+        |> Keyword.get_lazy(:signed_at, fn -> System.system_time(:second) end)
+        |> DateTime.from_unix!()
     )
   end
 
