@@ -48,6 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New album dialog from the sidebar, and a working "Start your first album" form; `/albums` opens the newest album.
 - Mobile album switcher row on the owner pages.
 - Development seeds (`priv/repo/seeds.exs`): a confirmed local test account and sample photos in `tmp/sample-photos/`.
+- `share_links` table and `Keepsakes.Sharing` context: one public link per album (`/a/<album-slug>-XXXX`), a 6-digit access code encrypted at rest (random or chosen by the owner, with obviously guessable codes like `123456` rejected), a code version that locks out old guests when the code changes, expiry, default guest view, captions/locations and download options, and open counts.
+- Share page (`/albums/:slug/share`): set up sharing, copy the link, code and invite message, change the code (new random or your own), guest settings that save as you change them, activity ("Opened 14 times · last opened 2 hours ago") and Turn off sharing.
+- Guest Access page (`/a/:slug`): six auto-advancing digit boxes with paste support, checked by `POST /a/:slug/access`, which is limited to 5 tries per 15 minutes per link and IP and remembers the unlock in the session. Unknown, turned-off and expired links show a "not available" page.
+- Guest Timeline (`/a/:slug/timeline`): polaroids along a dashed trail (zig-zag on wide screens, alternating column on phones) with year markers and "To be continued…"; only complete, processed memories are shown.
+- Auto-scroll on the timeline (`?auto=1` or the header toggle): slow/normal/fast, pause, replay from the top, pauses when the guest scrolls by hand.
+- Guest Slideshow (`/a/:slug/slideshow`): tilted carousel over the trail, play/pause, previous/next, 3/5/8 second pacing, progress bar, jump-to stops, arrow keys, space and swipe.
+- Guest photo downloads (`GET /a/:slug/photos/:id/download`) when the owner allows them.
+- Owner preview of the guest views without a code (`/a/preview/:album_slug/timeline`), and a banner when the owner views their own shared album.
+- Guest pages use a `guest_root` layout: always the night theme, `noindex`, same-origin referrer.
+- Dev seeds also create a shared "Our Little One" sample album with six processed memories (code `482917`).
 
 ### Changed
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
@@ -59,8 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Signed storage URLs are rounded to a 15-minute window, so re-renders reuse the same image URL and the browser cache.
 - The sidebar lists real albums with memory counts, and the storage meter shows actual usage (against a 1 GB placeholder until plans arrive).
 - `modal` accepts `box_class` for wider dialogs.
+- Upload queue rows show the Ready/Needs badge above the title, so long names keep the full width.
+- The album page's Share album and Preview as guest buttons are live once the album has a photo.
+- Copy buttons fall back to a classic copy when the Clipboard API is missing or refused, and ask for Ctrl+C if both fail.
 
 ### Fixed
+- Global `body` and heading font rules moved into the base CSS layer; they were overriding utilities such as `font-hand` on headings.
 - Dark mode: the soft teal/amber surfaces and muted text now have night-theme values, so selected rows, notes and badges stay readable; text on white polaroids uses fixed ink colours in both themes.
 
 ### Security

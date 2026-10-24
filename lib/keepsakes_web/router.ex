@@ -57,6 +57,38 @@ defmodule KeepsakesWeb.Router do
     end
   end
 
+  ## Guest pages for shared albums (always the night theme, never indexed)
+
+  scope "/a", KeepsakesWeb do
+    pipe_through :browser
+
+    post "/:slug/access", GuestAccessController, :create
+    get "/:slug/photos/:id/download", GuestAccessController, :download
+
+    # The owner previews how guests will see an album, shared or not
+    live_session :guest_preview,
+      root_layout: {KeepsakesWeb.Layouts, :guest_root},
+      on_mount: [
+        {KeepsakesWeb.UserAuth, :mount_current_scope},
+        {KeepsakesWeb.GuestAccess, :preview}
+      ] do
+      live "/preview/:album_slug/timeline", GuestLive.Timeline, :preview
+      live "/preview/:album_slug/slideshow", GuestLive.Slideshow, :preview
+    end
+
+    # Anyone with the link; the code unlocks timeline and slideshow
+    live_session :guest,
+      root_layout: {KeepsakesWeb.Layouts, :guest_root},
+      on_mount: [
+        {KeepsakesWeb.UserAuth, :mount_current_scope},
+        {KeepsakesWeb.GuestAccess, :link}
+      ] do
+      live "/:slug", GuestLive.Access, :access
+      live "/:slug/timeline", GuestLive.Timeline, :timeline
+      live "/:slug/slideshow", GuestLive.Slideshow, :slideshow
+    end
+  end
+
   ## Authentication routes
 
   # Owner portal: everything here needs a logged-in user
@@ -71,6 +103,7 @@ defmodule KeepsakesWeb.Router do
       live "/albums/:slug", AlbumLive.Show, :show
       live "/albums/:slug/upload", AlbumLive.Show, :upload
       live "/albums/:slug/memories/:id", AlbumLive.Show, :edit
+      live "/albums/:slug/share", AlbumLive.Share, :share
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end
