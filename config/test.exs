@@ -32,6 +32,9 @@ config :keepsakes, Keepsakes.Storage,
   adapter: Keepsakes.Storage.Local,
   root: Path.expand("../tmp/test_uploads", __DIR__)
 
+# Geocoding requests go to Req.Test stubs, only when a test opts in
+config :keepsakes, Keepsakes.Media.Geocoder, adapter: :none
+
 # Read settings straight from the (sandboxed) DB in tests
 config :keepsakes, Keepsakes.Settings.Cache, enabled: false
 

@@ -8,7 +8,7 @@ defmodule KeepsakesWeb.UserLive.Settings do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner}>
       <div class="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <.header>
           Account settings

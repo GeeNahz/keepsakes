@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/albums` owner home showing the design's "Start your first album" empty state (album creation lands in Stage 2).
 - Name section in account settings, and a "Set a password" prompt for accounts without one.
 - `Keepsakes.Accounts.Scope` carries `user` plus `subscription` and `entitlements` slots for plans.
+- `docs/setup/accounts.md`: Cloudflare R2 and Resend setup walkthroughs, what `MAIL_DELIVERY` does, and a per-stage production-readiness checklist of accounts and variables.
+- `mix keepsakes.storage.check` (and `Keepsakes.Release.storage_check/0` for releases): writes, reads, signs a URL for, fetches and deletes a probe object to verify storage credentials.
+- `albums` and `memories` tables with `Keepsakes.Albums` context scoped to the owner: per-owner album slugs, drafts, publishing, timeline ordering (year, month, then upload order; undated last), cover selection, people tags and storage usage, with live PubSub updates.
+- Media pipeline (`Keepsakes.Media.ProcessMemory` Oban job on the `media` queue): reads EXIF date taken and GPS, auto-fills month/year and place without overwriting what the owner typed, rotates upright, stores 480/1200/2400 px WebP variants with all metadata stripped, then deletes the original. `Keepsakes.Media.Purge` removes files of deleted memories.
+- Place names from photo GPS via OpenStreetMap Nominatim (`Keepsakes.Media.Geocoder`, rate limited to 1 request/second), switchable off with `GEOCODER=none`.
+- `GET /media/:token` serves locally stored photos from signed, expiring tokens, with `LOCAL_X_ACCEL_PREFIX` handing the file off to OpenResty in production.
+- Album page (`/albums/:slug`): AlbumNoPhotos empty state with drag-and-drop, and the Album grid with cover badge, "Needs name/date" badges and a "Sorted by date taken" summary.
+- Upload screen (`/albums/:slug/upload`) for Upload one and Bulk upload: drag-and-drop, `UploadQueue` with progress and readiness, `MemoryForm` that saves as you type, people chips, Prev/Next with readiness dots, live "optimised" note, Save/Cancel. Unfinished drafts can be resumed later.
+- Memory editor dialog (`/albums/:slug/memories/:id`) to edit details, set the album cover or delete a memory.
+- New album dialog from the sidebar, and a working "Start your first album" form; `/albums` opens the newest album.
+- Mobile album switcher row on the owner pages.
+- Development seeds (`priv/repo/seeds.exs`): a confirmed local test account and sample photos in `tmp/sample-photos/`.
 
 ### Changed
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
@@ -44,6 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Layouts.app` takes a `shell` attribute (`:owner`, `:auth`, `:plain`); the auth pages use the split form + polaroid panel from the design.
 - `/` shows an interim home with sign-up and log-in links and redirects logged-in users to `/albums`; the Phoenix scaffold page is gone.
 - After logging in, users land on `/albums` instead of `/`.
+- Signed storage URLs are rounded to a 15-minute window, so re-renders reuse the same image URL and the browser cache.
+- The sidebar lists real albums with memory counts, and the storage meter shows actual usage (against a 1 GB placeholder until plans arrive).
+- `modal` accepts `box_class` for wider dialogs.
+
+### Fixed
+- Dark mode: the soft teal/amber surfaces and muted text now have night-theme values, so selected rows, notes and badges stay readable; text on white polaroids uses fixed ink colours in both themes.
 
 ### Security
 - Opening an emailed link for an unconfirmed account from a browser that isn't logged in as that account confirms it, removes any password and expires every session. This blocks someone who pre-registered another person's email from keeping access.

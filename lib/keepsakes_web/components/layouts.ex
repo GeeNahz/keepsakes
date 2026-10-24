@@ -11,16 +11,15 @@ defmodule KeepsakesWeb.Layouts do
   # and other static content.
   embed_templates "layouts/*"
 
-  # Placeholder until Stage 5 entitlements supply the plan's storage limit
-  @placeholder_storage_mb 1024
-
   @doc """
   Renders the app layout. Every LiveView starts with it.
 
   ## Shells
 
     * `:owner` (default) - the owner portal: header with "My albums" and the
-      avatar menu, the album sidebar with the storage meter. Falls back to
+      avatar menu, the album sidebar with the storage meter and the New
+      album dialog (pass `owner={@owner}` from `KeepsakesWeb.OwnerShell`;
+      `sidebar={false}` for focused screens like uploading). Falls back to
       `:plain` when nobody is logged in.
     * `:auth` - the split register/log-in screen: form on the left, the
       dark polaroid panel on the right.
@@ -44,10 +43,16 @@ defmodule KeepsakesWeb.Layouts do
 
   attr :shell, :atom, values: [:owner, :auth, :plain], default: :owner
 
+  attr :owner, :map,
+    default: nil,
+    doc: "sidebar data from `KeepsakesWeb.OwnerShell` (albums, storage, dialog form)"
+
+  attr :sidebar, :boolean, default: true, doc: "show the album sidebar (owner shell)"
+
   slot :inner_block, required: true
 
   def app(%{shell: :owner, current_scope: %{user: %{}}} = assigns) do
-    assigns = assign(assigns, :storage_mb, @placeholder_storage_mb)
+    assigns = assign(assigns, :owner, assigns.owner || empty_owner())
 
     ~H"""
     <div class="flex min-h-screen flex-col bg-base-200">
@@ -66,37 +71,103 @@ defmodule KeepsakesWeb.Layouts do
         </nav>
       </header>
 
-      <div class="grid flex-1 md:grid-cols-[minmax(200px,240px)_minmax(0,1fr)]">
-        <aside
-          id="album-sidebar"
-          class="hidden flex-col gap-1.5 border-r border-base-300 bg-base-100 px-5 py-7 md:flex"
-        >
-          <div class="px-3 pb-2 text-[13px] font-bold uppercase tracking-[0.06em] text-ks-muted">
-            My albums
-          </div>
-          <p class="rounded-field bg-base-200 p-3 text-sm leading-[1.45] text-ks-muted">
-            No albums yet. Your albums will be listed here.
-          </p>
-          <div class="mt-auto px-3 pt-4">
-            <.meter
-              id="storage-meter"
-              label="Storage"
-              value={0}
-              max={@storage_mb}
-              text={"0 MB of #{format_mb(@storage_mb)}"}
-            />
-          </div>
-        </aside>
+      <%= if @sidebar do %>
+        <div class="grid flex-1 md:grid-cols-[minmax(200px,240px)_minmax(0,1fr)]">
+          <aside
+            id="album-sidebar"
+            class="hidden flex-col gap-1.5 border-r border-base-300 bg-base-100 px-5 py-7 md:flex"
+          >
+            <div class="px-3 pb-2 text-[13px] font-bold uppercase tracking-[0.06em] text-ks-muted">
+              My albums
+            </div>
+            <%= if @owner.albums == [] do %>
+              <p class="rounded-field bg-base-200 p-3 text-sm leading-[1.45] text-ks-muted">
+                No albums yet. Your albums will be listed here.
+              </p>
+            <% else %>
+              <nav id="sidebar-albums" aria-label="My albums" class="flex flex-col gap-1.5">
+                <.link
+                  :for={album <- @owner.albums}
+                  id={"sidebar-album-#{album.id}"}
+                  navigate={~p"/albums/#{album.slug}"}
+                  aria-current={album.id == @owner.current_album_id && "page"}
+                  class={[
+                    "flex items-center justify-between gap-2 rounded-field p-3 text-base-content no-underline transition-colors",
+                    if(album.id == @owner.current_album_id,
+                      do: "bg-ks-teal-soft font-bold",
+                      else: "hover:bg-base-200"
+                    )
+                  ]}
+                >
+                  <span class="truncate">{album.name}</span>
+                  <span class={[
+                    "text-[13px] tabular-nums",
+                    if(album.id == @owner.current_album_id, do: "text-primary", else: "text-ks-muted")
+                  ]}>
+                    {album.memories_count}
+                  </span>
+                </.link>
+              </nav>
+              <button
+                id="sidebar-new-album"
+                type="button"
+                aria-haspopup="dialog"
+                phx-click={show_modal("new-album-dialog")}
+                class="mt-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-field border border-dashed border-ks-field px-3 font-medium transition-colors hover:border-primary hover:bg-ks-teal-tint"
+              >
+                <.icon name="hero-plus" class="size-[18px]" /> New album
+              </button>
+            <% end %>
+            <div class="mt-auto px-3 pt-4">
+              <.storage_meter owner={@owner} />
+            </div>
+          </aside>
 
-        <main class="flex min-w-0 flex-col">
+          <main class="flex min-w-0 flex-col">
+            <.confirm_email_banner user={@current_scope.user} />
+            <nav
+              :if={@owner.albums != []}
+              id="mobile-albums"
+              aria-label="My albums"
+              class="flex gap-2 overflow-x-auto border-b border-base-300 bg-base-100 px-4 py-3 md:hidden"
+            >
+              <.link
+                :for={album <- @owner.albums}
+                navigate={~p"/albums/#{album.slug}"}
+                class={[
+                  "shrink-0 rounded-full px-3.5 py-1.5 text-sm no-underline",
+                  if(album.id == @owner.current_album_id,
+                    do: "bg-ks-teal-soft font-bold text-base-content",
+                    else: "bg-base-200 text-base-content"
+                  )
+                ]}
+              >
+                {album.name}
+              </.link>
+              <button
+                type="button"
+                phx-click={show_modal("new-album-dialog")}
+                class="flex shrink-0 cursor-pointer items-center gap-1 rounded-full border border-dashed border-ks-field px-3.5 py-1.5 text-sm"
+              >
+                <.icon name="hero-plus" class="size-4" /> New
+              </button>
+            </nav>
+            <div class="flex flex-1 flex-col px-4 py-8 sm:px-10 sm:py-8">
+              {render_slot(@inner_block)}
+            </div>
+          </main>
+        </div>
+      <% else %>
+        <main class="flex min-w-0 flex-1 flex-col">
           <.confirm_email_banner user={@current_scope.user} />
-          <div class="flex flex-1 flex-col px-4 py-10 sm:px-8">
+          <div class="mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-4 py-7 sm:px-8">
             {render_slot(@inner_block)}
           </div>
         </main>
-      </div>
+      <% end %>
     </div>
 
+    <.new_album_dialog :if={@owner.albums != []} form={@owner.new_album_form} />
     <.flash_group flash={@flash} />
     """
   end
@@ -122,8 +193,8 @@ defmodule KeepsakesWeb.Layouts do
             <div class="flex h-[170px] items-center justify-center bg-ks-tint-sage">
               <.icon name="hero-photo" class="size-10 text-base-content/35" />
             </div>
-            <div class="pt-2.5 font-hand text-2xl text-base-content">First birthday</div>
-            <div class="font-mono text-xs text-ks-muted">April 2019</div>
+            <div class="pt-2.5 font-hand text-2xl text-ks-ink">First birthday</div>
+            <div class="font-mono text-xs text-ks-ink-muted">April 2019</div>
           </div>
         </div>
         <div class="flex max-w-[380px] flex-col gap-2.5 text-center">
@@ -239,8 +310,87 @@ defmodule KeepsakesWeb.Layouts do
 
   defp confirm_email_banner(assigns), do: ~H""
 
-  defp format_mb(mb) when mb >= 1024 and rem(mb, 1024) == 0, do: "#{div(mb, 1024)} GB"
-  defp format_mb(mb), do: "#{mb} MB"
+  defp empty_owner do
+    %{
+      albums: [],
+      storage_used: 0,
+      storage_limit: 1024 * 1024 * 1024,
+      current_album_id: nil,
+      new_album_form: to_form(%{}, as: :album)
+    }
+  end
+
+  attr :owner, :map, required: true
+
+  defp storage_meter(assigns) do
+    ~H"""
+    <.meter
+      id="storage-meter"
+      label="Storage"
+      value={div(@owner.storage_used, 1024)}
+      max={div(@owner.storage_limit, 1024)}
+      text={"#{format_bytes(@owner.storage_used)} of #{format_bytes(@owner.storage_limit)}"}
+    />
+    """
+  end
+
+  attr :form, Phoenix.HTML.Form, required: true
+
+  defp new_album_dialog(assigns) do
+    ~H"""
+    <.modal
+      id="new-album-dialog"
+      title="New album"
+      subtitle="One album per story. You can add photos next."
+    >
+      <.form
+        for={@form}
+        id="new-album-form"
+        phx-change="new_album_validate"
+        phx-submit="new_album_create"
+        class="flex flex-col gap-2"
+      >
+        <.input
+          field={@form[:name]}
+          label="Album name *"
+          placeholder="e.g. Lagos Trip 2023"
+          maxlength="80"
+          autocomplete="off"
+          phx-debounce="300"
+        />
+        <.input
+          field={@form[:description]}
+          type="textarea"
+          label="Short description"
+          rows="2"
+          maxlength="140"
+          placeholder="Optional · shown to guests under the title"
+          phx-debounce="300"
+        />
+        <div class="flex justify-end gap-2.5 pt-1">
+          <.button type="button" phx-click={hide_modal("new-album-dialog")}>Cancel</.button>
+          <.button id="new-album-submit" variant="primary" phx-disable-with="Creating…">
+            Create album
+          </.button>
+        </div>
+      </.form>
+    </.modal>
+    """
+  end
+
+  @doc "Human size: `\"38 MB\"`, `\"1 GB\"`, `\"0 MB\"`."
+  def format_bytes(bytes) when bytes >= 1024 * 1024 * 1024 do
+    gb = bytes / (1024 * 1024 * 1024)
+    if gb == trunc(gb), do: "#{trunc(gb)} GB", else: "#{Float.round(gb, 1)} GB"
+  end
+
+  def format_bytes(bytes) when bytes >= 1024 * 1024 * 10, do: "#{round(bytes / (1024 * 1024))} MB"
+
+  def format_bytes(bytes) when bytes >= 1024 * 100,
+    do: "#{Float.round(bytes / (1024 * 1024), 1)} MB"
+
+  def format_bytes(bytes) when bytes > 0, do: "#{max(round(bytes / 1024), 1)} KB"
+  def format_bytes(_), do: "0 MB"
 
   @doc """
   Shows the flash group with standard titles and content.

@@ -508,6 +508,7 @@ defmodule KeepsakesWeb.CoreComponents do
   attr :subtitle, :string, default: nil
   attr :show, :boolean, default: false
   attr :on_cancel, JS, default: %JS{}
+  attr :box_class, :any, default: "max-w-[480px]", doc: "width of the dialog box"
   slot :inner_block, required: true
 
   def modal(assigns) do
@@ -522,7 +523,7 @@ defmodule KeepsakesWeb.CoreComponents do
       phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
       phx-key="escape"
     >
-      <div class="modal-box flex max-w-[480px] flex-col gap-5 rounded-[18px] p-7 shadow-2xl">
+      <div class={["modal-box flex flex-col gap-5 rounded-[18px] p-7 shadow-2xl", @box_class]}>
         <div class="flex items-start justify-between gap-3">
           <div class="flex flex-col gap-1">
             <h2 id={"#{@id}-title"} class="font-display text-[26px] font-bold">{@title}</h2>

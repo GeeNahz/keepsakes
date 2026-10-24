@@ -51,8 +51,13 @@ defmodule Keepsakes.Storage.Local do
 
   @impl true
   def url(_config, key, opts) do
-    expires_at = System.system_time(:second) + Keyword.get(opts, :expires_in, 3600)
-    "/media/" <> Phoenix.Token.sign(KeepsakesWeb.Endpoint, @salt, {key, expires_at})
+    signed_at = Keyword.get_lazy(opts, :signed_at, fn -> System.system_time(:second) end)
+    expires_at = signed_at + Keyword.get(opts, :expires_in, 3600)
+
+    token =
+      Phoenix.Token.sign(KeepsakesWeb.Endpoint, @salt, {key, expires_at}, signed_at: signed_at)
+
+    "/media/" <> token
   end
 
   @doc "Returns `{:ok, key}` for a valid, unexpired media token."
