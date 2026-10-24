@@ -126,7 +126,7 @@
 }
 
 /* Self-hosted fonts in priv/static/fonts (SIL Open Font License; see the
-   README there). Until the files exist, the system fallbacks above apply. */
+   README there). No request to Google Fonts happens at runtime. */
 @font-face {
   font-family: "DM Sans";
   font-style: normal;

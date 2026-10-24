@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Keepsakes.Settings` typed system configuration (`system_settings` table) with defaults for trial days (60), grace days (7), image long edge (2400 px), image quality, max upload size, signups, maintenance mode and default template, plus an ETS cache invalidated over PubSub.
 - `Keepsakes.Storage` behaviour with `Local` (signed `/media/<token>` URLs) and `S3` (Cloudflare R2 / DigitalOcean Spaces via ReqS3, presigned URLs) adapters, selected by whether `S3_BUCKET` is set.
 - `keepsake` and `keepsake-night` daisyUI themes and `ks-*` design tokens from the design canvas, with self-hosted font declarations for DM Sans, Bricolage Grotesque, DM Mono and Caveat.
+- Self-hosted latin WOFF2 font files (DM Sans, Bricolage Grotesque, DM Mono 500, Caveat 600) in `priv/static/fonts`.
 - Core components `logo`, `avatar`, `badge`, `meter` and `modal`, plus `primary`/`secondary`/`outline`/`ghost`/`danger` button variants.
 - Dev-only component gallery at `/dev/components`.
 - GitHub Actions CI workflow running `mix precommit` against Postgres 18 on every push and pull request.
