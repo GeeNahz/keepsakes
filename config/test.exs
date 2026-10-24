@@ -1,5 +1,11 @@
 import Config
 
+# Only in tests, remove the complexity from the password hashing algorithm
+config :bcrypt_elixir, :log_rounds, 1
+
+# Every test request comes from 127.0.0.1, so auth rate limits are off
+config :keepsakes, Keepsakes.RateLimit, enabled: false
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

@@ -84,6 +84,24 @@ if config_env() != :test do
   end
 end
 
+# Email: Resend in prod; in dev only when MAIL_DELIVERY=resend (otherwise
+# mail lands in the local /dev/mailbox). Tests always use Swoosh.Adapters.Test.
+config :keepsakes, :mail_from, {
+  env!("MAIL_FROM_NAME", :string?, nil) || "Keepsake",
+  env!("MAIL_FROM_ADDRESS", :string?, nil) || "hello@example.com"
+}
+
+mail_delivery =
+  env!("MAIL_DELIVERY", :string?, nil) || if(config_env() == :prod, do: "resend", else: "local")
+
+if config_env() != :test and mail_delivery == "resend" do
+  config :keepsakes, Keepsakes.Mailer,
+    adapter: Swoosh.Adapters.Resend,
+    api_key: env!("RESEND_API_KEY", :string)
+
+  config :swoosh, api_client: Swoosh.ApiClient.Req, local: false
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -160,22 +178,4 @@ if config_env() == :prod do
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
-
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :keepsakes, Keepsakes.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://swoosh.hexdocs.pm/Swoosh.html#module-installation for details.
 end

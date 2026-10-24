@@ -1,6 +1,8 @@
 defmodule KeepsakesWeb.Router do
   use KeepsakesWeb, :router
 
+  import KeepsakesWeb.UserAuth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,6 +10,7 @@ defmodule KeepsakesWeb.Router do
     plug :put_root_layout, html: {KeepsakesWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_scope_for_user
   end
 
   pipeline :api do
@@ -46,5 +49,38 @@ defmodule KeepsakesWeb.Router do
 
       live "/components", ComponentsLive
     end
+  end
+
+  ## Authentication routes
+
+  # Owner portal: everything here needs a logged-in user
+  scope "/", KeepsakesWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :require_authenticated_user,
+      on_mount: [{KeepsakesWeb.UserAuth, :require_authenticated}] do
+      live "/albums", AlbumLive.Index, :index
+      live "/users/settings", UserLive.Settings, :edit
+      live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+    end
+
+    post "/users/update-password", UserSessionController, :update_password
+    post "/users/confirm/resend", UserConfirmationController, :create
+  end
+
+  # Auth pages: work logged out, but know about the current user if any
+  scope "/", KeepsakesWeb do
+    pipe_through [:browser]
+
+    live_session :current_user,
+      on_mount: [{KeepsakesWeb.UserAuth, :mount_current_scope}] do
+      live "/users/register", UserLive.Registration, :new
+      live "/users/log-in", UserLive.Login, :new
+      live "/users/log-in/:token", UserLive.Confirmation, :new
+      live "/users/reset-password", UserLive.ResetPassword, :new
+    end
+
+    post "/users/log-in", UserSessionController, :create
+    delete "/users/log-out", UserSessionController, :delete
   end
 end

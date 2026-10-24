@@ -23,8 +23,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Core components `logo`, `avatar`, `badge`, `meter` and `modal`, plus `primary`/`secondary`/`outline`/`ghost`/`danger` button variants.
 - Dev-only component gallery at `/dev/components`.
 - GitHub Actions CI workflow running `mix precommit` against Postgres 18 on every push and pull request.
+- User accounts (`phx.gen.auth`, LiveView, bcrypt): `users` table with `first_name`, optional `last_name`, citext `email`, `avatar_key`, `hashed_password`, `confirmed_at`, plus `users_tokens`, all UUID-keyed.
+- Registration at `/users/register` ported from the design's "Create your account" screen (first name, last name, email, password); new users are logged in immediately and emailed a confirmation link.
+- Log in at `/users/log-in` with email + password ("Keep me logged in") or an emailed one-time sign-in link.
+- "Forgot password?" at `/users/reset-password`, which emails a 15-minute link that signs the user in and opens the password section of settings.
+- Confirm-email banner in the owner portal for unconfirmed accounts, with `POST /users/confirm/resend` to send a new link.
+- Branded HTML + plain-text transactional emails (`Keepsakes.Mailer.build/1`, `Keepsakes.Mailer.Layout`) for confirmation, sign-in link, password reset and email change.
+- Resend email delivery through Swoosh, enabled by `MAIL_DELIVERY=resend` (the default in prod) with `RESEND_API_KEY`, `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME`; dev keeps the local `/dev/mailbox` otherwise.
+- Rate limits on password log in (20 per 15 min per IP, 8 per email), emailed links (10 per hour per IP, 3 per 15 min per email) and registration (10 per hour per IP) via `KeepsakesWeb.AuthThrottle`.
+- Registration respects the `signups_open` system setting and shows a "sign-ups paused" notice when it is off.
+- Owner portal shell: header with "My albums" and an avatar menu (settings, log out, theme), album sidebar with the storage meter, used by `/albums` and settings.
+- `/albums` owner home showing the design's "Start your first album" empty state (album creation lands in Stage 2).
+- Name section in account settings, and a "Set a password" prompt for accounts without one.
+- `Keepsakes.Accounts.Scope` carries `user` plus `subscription` and `entitlements` slots for plans.
 
 ### Changed
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
 - AGENTS.md now prefers daisyUI components themed with the Keepsake themes instead of forbidding daisyUI.
 - Interim app layout uses the Keepsake logo and theme toggle in place of the Phoenix scaffold header.
+- `Layouts.app` takes a `shell` attribute (`:owner`, `:auth`, `:plain`); the auth pages use the split form + polaroid panel from the design.
+- `/` shows an interim home with sign-up and log-in links and redirects logged-in users to `/albums`; the Phoenix scaffold page is gone.
+- After logging in, users land on `/albums` instead of `/`.
+
+### Security
+- Opening an emailed link for an unconfirmed account from a browser that isn't logged in as that account confirms it, removes any password and expires every session. This blocks someone who pre-registered another person's email from keeping access.
