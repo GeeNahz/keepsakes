@@ -36,7 +36,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
       )
 
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner} sidebar={false}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner}>
       <.upload_input upload={@uploads.photos} />
 
       <div class="flex flex-col gap-5">

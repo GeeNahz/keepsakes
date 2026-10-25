@@ -17,7 +17,7 @@ defmodule KeepsakesWeb.AlbumLive.Template do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner} sidebar={false}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner}>
       <div class="mx-auto flex w-full max-w-[1040px] flex-col gap-6">
         <div class="flex flex-col gap-1.5">
           <.link
