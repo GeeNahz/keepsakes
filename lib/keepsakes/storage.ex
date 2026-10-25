@@ -22,6 +22,7 @@ defmodule Keepsakes.Storage do
   @callback get(config, key) :: {:ok, binary()} | {:error, :not_found | term()}
   @callback delete(config, key) :: :ok | {:error, term()}
   @callback exists?(config, key) :: boolean()
+  @callback list(config, prefix :: String.t()) :: {:ok, [key]} | {:error, term()}
   @callback url(config, key, opts :: keyword()) :: String.t()
 
   @url_window 15 * 60
@@ -40,6 +41,10 @@ defmodule Keepsakes.Storage do
 
   @spec exists?(key) :: boolean()
   def exists?(key), do: valid_key?(key) and adapter().exists?(config(), key)
+
+  @doc "Every key starting with `prefix` (all keys for `\"\"`), sorted."
+  @spec list(String.t()) :: {:ok, [key]} | {:error, term()}
+  def list(prefix \\ ""), do: adapter().list(config(), prefix)
 
   @doc """
   Signed URL for `key`, valid for at least `:expires_in` seconds (default 3600).

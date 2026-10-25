@@ -49,6 +49,17 @@ defmodule Keepsakes.StorageTest do
       assert {:ok, "file body"} = Local.get(config, "copied/file.bin")
     end
 
+    test "list/2 returns keys under a prefix", %{config: config} do
+      :ok = Local.put(config, "users/u1/a.jpg", "a", [])
+      :ok = Local.put(config, "users/u1/memories/m1/w480.webp", "b", [])
+      :ok = Local.put(config, "users/u2/c.jpg", "c", [])
+
+      assert {:ok, ["users/u1/a.jpg", "users/u1/memories/m1/w480.webp", "users/u2/c.jpg"]} =
+               Local.list(config, "")
+
+      assert {:ok, ["users/u2/c.jpg"]} = Local.list(config, "users/u2/")
+    end
+
     test "url/3 issues a signed token that verifies and expires", %{config: config} do
       "/media/" <> token = Local.url(config, "users/u1/a.jpg", expires_in: 60)
       assert {:ok, "users/u1/a.jpg"} = Local.verify_token(token)
@@ -104,6 +115,33 @@ defmodule Keepsakes.StorageTest do
 
       Req.Test.stub(S3, &Plug.Conn.send_resp(&1, 404, ""))
       assert :ok = S3.delete(config, "a.jpg")
+    end
+
+    test "list/2 follows continuation tokens", %{config: config} do
+      Req.Test.stub(S3, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+        assert conn.request_path == "/keepsakes-test"
+        assert %{"list-type" => "2", "prefix" => "users/"} = conn.query_params
+
+        body =
+          case conn.query_params["continuation-token"] do
+            nil ->
+              "<ListBucketResult><IsTruncated>true</IsTruncated>" <>
+                "<NextContinuationToken>t2</NextContinuationToken>" <>
+                "<Contents><Key>users/a.jpg</Key></Contents>" <>
+                "<Contents><Key>users/b.jpg</Key></Contents></ListBucketResult>"
+
+            "t2" ->
+              "<ListBucketResult><IsTruncated>false</IsTruncated>" <>
+                "<Contents><Key>users/c.jpg</Key></Contents></ListBucketResult>"
+          end
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/xml")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      assert {:ok, ["users/a.jpg", "users/b.jpg", "users/c.jpg"]} = S3.list(config, "users/")
     end
 
     test "url/3 presigns against the custom endpoint", %{config: config} do

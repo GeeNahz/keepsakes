@@ -41,3 +41,6 @@ npm-debug.log
 /.env.*
 !/.env.example
 /priv/uploads/
+
+# Real photos kept locally for manual and visual testing
+/test_imgs/

@@ -50,6 +50,22 @@ defmodule Keepsakes.Storage.Local do
   def exists?(config, key), do: File.regular?(path(config, key))
 
   @impl true
+  def list(config, prefix) do
+    root = Keyword.fetch!(config, :root)
+
+    keys =
+      root
+      |> Path.join("**")
+      |> Path.wildcard(match_dot: true)
+      |> Enum.filter(&File.regular?/1)
+      |> Enum.map(&Path.relative_to(&1, root))
+      |> Enum.filter(&String.starts_with?(&1, prefix))
+      |> Enum.sort()
+
+    {:ok, keys}
+  end
+
+  @impl true
   def url(_config, key, opts) do
     signed_at = Keyword.get_lazy(opts, :signed_at, fn -> System.system_time(:second) end)
     expires_at = signed_at + Keyword.get(opts, :expires_in, 3600)

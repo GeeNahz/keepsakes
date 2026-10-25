@@ -178,7 +178,7 @@ defmodule KeepsakesWeb.Layouts do
   # layout); the shell only adds the flash messages.
   def app(%{shell: :guest} = assigns) do
     ~H"""
-    <div class="min-h-screen bg-ks-night text-white">
+    <div class="min-h-screen bg-ks-guest text-ks-guest-ink">
       {render_slot(@inner_block)}
     </div>
 

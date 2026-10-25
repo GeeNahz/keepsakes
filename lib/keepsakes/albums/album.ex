@@ -15,6 +15,8 @@ defmodule Keepsakes.Albums.Album do
 
     belongs_to :user, Keepsakes.Accounts.User
     belongs_to :cover_memory, Memory
+    # Guest pages' look; see Keepsakes.Templates.for_album/1 for the fallback
+    belongs_to :template, Keepsakes.Templates.Template
     has_many :memories, Memory
 
     timestamps()

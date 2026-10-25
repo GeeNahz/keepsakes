@@ -69,6 +69,20 @@ defmodule Keepsakes.AlbumsFixtures do
     end
   end
 
+  @doc "A template on the Trail renderer; public unless `user` is given."
+  def template_fixture(attrs \\ %{}, user \\ nil) do
+    attrs =
+      Enum.into(attrs, %{
+        slug: "template-#{System.unique_integer([:positive])}",
+        name: "Template",
+        theme: %{"page" => "#F7F3EC"}
+      })
+
+    %Keepsakes.Templates.Template{user_id: user && user.id}
+    |> Keepsakes.Templates.Template.changeset(attrs)
+    |> Keepsakes.Repo.insert!()
+  end
+
   @doc """
   JPEG bytes, optionally with EXIF.
 

@@ -58,6 +58,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Owner preview of the guest views without a code (`/a/preview/:album_slug/timeline`), and a banner when the owner views their own shared album.
 - Guest pages use a `guest_root` layout: always the night theme, `noindex`, same-origin referrer.
 - Dev seeds also create a shared "Our Little One" sample album with six processed memories (code `482917`).
+- Guest templates: a `templates` table (slug, name, description, renderer, theme, premium, active, position, optional owner `user_id` for future user-made templates), `albums.template_id` and `users.default_template_id`, seeded with "Trail" (the canvas design, system default) and "Daylight" (the same layout on warm paper with teal accents).
+- `Keepsakes.Templates` context: templates available to a user (public plus their own), the system default from `Settings.default_template`, new albums get the owner's default template, and guest pages fall back from the album's template to the owner's default to the system default when a template is switched off.
+- `Keepsakes.Templates.Theme`: validated colour and font slots that become CSS custom properties over the new `ks-guest-*` tokens; invalid values are never emitted.
+- `KeepsakesWeb.Templates.Renderer` behaviour (`access/1`, `unavailable/1`, `timeline/1`, `slideshow/1`) with `KeepsakesWeb.Templates.Trail` as the first renderer.
+- Template picker at `/albums/:slug/template` (Template button on the album page): cards drawn in each template's colours with the album's own photos, In use and Premium badges, Preview, Use this template, and a disabled "Create your own – Coming soon" card.
+- Preview an album in a template before using it at `/a/preview/:album_slug/:template/timeline` (and `/slideshow`); the preview banner names the template and links back to the picker.
+- "Template for new albums" setting on `/users/settings`.
+- `Keepsakes.Storage.list/1` (S3 ListObjectsV2 with pagination, local disk) and `mix keepsakes.storage.clear`, which empties the configured bucket for a fresh start (asks first, never in prod, refuses buckets not named staging/dev/test without `--any-bucket`).
 
 ### Changed
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
@@ -72,6 +80,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upload queue rows show the Ready/Needs badge above the title, so long names keep the full width.
 - The album page's Share album and Preview as guest buttons are live once the album has a photo.
 - Copy buttons fall back to a classic copy when the Clipboard API is missing or refused, and ask for Ctrl+C if both fail.
+- The guest access, timeline and slideshow pages are drawn by the album's template renderer and themed through `ks-guest-*` colour tokens (replacing `ks-night-card`/`-line`/`-field`/`-bar` and hard-coded white), with the theme applied on the guest root layout and `color-scheme` following the template.
+- The dev seed album uses the real photos in the gitignored `test_imgs/` folder when present, instead of plain colour cards.
+- `test_imgs/` (local photos for manual and visual testing) is gitignored.
 
 ### Fixed
 - Global `body` and heading font rules moved into the base CSS layer; they were overriding utilities such as `font-hand` on headings.

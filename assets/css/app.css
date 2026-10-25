@@ -116,11 +116,19 @@
   --color-ks-amber-deep: #8A5A12;
   --color-ks-night: #14161C;
   --color-ks-night-text: #B8BDC8;
-  /* Guest (night) surfaces: back polaroids, dividers, code boxes, control bar */
-  --color-ks-night-card: #2A2E38;
-  --color-ks-night-line: #3A3F4B;
-  --color-ks-night-field: #1F222A;
-  --color-ks-night-bar: #22252E;
+  /* Guest pages (access code, timeline, slideshow). These are the Trail
+     template's night palette; other templates override them, plus
+     primary/secondary/accent, through Keepsakes.Templates.Theme. */
+  --color-ks-guest: #14161C;
+  --color-ks-guest-ink: #FFFFFF;
+  --color-ks-guest-text: #B8BDC8;
+  --color-ks-guest-card: #2A2E38;
+  --color-ks-guest-line: #3A3F4B;
+  --color-ks-guest-field: #1F222A;
+  --color-ks-guest-bar: #22252E;
+  --color-ks-guest-edge: #A3A9B6;
+  --color-ks-guest-paper: #FFFFFF;
+  --color-ks-guest-shadow: #00000080;
   /* Date stamp printed on a photo, and soft caption ink on paper */
   --color-ks-stamp: #9A4508;
   --color-ks-ink-soft: #3F4654;

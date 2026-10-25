@@ -10,15 +10,17 @@ defmodule KeepsakesWeb.GuestAccess do
   `on_mount` hooks:
 
     * `:link` - `/a/:slug`: assigns `@link`, `@album`, `@access`
-      (`:owner | :guest | :none | :expired | :missing`) and `@base_path`
+      (`:owner | :guest | :none | :expired | :missing`), `@base_path` and
+      the album's template (`KeepsakesWeb.Templates.assigns/1`)
     * `:preview` - `/a/preview/:album_slug`: the owner previews an album
-      that may not be shared yet (requires login)
+      that may not be shared yet (requires login);
+      `/a/preview/:album_slug/:template` previews it in another template
     * `:require_access` - redirects to the code page unless `:owner`/`:guest`
   """
   import Phoenix.Component, only: [assign: 2]
   import Phoenix.LiveView
 
-  alias Keepsakes.{Albums, Sharing}
+  alias Keepsakes.{Albums, Sharing, Templates}
   alias Keepsakes.Sharing.ShareLink
 
   @session_key "guest_links"
@@ -71,33 +73,55 @@ defmodule KeepsakesWeb.GuestAccess do
 
   def on_mount(:link, %{"slug" => slug}, session, socket) do
     link = Sharing.get_link_by_slug(slug)
+    template = if link, do: Templates.for_album(link.album), else: Templates.system_default()
 
     {:cont,
-     assign(socket,
+     socket
+     |> assign(
        link: link,
        album: link && link.album,
        owner_name: link && link.user.first_name,
        access: access(link, session, socket.assigns.current_scope),
        base_path: "/a/" <> slug,
        preview?: false
-     )}
+     )
+     |> assign(KeepsakesWeb.Templates.assigns(template))}
   end
 
-  def on_mount(:preview, %{"album_slug" => album_slug}, _session, socket) do
+  def on_mount(:preview, %{"album_slug" => album_slug} = params, _session, socket) do
     case socket.assigns.current_scope do
       %{user: %{} = user} = scope ->
         album = Albums.get_album_by_slug!(scope, album_slug)
         link = Sharing.get_link(scope, album) || %ShareLink{default_view: "timeline"}
 
-        {:cont,
-         assign(socket,
-           link: %{link | album: album, user: user},
-           album: album,
-           owner_name: user.first_name,
-           access: :owner,
-           base_path: "/a/preview/" <> album_slug,
-           preview?: true
-         )}
+        # /a/preview/:album_slug/:template tries a template before applying it
+        {template, base_path} =
+          case params do
+            %{"template" => slug} ->
+              {Templates.get_template(scope, slug), "/a/preview/#{album_slug}/#{slug}"}
+
+            _ ->
+              {Templates.for_album(album), "/a/preview/" <> album_slug}
+          end
+
+        if template do
+          {:cont,
+           socket
+           |> assign(
+             link: %{link | album: album, user: user},
+             album: album,
+             owner_name: user.first_name,
+             access: :owner,
+             base_path: base_path,
+             preview?: true
+           )
+           |> assign(KeepsakesWeb.Templates.assigns(template))}
+        else
+          {:halt,
+           socket
+           |> put_flash(:error, "That template isn't available.")
+           |> redirect(to: "/albums/#{album_slug}/template")}
+        end
 
       _ ->
         {:halt,
