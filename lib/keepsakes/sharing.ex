@@ -10,7 +10,7 @@ defmodule Keepsakes.Sharing do
 
   alias Keepsakes.Accounts.Scope
   alias Keepsakes.Albums.{Album, Memory}
-  alias Keepsakes.Repo
+  alias Keepsakes.{Entitlements, Repo}
   alias Keepsakes.Sharing.ShareLink
 
   @slug_alphabet ~c"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -71,9 +71,35 @@ defmodule Keepsakes.Sharing do
   @doc "Saves expiry, default view, details and downloads."
   @spec update_settings(Scope.t(), ShareLink.t(), map()) ::
           {:ok, ShareLink.t()} | {:error, Ecto.Changeset.t()}
-  def update_settings(%Scope{user: %{id: user_id}}, %ShareLink{user_id: user_id} = link, attrs) do
-    link |> ShareLink.settings_changeset(attrs) |> Repo.update()
+  def update_settings(
+        %Scope{user: %{id: user_id}} = scope,
+        %ShareLink{user_id: user_id} = link,
+        attrs
+      ) do
+    changeset = ShareLink.settings_changeset(link, attrs)
+
+    # Guest downloads are a plan feature; without it the switch stays off
+    changeset =
+      if Entitlements.can?(scope, :guest_downloads),
+        do: changeset,
+        else: Ecto.Changeset.put_change(changeset, :allow_downloads, false)
+
+    Repo.update(changeset)
   end
+
+  @doc """
+  Whether guests may download photos: the owner turned it on and their
+  plan still includes guest downloads.
+  """
+  @spec downloads_allowed?(ShareLink.t()) :: boolean()
+  def downloads_allowed?(%ShareLink{allow_downloads: true, user_id: user_id}),
+    do: Entitlements.can?(user_id, :guest_downloads)
+
+  def downloads_allowed?(_link), do: false
+
+  @doc "Whether the guest pages show \"Made with Keepsake\" for this owner."
+  @spec branding?(Ecto.UUID.t()) :: boolean()
+  def branding?(user_id), do: not Entitlements.can?(user_id, :remove_branding)
 
   @doc "Turns sharing off: the link and code stop working for everyone."
   @spec delete_link(Scope.t(), ShareLink.t()) :: {:ok, ShareLink.t()}

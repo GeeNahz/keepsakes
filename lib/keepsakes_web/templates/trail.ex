@@ -229,7 +229,7 @@ defmodule KeepsakesWeb.Templates.Trail do
           </div>
 
           <div class="mx-auto max-w-[1000px]">
-            <.trail_end from={@last_side} />
+            <.trail_end from={@last_side} branding?={@branding?} />
           </div>
         <% end %>
       </div>
@@ -481,6 +481,7 @@ defmodule KeepsakesWeb.Templates.Trail do
   end
 
   attr :from, :atom, required: true
+  attr :branding?, :boolean, default: true
 
   defp trail_end(assigns) do
     assigns = assign(assigns, desk: @desk, phone: @phone)
@@ -501,7 +502,9 @@ defmodule KeepsakesWeb.Templates.Trail do
     <div id="timeline-end" class="flex flex-col items-center gap-2 text-center md:gap-2.5">
       <span class="size-3 rounded-full bg-primary md:size-3.5"></span>
       <span class="font-hand text-[34px] md:text-[40px]">To be continued…</span>
-      <span class="text-sm text-ks-guest-text md:text-[15px]">Made with Keepsake</span>
+      <span :if={@branding?} class="text-sm text-ks-guest-text md:text-[15px]">
+        Made with Keepsake
+      </span>
     </div>
     """
   end

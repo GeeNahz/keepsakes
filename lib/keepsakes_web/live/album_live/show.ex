@@ -16,7 +16,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
 
   import KeepsakesWeb.MemoryComponents
 
-  alias Keepsakes.{Albums, Settings}
+  alias Keepsakes.{Albums, Entitlements, Settings}
   alias Keepsakes.Albums.Memory
   alias KeepsakesWeb.OwnerShell
 
@@ -60,6 +60,8 @@ defmodule KeepsakesWeb.AlbumLive.Show do
                 "Name and date are required. Add more photos to the list to upload several at once."}
           </p>
         </div>
+
+        <.limit_notice notice={@limit_notice} />
 
         <%= if @queue_count == 0 do %>
           <.drop_zone upload={@uploads.photos} max_upload_mb={@max_upload_mb} long_edge={@long_edge} />
@@ -180,6 +182,8 @@ defmodule KeepsakesWeb.AlbumLive.Show do
             </span>
           </div>
         </div>
+
+        <.limit_notice notice={@limit_notice} />
 
         <.link
           :if={@drafts != []}
@@ -358,11 +362,43 @@ defmodule KeepsakesWeb.AlbumLive.Show do
     """
   end
 
+  attr :notice, :string, default: nil
+
+  # Why the last photo didn't go in (a plan limit), with the way out
+  defp limit_notice(assigns) do
+    ~H"""
+    <div
+      :if={@notice}
+      id="limit-notice"
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-box border border-ks-amber-soft bg-ks-amber-soft px-5 py-3.5 text-[15px] text-ks-amber-deep"
+    >
+      <span class="flex items-center gap-2">
+        <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
+        {@notice}
+      </span>
+      <div class="flex items-center gap-2">
+        <.button id="limit-notice-plans" size="sm" variant="outline" navigate={~p"/billing"}>
+          See plans
+        </.button>
+        <button
+          type="button"
+          phx-click="dismiss_limit_notice"
+          aria-label="Dismiss"
+          class="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-base-100/50"
+        >
+          <.icon name="hero-x-mark" class="size-4" />
+        </button>
+      </div>
+    </div>
+    """
+  end
+
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
     scope = socket.assigns.current_scope
     album = Albums.get_album_by_slug!(scope, slug)
-    max_upload_mb = Settings.get(:max_upload_mb)
+    max_upload_mb = Entitlements.max_upload_mb(scope)
 
     socket =
       socket
@@ -372,6 +408,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         page_title: album.name,
         long_edge: Settings.get(:image_long_edge),
         max_upload_mb: max_upload_mb,
+        limit_notice: nil,
         selected: nil,
         form: nil
       )
@@ -424,6 +461,9 @@ defmodule KeepsakesWeb.AlbumLive.Show do
 
   def handle_event("cancel_entry", %{"ref" => ref}, socket),
     do: {:noreply, cancel_upload(socket, :photos, ref)}
+
+  def handle_event("dismiss_limit_notice", _params, socket),
+    do: {:noreply, assign(socket, limit_notice: nil)}
 
   ## Queue navigation
 
@@ -557,6 +597,10 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         {:ok, memory} ->
           socket = put_memory(socket, memory)
           {:noreply, if(socket.assigns.selected, do: socket, else: select(socket, memory))}
+
+        {:error, {:over_limit, _, _, _} = over} ->
+          notice = "#{entry.client_name} wasn't added. #{Entitlements.message(over)}"
+          {:noreply, assign(socket, limit_notice: notice)}
 
         {:error, _reason} ->
           {:noreply,

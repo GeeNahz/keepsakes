@@ -16,7 +16,7 @@ defmodule Keepsakes.Albums do
   alias Keepsakes.Accounts.Scope
   alias Keepsakes.Albums.{Album, Memory}
   alias Keepsakes.Media.{ProcessMemory, Purge}
-  alias Keepsakes.{Repo, Storage, Templates}
+  alias Keepsakes.{Entitlements, Repo, Storage, Templates}
 
   ## PubSub
 
@@ -56,22 +56,57 @@ defmodule Keepsakes.Albums do
 
   @doc """
   Creates an album for the owner with a slug unique among their albums,
-  using the owner's default template.
+  using the owner's default template. Fails with `{:over_limit, ...}`
+  when the plan's album limit is reached.
   """
-  @spec create_album(Scope.t(), map()) :: {:ok, Album.t()} | {:error, Ecto.Changeset.t()}
+  @spec create_album(Scope.t(), map()) ::
+          {:ok, Album.t()} | {:error, Ecto.Changeset.t() | Entitlements.over_limit()}
   def create_album(%Scope{user: user} = scope, attrs) do
-    taken = Repo.all(from a in Album, where: a.user_id == ^user.id, select: a.slug)
+    Repo.transaction(fn ->
+      :ok = Entitlements.lock(scope)
 
-    %Album{user_id: user.id, template_id: Templates.default_for(scope).id}
-    |> Album.changeset(attrs)
-    |> Album.put_slug(taken)
-    |> Ecto.Changeset.unique_constraint(:slug, name: :albums_user_id_slug_index)
-    |> Repo.insert()
+      with :ok <- Entitlements.check(scope, :max_albums, album_count(scope)) do
+        taken = Repo.all(from a in Album, where: a.user_id == ^user.id, select: a.slug)
+
+        %Album{user_id: user.id, template_id: Templates.default_for(scope).id}
+        |> Album.changeset(attrs)
+        |> Album.put_slug(taken)
+        |> Ecto.Changeset.unique_constraint(:slug, name: :albums_user_id_slug_index)
+        |> Repo.insert()
+      end
+      |> case do
+        {:ok, album} -> album
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
     |> tap(fn
       {:ok, _} -> broadcast(user.id, {:albums_changed, user.id})
       _ -> :ok
     end)
   end
+
+  @doc "How many albums the owner has."
+  @spec album_count(Scope.t()) :: non_neg_integer()
+  def album_count(%Scope{user: user}),
+    do: Repo.aggregate(from(a in Album, where: a.user_id == ^user.id), :count)
+
+  @doc "Photos (drafts included) in the owner's fullest album, for plan usage."
+  @spec largest_album_count(Scope.t()) :: non_neg_integer()
+  def largest_album_count(%Scope{user: user}) do
+    from(m in Memory,
+      where: m.user_id == ^user.id,
+      group_by: m.album_id,
+      select: count(m.id),
+      order_by: [desc: count(m.id)],
+      limit: 1
+    )
+    |> Repo.one()
+    |> Kernel.||(0)
+  end
+
+  # Drafts count too: they're on their way into the album
+  defp memory_count(%Album{id: album_id}),
+    do: Repo.aggregate(from(m in Memory, where: m.album_id == ^album_id), :count)
 
   @doc "Makes `memory` the album cover, or clears the cover with `nil`."
   @spec set_cover(Scope.t(), Album.t(), Memory.t() | nil) :: {:ok, Album.t()}
@@ -131,9 +166,36 @@ defmodule Keepsakes.Albums do
   the media pipeline for it.
 
   `upload` is `%{path: tmp_path, filename: "IMG_2041.jpg", bytes: 6_800_000}`.
+
+  Fails with `{:over_limit, key, used, limit}` when the photo is too big
+  for the plan, or would take the album's photo count or the account's
+  storage over the plan's limits (checked under the owner's limit lock).
   """
   @spec create_draft(Scope.t(), Album.t(), map()) :: {:ok, Memory.t()} | {:error, term()}
-  def create_draft(%Scope{user: %{id: user_id} = user}, %Album{user_id: user_id} = album, upload) do
+  def create_draft(
+        %Scope{user: %{id: user_id} = user} = scope,
+        %Album{user_id: user_id} = album,
+        upload
+      ) do
+    # Checked once before storing the file (no point uploading it if it
+    # can't stay) and again under the lock, where it counts
+    with :ok <- check_upload(scope, album, upload.bytes) do
+      store_draft(scope, user, album, upload)
+    end
+  end
+
+  defp check_upload(scope, album, bytes) do
+    max_mb = Entitlements.max_upload_mb(scope)
+
+    with :ok <- if(bytes > max_mb * 1_000_000, do: too_large(max_mb), else: :ok),
+         :ok <- Entitlements.check(scope, :max_memories_per_album, memory_count(album)) do
+      Entitlements.check(scope, :storage_bytes, storage_used(scope), bytes)
+    end
+  end
+
+  defp too_large(max_mb), do: {:error, {:over_limit, :max_upload_mb, max_mb, max_mb}}
+
+  defp store_draft(scope, user, album, upload) do
     id = Ecto.UUID.generate()
 
     memory = %Memory{
@@ -147,6 +209,10 @@ defmodule Keepsakes.Albums do
 
     with :ok <- Storage.put(Memory.original_key(memory), {:file, upload.path}) do
       Multi.new()
+      |> Multi.run(:limits, fn _repo, _ ->
+        :ok = Entitlements.lock(scope)
+        with :ok <- check_upload(scope, album, upload.bytes), do: {:ok, :within}
+      end)
       |> Multi.insert(:memory, memory)
       |> Oban.insert(:job, fn %{memory: memory} -> ProcessMemory.new(%{memory_id: memory.id}) end)
       |> Repo.transaction()
