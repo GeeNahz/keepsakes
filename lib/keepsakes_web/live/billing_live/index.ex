@@ -17,7 +17,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner} sidebar={false}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner}>
       <div class="mx-auto flex w-full max-w-[1040px] flex-col gap-8">
         <div class="flex flex-col gap-1.5">
           <h1 class="text-[32px] font-bold">Plans &amp; billing</h1>

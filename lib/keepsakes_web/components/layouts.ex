@@ -18,9 +18,9 @@ defmodule KeepsakesWeb.Layouts do
 
     * `:owner` (default) - the owner portal: header with "My albums" and the
       avatar menu, the album sidebar with the storage meter and the New
-      album dialog (pass `owner={@owner}` from `KeepsakesWeb.OwnerShell`;
-      `sidebar={false}` for focused screens like uploading). Falls back to
-      `:plain` when nobody is logged in.
+      album dialog (pass `owner={@owner}` from `KeepsakesWeb.OwnerShell`),
+      on every portal page. The header and sidebar stay in place while the
+      page scrolls. Falls back to `:plain` when nobody is logged in.
     * `:auth` - the split register/log-in screen: form on the left, the
       dark polaroid panel on the right.
     * `:plain` - just the logo bar, for dev pages and simple public pages.
@@ -49,8 +49,6 @@ defmodule KeepsakesWeb.Layouts do
     default: nil,
     doc: "sidebar data from `KeepsakesWeb.OwnerShell` (albums, storage, dialog form)"
 
-  attr :sidebar, :boolean, default: true, doc: "show the album sidebar (owner shell)"
-
   slot :inner_block, required: true
 
   def app(%{shell: :owner, current_scope: %{user: %{}}} = assigns) do
@@ -58,7 +56,8 @@ defmodule KeepsakesWeb.Layouts do
 
     ~H"""
     <div class="flex min-h-screen flex-col bg-base-200">
-      <header class="flex items-center justify-between gap-4 border-b border-base-300 bg-base-100 px-4 py-3.5 sm:px-8">
+      <%!-- Fixed height (h-16) so the sticky sidebar can sit right under it --%>
+      <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-base-300 bg-base-100 px-4 sm:px-8">
         <.link navigate={~p"/albums"} class="text-base-content no-underline">
           <.logo />
         </.link>
@@ -73,102 +72,98 @@ defmodule KeepsakesWeb.Layouts do
         </nav>
       </header>
 
-      <%= if @sidebar do %>
-        <div class="grid flex-1 md:grid-cols-[minmax(200px,240px)_minmax(0,1fr)]">
-          <aside
-            id="album-sidebar"
-            class="hidden flex-col gap-1.5 border-r border-base-300 bg-base-100 px-5 py-7 md:flex"
-          >
-            <div class="px-3 pb-2 text-[13px] font-bold uppercase tracking-[0.06em] text-ks-muted">
-              My albums
-            </div>
-            <%= if @owner.albums == [] do %>
-              <p class="rounded-field bg-base-200 p-3 text-sm leading-[1.45] text-ks-muted">
-                No albums yet. Your albums will be listed here.
-              </p>
-            <% else %>
-              <nav id="sidebar-albums" aria-label="My albums" class="flex flex-col gap-1.5">
-                <.link
-                  :for={album <- @owner.albums}
-                  id={"sidebar-album-#{album.id}"}
-                  navigate={~p"/albums/#{album.slug}"}
-                  aria-current={album.id == @owner.current_album_id && "page"}
-                  class={[
-                    "flex items-center justify-between gap-2 rounded-field p-3 text-base-content no-underline transition-colors",
-                    if(album.id == @owner.current_album_id,
-                      do: "bg-ks-teal-soft font-bold",
-                      else: "hover:bg-base-200"
-                    )
-                  ]}
-                >
-                  <span class="truncate">{album.name}</span>
-                  <span class={[
-                    "text-[13px] tabular-nums",
-                    if(album.id == @owner.current_album_id, do: "text-primary", else: "text-ks-muted")
-                  ]}>
-                    {album.memories_count}
-                  </span>
-                </.link>
-              </nav>
-              <button
-                id="sidebar-new-album"
-                type="button"
-                aria-haspopup="dialog"
-                phx-click={show_modal("new-album-dialog")}
-                class="mt-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-field border border-dashed border-ks-field px-3 font-medium transition-colors hover:border-primary hover:bg-ks-teal-tint"
-              >
-                <.icon name="hero-plus" class="size-[18px]" /> New album
-              </button>
-            <% end %>
-            <div class="mt-auto px-3 pt-4">
-              <.storage_meter owner={@owner} />
-            </div>
-          </aside>
-
-          <main class="flex min-w-0 flex-col">
-            <.confirm_email_banner user={@current_scope.user} />
-            <.over_limit_banner owner={@owner} />
+      <div class="grid flex-1 md:grid-cols-[minmax(200px,240px)_minmax(0,1fr)]">
+        <%!-- Stays in view while the page scrolls; a long album list scrolls
+             inside it, keeping New album and the storage meter visible --%>
+        <aside
+          id="album-sidebar"
+          class="sticky top-16 hidden h-[calc(100dvh-4rem)] flex-col gap-1.5 self-start border-r border-base-300 bg-base-100 px-5 py-7 md:flex"
+        >
+          <div class="px-3 pb-2 text-[13px] font-bold uppercase tracking-[0.06em] text-ks-muted">
+            My albums
+          </div>
+          <%= if @owner.albums == [] do %>
+            <p class="rounded-field bg-base-200 p-3 text-sm leading-[1.45] text-ks-muted">
+              No albums yet. Your albums will be listed here.
+            </p>
+          <% else %>
             <nav
-              :if={@owner.albums != []}
-              id="mobile-albums"
+              id="sidebar-albums"
               aria-label="My albums"
-              class="flex gap-2 overflow-x-auto border-b border-base-300 bg-base-100 px-4 py-3 md:hidden"
+              class="-mx-1 flex min-h-0 shrink flex-col gap-1.5 overflow-y-auto px-1"
             >
               <.link
                 :for={album <- @owner.albums}
+                id={"sidebar-album-#{album.id}"}
                 navigate={~p"/albums/#{album.slug}"}
+                aria-current={album.id == @owner.current_album_id && "page"}
                 class={[
-                  "shrink-0 rounded-full px-3.5 py-1.5 text-sm no-underline",
+                  "flex items-center justify-between gap-2 rounded-field p-3 text-base-content no-underline transition-colors",
                   if(album.id == @owner.current_album_id,
-                    do: "bg-ks-teal-soft font-bold text-base-content",
-                    else: "bg-base-200 text-base-content"
+                    do: "bg-ks-teal-soft font-bold",
+                    else: "hover:bg-base-200"
                   )
                 ]}
               >
-                {album.name}
+                <span class="truncate">{album.name}</span>
+                <span class={[
+                  "text-[13px] tabular-nums",
+                  if(album.id == @owner.current_album_id, do: "text-primary", else: "text-ks-muted")
+                ]}>
+                  {album.memories_count}
+                </span>
               </.link>
-              <button
-                type="button"
-                phx-click={show_modal("new-album-dialog")}
-                class="flex shrink-0 cursor-pointer items-center gap-1 rounded-full border border-dashed border-ks-field px-3.5 py-1.5 text-sm"
-              >
-                <.icon name="hero-plus" class="size-4" /> New
-              </button>
             </nav>
-            <div class="flex flex-1 flex-col px-4 py-8 sm:px-10 sm:py-8">
-              {render_slot(@inner_block)}
-            </div>
-          </main>
-        </div>
-      <% else %>
-        <main class="flex min-w-0 flex-1 flex-col">
+            <button
+              id="sidebar-new-album"
+              type="button"
+              aria-haspopup="dialog"
+              phx-click={show_modal("new-album-dialog")}
+              class="mt-2 flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-field border border-dashed border-ks-field px-3 font-medium transition-colors hover:border-primary hover:bg-ks-teal-tint"
+            >
+              <.icon name="hero-plus" class="size-[18px]" /> New album
+            </button>
+          <% end %>
+          <div class="mt-auto shrink-0 px-3 pt-4">
+            <.storage_meter owner={@owner} />
+          </div>
+        </aside>
+
+        <main class="flex min-w-0 flex-col">
           <.confirm_email_banner user={@current_scope.user} />
           <.over_limit_banner owner={@owner} />
-          <div class="mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-4 py-7 sm:px-8">
+          <nav
+            :if={@owner.albums != []}
+            id="mobile-albums"
+            aria-label="My albums"
+            class="flex gap-2 overflow-x-auto border-b border-base-300 bg-base-100 px-4 py-3 md:hidden"
+          >
+            <.link
+              :for={album <- @owner.albums}
+              navigate={~p"/albums/#{album.slug}"}
+              class={[
+                "shrink-0 rounded-full px-3.5 py-1.5 text-sm no-underline",
+                if(album.id == @owner.current_album_id,
+                  do: "bg-ks-teal-soft font-bold text-base-content",
+                  else: "bg-base-200 text-base-content"
+                )
+              ]}
+            >
+              {album.name}
+            </.link>
+            <button
+              type="button"
+              phx-click={show_modal("new-album-dialog")}
+              class="flex shrink-0 cursor-pointer items-center gap-1 rounded-full border border-dashed border-ks-field px-3.5 py-1.5 text-sm"
+            >
+              <.icon name="hero-plus" class="size-4" /> New
+            </button>
+          </nav>
+          <div class="flex flex-1 flex-col px-4 py-8 sm:px-10 sm:py-8">
             {render_slot(@inner_block)}
           </div>
         </main>
-      <% end %>
+      </div>
     </div>
 
     <.new_album_dialog :if={@owner.albums != []} form={@owner.new_album_form} owner={@owner} />
@@ -376,9 +371,9 @@ defmodule KeepsakesWeb.Layouts do
     <.link
       id="sidebar-plan"
       navigate={~p"/billing"}
-      class="mt-2.5 flex items-center justify-between gap-2 text-[13px] text-ks-muted no-underline hover:text-primary"
+      class="mt-2.5 flex items-start justify-between gap-2 text-[13px] leading-snug text-ks-muted no-underline hover:text-primary"
     >
-      <span class="truncate">{@label}</span>
+      <span class="min-w-0">{@label}</span>
       <span class="shrink-0 font-bold text-primary">Plans</span>
     </.link>
     """
