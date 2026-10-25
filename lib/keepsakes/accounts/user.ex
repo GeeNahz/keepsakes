@@ -13,6 +13,9 @@ defmodule Keepsakes.Accounts.User do
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
 
+    # Template new albums get (nil: the system default)
+    belongs_to :default_template, Keepsakes.Templates.Template
+
     timestamps()
   end
 

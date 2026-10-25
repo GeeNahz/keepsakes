@@ -74,6 +74,9 @@ defmodule KeepsakesWeb.Router do
       ] do
       live "/preview/:album_slug/timeline", GuestLive.Timeline, :preview
       live "/preview/:album_slug/slideshow", GuestLive.Slideshow, :preview
+      # The same, in a template the album doesn't use yet (template picker)
+      live "/preview/:album_slug/:template/timeline", GuestLive.Timeline, :preview
+      live "/preview/:album_slug/:template/slideshow", GuestLive.Slideshow, :preview
     end
 
     # Anyone with the link; the code unlocks timeline and slideshow
@@ -104,6 +107,7 @@ defmodule KeepsakesWeb.Router do
       live "/albums/:slug/upload", AlbumLive.Show, :upload
       live "/albums/:slug/memories/:id", AlbumLive.Show, :edit
       live "/albums/:slug/share", AlbumLive.Share, :share
+      live "/albums/:slug/template", AlbumLive.Template, :template
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end

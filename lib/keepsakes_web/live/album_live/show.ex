@@ -155,6 +155,9 @@ defmodule KeepsakesWeb.AlbumLive.Show do
           </div>
           <div class="flex flex-col items-end gap-1.5">
             <div class="flex flex-wrap gap-2.5">
+              <.button id="album-template" navigate={~p"/albums/#{@album.slug}/template"}>
+                <.icon name="hero-swatch" class="size-[18px]" /> Template
+              </.button>
               <%= if @stats.count > 0 do %>
                 <.button id="preview-as-guest" href={~p"/a/preview/#{@album.slug}/timeline"}>
                   Preview as guest

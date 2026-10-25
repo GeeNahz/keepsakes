@@ -53,6 +53,36 @@ defmodule Keepsakes.Storage.S3 do
   end
 
   @impl true
+  def list(config, prefix), do: list_page(config, prefix, nil, [])
+
+  # ListObjectsV2 returns at most 1000 keys per page
+  defp list_page(config, prefix, token, acc) do
+    params =
+      [{"list-type", "2"}, {"prefix", prefix}] ++
+        if(token, do: [{"continuation-token", token}], else: [])
+
+    case Req.get(req(config), url: "s3://#{Keyword.fetch!(config, :bucket)}", params: params) do
+      {:ok, %{status: 200, body: %{"ListBucketResult" => result}}} ->
+        keys = for %{"Key" => key} <- List.wrap(result["Contents"]), do: key
+        acc = acc ++ keys
+
+        case result do
+          %{"IsTruncated" => "true", "NextContinuationToken" => next} ->
+            list_page(config, prefix, next, acc)
+
+          _ ->
+            {:ok, acc}
+        end
+
+      {:ok, response} ->
+        {:error, {:http, response.status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @impl true
   def url(config, key, opts) do
     ReqS3.presign_url(
       bucket: Keyword.fetch!(config, :bucket),

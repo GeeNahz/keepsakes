@@ -93,10 +93,20 @@ else
        "Home", ["Ada", "Mum", "Dad", "Grandma"], [233, 214, 214]}
     ]
 
-    for {title, month, year, caption, place, people, colour} <- memories do
+    # Real photos from the gitignored test_imgs/ when present, cycled
+    # across the memories; plain colour cards otherwise
+    photos = Path.wildcard(Path.expand("../../test_imgs/*.{jpg,jpeg,png,heic,webp}", __DIR__))
+
+    for {{title, month, year, caption, place, people, colour}, index} <-
+          Enum.with_index(memories) do
       path = Path.join(dir, "seed-#{System.unique_integer([:positive])}.jpg")
-      {:ok, image} = Image.new(2400, 1800, color: colour)
-      :ok = Vix.Vips.Image.write_to_file(image, path)
+
+      if photos == [] do
+        {:ok, image} = Image.new(2400, 1800, color: colour)
+        :ok = Vix.Vips.Image.write_to_file(image, path)
+      else
+        File.cp!(Enum.at(photos, rem(index, length(photos))), path)
+      end
 
       {:ok, memory} =
         Albums.create_draft(scope, album, %{

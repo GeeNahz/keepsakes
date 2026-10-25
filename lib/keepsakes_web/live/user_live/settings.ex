@@ -3,7 +3,7 @@ defmodule KeepsakesWeb.UserLive.Settings do
 
   on_mount {KeepsakesWeb.UserAuth, :require_sudo_mode}
 
-  alias Keepsakes.Accounts
+  alias Keepsakes.{Accounts, Templates}
 
   @impl true
   def render(assigns) do
@@ -12,7 +12,7 @@ defmodule KeepsakesWeb.UserLive.Settings do
       <div class="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <.header>
           Account settings
-          <:subtitle>Your name, sign-in email and password.</:subtitle>
+          <:subtitle>Your name, sign-in email, password and template for new albums.</:subtitle>
         </.header>
 
         <section id="name" class="rounded-box border border-base-300 bg-base-100 p-6">
@@ -96,6 +96,21 @@ defmodule KeepsakesWeb.UserLive.Settings do
             </.button>
           </.form>
         </section>
+
+        <section id="default-template" class="rounded-box border border-base-300 bg-base-100 p-6">
+          <h2 class="mb-1 text-lg font-bold">Template for new albums</h2>
+          <p class="mb-4 text-sm text-ks-muted">
+            New albums start with this look for guests. You can change any album's template from its page.
+          </p>
+          <.form for={@template_form} id="default_template_form" phx-change="set_default_template">
+            <.input
+              field={@template_form[:slug]}
+              type="select"
+              label="Template"
+              options={Enum.map(@templates, &{&1.name, &1.slug})}
+            />
+          </.form>
+        </section>
       </div>
     </Layouts.app>
     """
@@ -129,9 +144,14 @@ defmodule KeepsakesWeb.UserLive.Settings do
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
+      |> assign(:templates, Templates.list_templates(socket.assigns.current_scope))
+      |> assign_template_form(Templates.default_for(socket.assigns.current_scope))
 
     {:ok, socket}
   end
+
+  defp assign_template_form(socket, template),
+    do: assign(socket, :template_form, to_form(%{"slug" => template.slug}, as: :default_template))
 
   @impl true
   def handle_event("validate_name", %{"user" => user_params}, socket) do
@@ -157,6 +177,21 @@ defmodule KeepsakesWeb.UserLive.Settings do
 
       {:error, changeset} ->
         {:noreply, assign(socket, name_form: to_form(changeset, action: :update))}
+    end
+  end
+
+  def handle_event("set_default_template", %{"default_template" => %{"slug" => slug}}, socket) do
+    scope = socket.assigns.current_scope
+
+    with %{} = template <- Templates.get_template(scope, slug),
+         {:ok, user} <- Templates.set_default_template(scope, template) do
+      {:noreply,
+       socket
+       |> assign(:current_scope, %{scope | user: user})
+       |> assign_template_form(template)
+       |> put_flash(:info, "New albums will use #{template.name}.")}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "That template isn't available.")}
     end
   end
 

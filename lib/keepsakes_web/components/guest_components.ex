@@ -1,8 +1,7 @@
 defmodule KeepsakesWeb.GuestComponents do
   @moduledoc """
-  Pieces shared by the guest Timeline and Slideshow ("Trail" look):
-  the owner-preview banner and memory text helpers. Stage 4 moves these
-  behind the template renderer.
+  Pieces any template renderer can use: the owner-preview banner, photo
+  URLs, the polaroid tilt pattern and memory text helpers.
   """
   use KeepsakesWeb, :html
 
@@ -80,10 +79,14 @@ defmodule KeepsakesWeb.GuestComponents do
     String.upcase("#{count} · #{range}")
   end
 
-  @doc "Banner shown when the owner looks at their own album as a guest."
+  @doc """
+  Banner shown when the owner looks at their own album as a guest. In the
+  preview it names the template and links to the template picker.
+  """
   attr :album, :map, required: true
   attr :access, :atom, required: true
   attr :preview?, :boolean, default: false
+  attr :template, :map, required: true
 
   def owner_banner(assigns) do
     ~H"""
@@ -94,9 +97,17 @@ defmodule KeepsakesWeb.GuestComponents do
     >
       <span>
         {if @preview?,
-          do: "Preview: this is how guests will see your album.",
+          do: "Preview: this is how guests will see your album in #{@template.name}.",
           else: "You're viewing your own album as a guest would."}
       </span>
+      <.link
+        :if={@preview?}
+        id="banner-templates"
+        navigate={~p"/albums/#{@album.slug}/template"}
+        class="font-bold text-accent-content underline"
+      >
+        Templates
+      </.link>
       <.link navigate={~p"/albums/#{@album.slug}"} class="font-bold text-accent-content underline">
         Back to album
       </.link>

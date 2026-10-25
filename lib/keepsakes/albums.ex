@@ -16,7 +16,7 @@ defmodule Keepsakes.Albums do
   alias Keepsakes.Accounts.Scope
   alias Keepsakes.Albums.{Album, Memory}
   alias Keepsakes.Media.{ProcessMemory, Purge}
-  alias Keepsakes.{Repo, Storage}
+  alias Keepsakes.{Repo, Storage, Templates}
 
   ## PubSub
 
@@ -54,12 +54,15 @@ defmodule Keepsakes.Albums do
   @spec change_album(Album.t(), map()) :: Ecto.Changeset.t()
   def change_album(%Album{} = album \\ %Album{}, attrs \\ %{}), do: Album.changeset(album, attrs)
 
-  @doc "Creates an album for the owner with a slug unique among their albums."
+  @doc """
+  Creates an album for the owner with a slug unique among their albums,
+  using the owner's default template.
+  """
   @spec create_album(Scope.t(), map()) :: {:ok, Album.t()} | {:error, Ecto.Changeset.t()}
-  def create_album(%Scope{user: user}, attrs) do
+  def create_album(%Scope{user: user} = scope, attrs) do
     taken = Repo.all(from a in Album, where: a.user_id == ^user.id, select: a.slug)
 
-    %Album{user_id: user.id}
+    %Album{user_id: user.id, template_id: Templates.default_for(scope).id}
     |> Album.changeset(attrs)
     |> Album.put_slug(taken)
     |> Ecto.Changeset.unique_constraint(:slug, name: :albums_user_id_slug_index)
