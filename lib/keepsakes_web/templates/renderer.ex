@@ -11,7 +11,8 @@ defmodule KeepsakesWeb.Templates.Renderer do
   renderer serves many themed templates.
 
   Assigns every callback gets: `@flash`, `@album`, `@link`, `@owner_name`,
-  `@access`, `@base_path`, `@preview?` and `@template`. Per page:
+  `@access`, `@base_path`, `@preview?`, `@template` and `@branding?`
+  (show "Made with Keepsake"; off on plans with `remove_branding`). Per page:
 
     * `access/1` - the code form (posts to `/a/:slug/access`)
     * `unavailable/1` - unknown or expired links (`@access` is

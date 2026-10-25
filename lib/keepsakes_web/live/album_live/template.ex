@@ -4,7 +4,8 @@ defmodule KeepsakesWeb.AlbumLive.Template do
   shows the template in its own colours with the album's photos; Preview
   opens the album in that template (`/a/preview/:slug/:template/timeline`)
   before anything changes, and "Use this template" switches what guests
-  see straight away.
+  see straight away. Premium templates offer an upgrade instead when the
+  plan doesn't include them (preview still works).
   """
   use KeepsakesWeb, :live_view
 
@@ -51,15 +52,22 @@ defmodule KeepsakesWeb.AlbumLive.Template do
               >
                 <.icon name="hero-eye" class="size-[18px]" /> Preview
               </.button>
-              <.button
-                :if={template.id != @current.id}
-                id={"use-#{template.slug}"}
-                variant="primary"
-                phx-click="use"
-                phx-value-slug={template.slug}
-              >
-                Use this template
-              </.button>
+              <%= cond do %>
+                <% template.id == @current.id -> %>
+                <% template.premium and not @premium? -> %>
+                  <.button id={"upgrade-#{template.slug}"} variant="primary" navigate={~p"/billing"}>
+                    Upgrade to use
+                  </.button>
+                <% true -> %>
+                  <.button
+                    id={"use-#{template.slug}"}
+                    variant="primary"
+                    phx-click="use"
+                    phx-value-slug={template.slug}
+                  >
+                    Use this template
+                  </.button>
+              <% end %>
             </:actions>
           </.template_card>
           <.create_your_own_card id="create-template" />
@@ -88,7 +96,8 @@ defmodule KeepsakesWeb.AlbumLive.Template do
        album: album,
        photos: photos,
        templates: Templates.list_templates(scope),
-       current: Templates.for_album(album)
+       current: Templates.for_album(album),
+       premium?: Templates.premium?(scope)
      )}
   end
 
@@ -103,7 +112,11 @@ defmodule KeepsakesWeb.AlbumLive.Template do
        |> assign(album: album, current: template)
        |> put_flash(:info, "Guests now see this album in #{template.name}.")}
     else
-      _ -> {:noreply, put_flash(socket, :error, "That template isn't available.")}
+      {:error, :premium} ->
+        {:noreply, put_flash(socket, :error, "Premium templates need the Plus or Pro plan.")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "That template isn't available.")}
     end
   end
 end

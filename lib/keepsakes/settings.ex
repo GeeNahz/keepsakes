@@ -22,7 +22,9 @@ defmodule Keepsakes.Settings do
     image_long_edge:
       {:integer, 2400, "Uploaded photos are resized to this many pixels on the long edge"},
     image_quality: {:integer, 82, "Compression quality (1-100) for stored photos"},
-    max_upload_mb: {:integer, 10, "Hard ceiling on a single upload, in MB (plans may set lower)"},
+    max_upload_mb:
+      {:integer, 25,
+       "Hard ceiling on a single upload, in MB (each plan sets its own, up to this)"},
     signups_open: {:boolean, true, "Allow new users to register"},
     maintenance_mode: {:boolean, false, "Show the maintenance page to everyone except staff"},
     maintenance_message:

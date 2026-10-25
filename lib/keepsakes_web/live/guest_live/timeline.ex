@@ -27,7 +27,7 @@ defmodule KeepsakesWeb.GuestLive.Timeline do
        memories: memories,
        auto?: params["auto"] == "1",
        # The unshared preview has no public link to download through
-       downloads?: link.allow_downloads == true and not preview?,
+       downloads?: not preview? and Sharing.downloads_allowed?(link),
        last_side: entries |> List.last() |> then(&(&1 && &1.side)) || :left
      )
      |> stream(:entries, entries)}

@@ -10,20 +10,16 @@ defmodule Keepsakes.Accounts.Scope do
   Fields:
 
     * `:user` - the logged-in `Keepsakes.Accounts.User`, or `nil`
-    * `:subscription` - the user's current subscription (Stage 5)
-    * `:entitlements` - feature key => value for the user's plan, e.g.
-      `%{"max_albums" => 3, "guest_downloads" => true}` (Stage 5)
+
+  What the user's plan allows isn't stored here: `Keepsakes.Entitlements`
+  reads it fresh on each check, so long-lived LiveViews follow plan changes.
   """
 
   alias Keepsakes.Accounts.User
 
-  defstruct user: nil, subscription: nil, entitlements: %{}
+  defstruct user: nil
 
-  @type t :: %__MODULE__{
-          user: User.t() | nil,
-          subscription: struct() | nil,
-          entitlements: map()
-        }
+  @type t :: %__MODULE__{user: User.t() | nil}
 
   @doc """
   Creates a scope for the given user.

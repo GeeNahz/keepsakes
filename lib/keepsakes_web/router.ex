@@ -108,6 +108,7 @@ defmodule KeepsakesWeb.Router do
       live "/albums/:slug/memories/:id", AlbumLive.Show, :edit
       live "/albums/:slug/share", AlbumLive.Share, :share
       live "/albums/:slug/template", AlbumLive.Template, :template
+      live "/billing", BillingLive.Index, :index
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end

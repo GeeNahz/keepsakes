@@ -107,7 +107,12 @@ defmodule KeepsakesWeb.UserLive.Settings do
               field={@template_form[:slug]}
               type="select"
               label="Template"
-              options={Enum.map(@templates, &{&1.name, &1.slug})}
+              options={
+                Enum.map(@templates, fn template ->
+                  label = if template.premium, do: "#{template.name} (Premium)", else: template.name
+                  [key: label, value: template.slug, disabled: template.premium and not @premium?]
+                end)
+              }
             />
           </.form>
         </section>
@@ -145,6 +150,7 @@ defmodule KeepsakesWeb.UserLive.Settings do
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
       |> assign(:templates, Templates.list_templates(socket.assigns.current_scope))
+      |> assign(:premium?, Templates.premium?(socket.assigns.current_scope))
       |> assign_template_form(Templates.default_for(socket.assigns.current_scope))
 
     {:ok, socket}
@@ -191,7 +197,11 @@ defmodule KeepsakesWeb.UserLive.Settings do
        |> assign_template_form(template)
        |> put_flash(:info, "New albums will use #{template.name}.")}
     else
-      _ -> {:noreply, put_flash(socket, :error, "That template isn't available.")}
+      {:error, :premium} ->
+        {:noreply, put_flash(socket, :error, "Premium templates need the Plus or Pro plan.")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "That template isn't available.")}
     end
   end
 

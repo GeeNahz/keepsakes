@@ -39,7 +39,7 @@ config :keepsakes, Oban,
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
-    {Oban.Plugins.Cron, crontab: []}
+    {Oban.Plugins.Cron, crontab: [{"7 * * * *", Keepsakes.Billing.LifecycleWorker}]}
   ]
 
 # Feature flags, persisted in Postgres, cache-busted across nodes over PubSub

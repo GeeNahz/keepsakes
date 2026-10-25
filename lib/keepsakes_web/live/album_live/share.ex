@@ -9,7 +9,7 @@ defmodule KeepsakesWeb.AlbumLive.Share do
   """
   use KeepsakesWeb, :live_view
 
-  alias Keepsakes.{Albums, Sharing}
+  alias Keepsakes.{Albums, Entitlements, Sharing}
   alias Keepsakes.Sharing.ShareLink
   alias KeepsakesWeb.OwnerShell
 
@@ -39,7 +39,7 @@ defmodule KeepsakesWeb.AlbumLive.Share do
             <.setup_card mode={@mode} code_error={@code_error} />
           <% end %>
 
-          <.settings_card link={@link} form={@settings_form} />
+          <.settings_card link={@link} form={@settings_form} downloads?={@downloads?} />
         </div>
       </div>
     </Layouts.app>
@@ -297,6 +297,7 @@ defmodule KeepsakesWeb.AlbumLive.Share do
 
   attr :link, ShareLink, default: nil
   attr :form, Phoenix.HTML.Form, required: true
+  attr :downloads?, :boolean, required: true, doc: "the plan includes guest downloads"
 
   defp settings_card(assigns) do
     ~H"""
@@ -330,7 +331,20 @@ defmodule KeepsakesWeb.AlbumLive.Share do
             <span class="text-[13px] text-ks-muted">Guests can still switch between all three.</span>
           </div>
           <.toggle field={@form[:show_details]} label="Show captions and locations" />
-          <.toggle field={@form[:allow_downloads]} label="Let guests download photos" />
+          <.toggle
+            field={@form[:allow_downloads]}
+            label="Let guests download photos"
+            disabled={not @downloads?}
+          />
+          <.link
+            :if={not @downloads?}
+            id="downloads-upgrade"
+            navigate={~p"/billing"}
+            class="-mt-2 text-[13px] text-ks-muted no-underline hover:text-primary"
+          >
+            Guest downloads come with Plus and Pro.
+            <span class="font-bold text-primary">See plans</span>
+          </.link>
         </.form>
       <% else %>
         <p class="text-sm text-ks-muted">
@@ -373,6 +387,7 @@ defmodule KeepsakesWeb.AlbumLive.Share do
 
   attr :field, Phoenix.HTML.FormField, required: true
   attr :label, :string, required: true
+  attr :disabled, :boolean, default: false
 
   defp toggle(assigns) do
     assigns =
@@ -383,7 +398,13 @@ defmodule KeepsakesWeb.AlbumLive.Share do
       )
 
     ~H"""
-    <label for={@field.id} class="flex cursor-pointer items-center justify-between gap-3 text-[15px]">
+    <label
+      for={@field.id}
+      class={[
+        "flex items-center justify-between gap-3 text-[15px]",
+        if(@disabled, do: "text-ks-muted", else: "cursor-pointer")
+      ]}
+    >
       {@label}
       <input type="hidden" name={@field.name} value="false" />
       <input
@@ -391,7 +412,8 @@ defmodule KeepsakesWeb.AlbumLive.Share do
         id={@field.id}
         name={@field.name}
         value="true"
-        checked={@checked}
+        checked={@checked and not @disabled}
+        disabled={@disabled}
         class="toggle toggle-primary toggle-sm"
       />
     </label>
@@ -412,7 +434,8 @@ defmodule KeepsakesWeb.AlbumLive.Share do
        album: album,
        mode: "auto",
        editing: false,
-       code_error: nil
+       code_error: nil,
+       downloads?: Entitlements.can?(scope, :guest_downloads)
      )
      |> assign_link(link)}
   end

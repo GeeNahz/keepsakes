@@ -53,7 +53,7 @@ defmodule KeepsakesWeb.GuestAccessController do
     link = Sharing.get_link_by_slug(slug)
     access = GuestAccess.access(link, get_session(conn), conn.assigns.current_scope)
 
-    with true <- access == :owner or (access == :guest and link.allow_downloads),
+    with true <- access == :owner or (access == :guest and Sharing.downloads_allowed?(link)),
          %Memory{} = memory <- Sharing.guest_memory(link.album, id),
          {:ok, data} <- Storage.get(Memory.variant_key(memory, 2400)) do
       send_download(conn, {:binary, data},

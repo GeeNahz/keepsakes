@@ -10,13 +10,13 @@ defmodule Keepsakes.Templates do
 
   A template is available to a user when it's active and either public
   (`user_id` is nil) or their own. Premium templates are listed for
-  everyone; plans gate them once billing lands.
+  everyone but need the `premium_templates` feature to use.
   """
   import Ecto.Query
 
   alias Keepsakes.Accounts.{Scope, User}
   alias Keepsakes.Albums.Album
-  alias Keepsakes.{Repo, Settings}
+  alias Keepsakes.{Entitlements, Repo, Settings}
   alias Keepsakes.Templates.Template
 
   # Renderer names a template may use; the web layer maps each to a module
@@ -58,20 +58,35 @@ defmodule Keepsakes.Templates do
     |> Repo.one!()
   end
 
-  @doc "The template new albums get: the user's default, else the system default."
+  @doc """
+  The template new albums get: the user's default (unless it's premium and
+  their plan no longer includes it), else the system default.
+  """
   @spec default_for(Scope.t()) :: Template.t()
   def default_for(%Scope{user: user} = scope) do
-    (user.default_template_id &&
-       scope |> available() |> where([t], t.id == ^user.default_template_id) |> Repo.one()) ||
-      system_default()
+    default =
+      user.default_template_id &&
+        scope |> available() |> where([t], t.id == ^user.default_template_id) |> Repo.one()
+
+    case default do
+      %Template{premium: true} = template ->
+        if premium?(scope), do: template, else: system_default()
+
+      %Template{} = template ->
+        template
+
+      nil ->
+        system_default()
+    end
   end
 
   @doc """
   The template an album's guest pages render with: its own, else its
-  owner's default, else the system default.
+  owner's default, else the system default. Premium templates are skipped
+  while the owner's plan doesn't include them (e.g. after a trial ends).
   """
   @spec for_album(Album.t()) :: Template.t()
-  def for_album(%Album{id: album_id}) do
+  def for_album(%Album{id: album_id, user_id: user_id}) do
     candidates =
       from(t in Template,
         join: a in Album,
@@ -80,36 +95,47 @@ defmodule Keepsakes.Templates do
         on: u.id == a.user_id,
         where: t.active and (is_nil(t.user_id) or t.user_id == a.user_id),
         where: t.id == a.template_id or t.id == u.default_template_id,
-        order_by: [desc: t.id == a.template_id],
-        limit: 1
+        order_by: [desc: t.id == a.template_id]
       )
+      |> Repo.all()
 
-    Repo.one(candidates) || system_default()
+    premium? = Enum.any?(candidates, & &1.premium) and premium?(user_id)
+    Enum.find(candidates, &(premium? or not &1.premium)) || system_default()
   end
+
+  @doc "Whether the user's plan includes premium templates."
+  @spec premium?(Scope.t() | Ecto.UUID.t()) :: boolean()
+  def premium?(scope_or_user_id), do: Entitlements.can?(scope_or_user_id, :premium_templates)
 
   @doc "Switches the album's guest pages to `template`."
   @spec set_album_template(Scope.t(), Album.t(), Template.t()) ::
-          {:ok, Album.t()} | {:error, :unavailable}
+          {:ok, Album.t()} | {:error, :unavailable | :premium}
   def set_album_template(
         %Scope{user: %{id: user_id}} = scope,
         %Album{user_id: user_id} = album,
         %Template{} = template
       ) do
-    if available?(scope, template) do
+    with :ok <- usable(scope, template) do
       album |> Ecto.Changeset.change(template_id: template.id) |> Repo.update()
-    else
-      {:error, :unavailable}
     end
   end
 
   @doc "Sets the template new albums get. `nil` goes back to the system default."
   @spec set_default_template(Scope.t(), Template.t() | nil) ::
-          {:ok, User.t()} | {:error, :unavailable}
+          {:ok, User.t()} | {:error, :unavailable | :premium}
   def set_default_template(%Scope{user: user} = scope, template) do
+    if is_nil(template) do
+      update_default(user, nil)
+    else
+      with :ok <- usable(scope, template), do: update_default(user, template.id)
+    end
+  end
+
+  defp usable(scope, template) do
     cond do
-      is_nil(template) -> update_default(user, nil)
-      available?(scope, template) -> update_default(user, template.id)
-      true -> {:error, :unavailable}
+      not available?(scope, template) -> {:error, :unavailable}
+      template.premium and not premium?(scope) -> {:error, :premium}
+      true -> :ok
     end
   end
 

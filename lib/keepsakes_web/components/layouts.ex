@@ -127,6 +127,7 @@ defmodule KeepsakesWeb.Layouts do
 
           <main class="flex min-w-0 flex-col">
             <.confirm_email_banner user={@current_scope.user} />
+            <.over_limit_banner owner={@owner} />
             <nav
               :if={@owner.albums != []}
               id="mobile-albums"
@@ -162,6 +163,7 @@ defmodule KeepsakesWeb.Layouts do
       <% else %>
         <main class="flex min-w-0 flex-1 flex-col">
           <.confirm_email_banner user={@current_scope.user} />
+          <.over_limit_banner owner={@owner} />
           <div class="mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-4 py-7 sm:px-8">
             {render_slot(@inner_block)}
           </div>
@@ -169,7 +171,7 @@ defmodule KeepsakesWeb.Layouts do
       <% end %>
     </div>
 
-    <.new_album_dialog :if={@owner.albums != []} form={@owner.new_album_form} />
+    <.new_album_dialog :if={@owner.albums != []} form={@owner.new_album_form} owner={@owner} />
     <.flash_group flash={@flash} />
     """
   end
@@ -282,6 +284,11 @@ defmodule KeepsakesWeb.Layouts do
             </.link>
           </li>
           <li>
+            <.link id="user-menu-billing" navigate={~p"/billing"}>
+              <.icon name="hero-credit-card" /> Plans &amp; billing
+            </.link>
+          </li>
+          <li>
             <.link id="user-menu-settings" navigate={~p"/users/settings"}>
               <.icon name="hero-cog-6-tooth" /> Settings
             </.link>
@@ -329,6 +336,9 @@ defmodule KeepsakesWeb.Layouts do
       albums: [],
       storage_used: 0,
       storage_limit: 1024 * 1024 * 1024,
+      plan_label: "",
+      album_limit: :unlimited,
+      over_limit: [],
       current_album_id: nil,
       new_album_form: to_form(%{}, as: :album)
     }
@@ -336,19 +346,84 @@ defmodule KeepsakesWeb.Layouts do
 
   attr :owner, :map, required: true
 
+  defp storage_meter(%{owner: %{storage_limit: :unlimited}} = assigns) do
+    ~H"""
+    <div id="storage-meter" class="flex flex-col gap-1.5 text-sm">
+      <span class="font-medium">Storage</span>
+      <span class="text-ks-muted">{format_bytes(@owner.storage_used)} used</span>
+    </div>
+    <.plan_link label={@owner.plan_label} />
+    """
+  end
+
   defp storage_meter(assigns) do
     ~H"""
     <.meter
       id="storage-meter"
       label="Storage"
-      value={div(@owner.storage_used, 1024)}
+      value={min(div(@owner.storage_used, 1024), div(@owner.storage_limit, 1024))}
       max={div(@owner.storage_limit, 1024)}
       text={"#{format_bytes(@owner.storage_used)} of #{format_bytes(@owner.storage_limit)}"}
     />
+    <.plan_link label={@owner.plan_label} />
     """
   end
 
+  attr :label, :string, required: true
+
+  defp plan_link(assigns) do
+    ~H"""
+    <.link
+      id="sidebar-plan"
+      navigate={~p"/billing"}
+      class="mt-2.5 flex items-center justify-between gap-2 text-[13px] text-ks-muted no-underline hover:text-primary"
+    >
+      <span class="truncate">{@label}</span>
+      <span class="shrink-0 font-bold text-primary">Plans</span>
+    </.link>
+    """
+  end
+
+  attr :owner, :map, required: true
+
+  # After a downgrade (e.g. the trial ending) an account can hold more than
+  # its plan allows. Nothing is removed; this explains why adding stopped.
+  defp over_limit_banner(%{owner: %{over_limit: [_ | _]}} = assigns) do
+    ~H"""
+    <div
+      id="over-limit-banner"
+      class="flex flex-wrap items-center justify-between gap-3 border-b border-ks-amber-soft bg-ks-amber-soft px-4 py-3 text-sm text-ks-amber-deep sm:px-8"
+    >
+      <p class="flex items-start gap-2">
+        <.icon name="hero-exclamation-triangle" class="mt-px size-5 shrink-0" />
+        <span>
+          Your account is over its plan's {over_limit_text(@owner)}. Nothing has been removed
+          and guests can still view your albums; to add more, upgrade or make room.
+        </span>
+      </p>
+      <.button id="over-limit-plans" size="sm" variant="outline" navigate={~p"/billing"}>
+        See plans
+      </.button>
+    </div>
+    """
+  end
+
+  defp over_limit_banner(assigns), do: ~H""
+
+  defp over_limit_text(owner) do
+    owner.over_limit
+    |> Enum.map(fn
+      {:storage_bytes, used} ->
+        "storage (#{format_bytes(used)} of #{format_bytes(owner.storage_limit)})"
+
+      {:max_albums, used} ->
+        "album limit (#{used} of #{owner.album_limit})"
+    end)
+    |> Enum.join(" and ")
+  end
+
   attr :form, Phoenix.HTML.Form, required: true
+  attr :owner, :map, required: true
 
   defp new_album_dialog(assigns) do
     ~H"""
@@ -357,7 +432,25 @@ defmodule KeepsakesWeb.Layouts do
       title="New album"
       subtitle="One album per story. You can add photos next."
     >
+      <div
+        :if={KeepsakesWeb.OwnerShell.album_limit_reached?(@owner)}
+        id="album-limit-notice"
+        class="flex flex-col gap-4"
+      >
+        <p class="rounded-field bg-ks-amber-soft p-4 text-sm text-ks-amber-deep">
+          Your plan includes {@owner.album_limit} {if @owner.album_limit == 1,
+            do: "album",
+            else: "albums"}, and you've used them all. Upgrade for more albums, or add to one you already have.
+        </p>
+        <div class="flex justify-end gap-2.5">
+          <.button type="button" phx-click={hide_modal("new-album-dialog")}>Close</.button>
+          <.button id="album-limit-plans" variant="primary" navigate={~p"/billing"}>
+            See plans
+          </.button>
+        </div>
+      </div>
       <.form
+        :if={!KeepsakesWeb.OwnerShell.album_limit_reached?(@owner)}
         for={@form}
         id="new-album-form"
         phx-change="new_album_validate"
@@ -393,18 +486,7 @@ defmodule KeepsakesWeb.Layouts do
   end
 
   @doc "Human size: `\"38 MB\"`, `\"1 GB\"`, `\"0 MB\"`."
-  def format_bytes(bytes) when bytes >= 1024 * 1024 * 1024 do
-    gb = bytes / (1024 * 1024 * 1024)
-    if gb == trunc(gb), do: "#{trunc(gb)} GB", else: "#{Float.round(gb, 1)} GB"
-  end
-
-  def format_bytes(bytes) when bytes >= 1024 * 1024 * 10, do: "#{round(bytes / (1024 * 1024))} MB"
-
-  def format_bytes(bytes) when bytes >= 1024 * 100,
-    do: "#{Float.round(bytes / (1024 * 1024), 1)} MB"
-
-  def format_bytes(bytes) when bytes > 0, do: "#{max(round(bytes / 1024), 1)} KB"
-  def format_bytes(_), do: "0 MB"
+  defdelegate format_bytes(bytes), to: Keepsakes.Format, as: :bytes
 
   @doc """
   Shows the flash group with standard titles and content.

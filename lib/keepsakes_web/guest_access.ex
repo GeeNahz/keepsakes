@@ -83,7 +83,8 @@ defmodule KeepsakesWeb.GuestAccess do
        owner_name: link && link.user.first_name,
        access: access(link, session, socket.assigns.current_scope),
        base_path: "/a/" <> slug,
-       preview?: false
+       preview?: false,
+       branding?: link == nil or Sharing.branding?(link.user_id)
      )
      |> assign(KeepsakesWeb.Templates.assigns(template))}
   end
@@ -113,7 +114,8 @@ defmodule KeepsakesWeb.GuestAccess do
              owner_name: user.first_name,
              access: :owner,
              base_path: base_path,
-             preview?: true
+             preview?: true,
+             branding?: Sharing.branding?(user.id)
            )
            |> assign(KeepsakesWeb.Templates.assigns(template))}
         else

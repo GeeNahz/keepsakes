@@ -65,6 +65,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Template picker at `/albums/:slug/template` (Template button on the album page): cards drawn in each template's colours with the album's own photos, In use and Premium badges, Preview, Use this template, and a disabled "Create your own – Coming soon" card.
 - Preview an album in a template before using it at `/a/preview/:album_slug/:template/timeline` (and `/slideshow`); the preview banner names the template and links back to the picker.
 - "Template for new albums" setting on `/users/settings`.
+- Plans and prices: `plans` (free/trial/paid, public flag, feature values as JSON) and `plan_prices` (NGN/USD, month/year, minor units), seeded with Free, Plus, Pro and a hidden Free trial plan (Pro features). Plus and Pro prices are [TBD] placeholders: ₦5,000/₦50,000 and $5/$50 for Plus, ₦12,000/₦120,000 and $12/$120 for Pro, per month/year.
+- `Keepsakes.Billing.Features` feature catalogue (album, photo-per-album, storage, upload-size, collaborator and custom-domain limits; premium templates, guest downloads, remove branding, guest uploads, time capsule, reactions/guestbook and slideshow music switches) with validation for plan values.
+- Subscriptions: `subscriptions` (one per user) and `subscription_events`. Registration starts a 60-day trial in the same transaction; existing accounts were given a trial starting from the migration.
+- Trial lifecycle (`Billing.advance/1`, hourly `Billing.LifecycleWorker` cron on the `billing` queue): reminder email a week before the trial ends, then 7 days of grace with full access, then the Free plan, each with an email and an event, and safe against double runs.
+- `Keepsakes.Entitlements`: plan values read fresh on each check, `check/4` under a per-user Postgres advisory lock, and friendly over-limit messages. Album creation, uploads (photo size, photos per album, storage) are refused over the plan's limits; nothing is ever deleted when an account is over its limits.
+- `/billing` (Plans & billing, also in the account menu and the sidebar): current plan and status, usage meters for storage, albums and the largest album, and Free/Plus/Pro compared in NGN or USD, monthly or yearly. Paid plan buttons say payments are coming (Stage 5b).
+- Over-limit banner across the owner portal, an upgrade notice in the New album dialog when the album limit is reached, and a dismissible notice when an upload is refused for a plan limit.
 - `Keepsakes.Storage.list/1` (S3 ListObjectsV2 with pagination, local disk) and `mix keepsakes.storage.clear`, which empties the configured bucket for a fresh start (asks first, never in prod, refuses buckets not named staging/dev/test without `--any-bucket`).
 
 ### Changed
@@ -83,6 +90,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The guest access, timeline and slideshow pages are drawn by the album's template renderer and themed through `ks-guest-*` colour tokens (replacing `ks-night-card`/`-line`/`-field`/`-bar` and hard-coded white), with the theme applied on the guest root layout and `color-scheme` following the template.
 - The dev seed album uses the real photos in the gitignored `test_imgs/` folder when present, instead of plain colour cards.
 - `test_imgs/` (local photos for manual and visual testing) is gitignored.
+- The sidebar storage meter uses the plan's storage limit instead of a fixed 1 GB and shows the plan status with a link to Plans & billing.
+- The upload size limit comes from the plan (Free 10 MB, Plus and Pro 25 MB); the system-wide `max_upload_mb` ceiling setting now defaults to 25.
+- Daylight is a premium template. Premium templates need Plus or Pro to choose (the picker offers "Upgrade to use", the settings list marks them), and albums or defaults set to one fall back to the system default when the plan no longer includes them.
+- Guest downloads need a plan with guest downloads: the Share page switch is disabled with a link to plans, and downloads stop if the plan drops them.
+- "Made with Keepsake" on the guest timeline is hidden on plans with remove branding.
+- `Scope` no longer carries unused `subscription`/`entitlements` fields; `Keepsakes.Format.bytes/1` is shared by pages and messages.
 
 ### Fixed
 - Global `body` and heading font rules moved into the base CSS layer; they were overriding utilities such as `font-hand` on headings.
