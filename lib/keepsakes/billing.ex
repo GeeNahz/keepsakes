@@ -18,10 +18,26 @@ defmodule Keepsakes.Billing do
 
   alias Ecto.Multi
   alias Keepsakes.Accounts.{Scope, User}
-  alias Keepsakes.Billing.{Notifier, Plan, Price, Subscription, SubscriptionEvent}
+  alias Keepsakes.Billing.{Invoice, Notifier, Payments, Plan, Price, Subscription}
+  alias Keepsakes.Billing.SubscriptionEvent
   alias Keepsakes.{Repo, Settings}
 
   @reminder_days 7
+
+  ## PubSub
+
+  @doc """
+  Subscribes to the user's billing changes: `{:billing_changed, user_id}`
+  after a payment is confirmed or the subscription changes.
+  """
+  def subscribe(%Scope{user: user}),
+    do: Phoenix.PubSub.subscribe(Keepsakes.PubSub, topic(user.id))
+
+  @doc false
+  def broadcast_change(user_id),
+    do: Phoenix.PubSub.broadcast(Keepsakes.PubSub, topic(user_id), {:billing_changed, user_id})
+
+  defp topic(user_id), do: "user:#{user_id}:billing"
 
   ## Plans
 
@@ -97,15 +113,21 @@ defmodule Keepsakes.Billing do
   def status_label(subscription, now \\ DateTime.utc_now())
   def status_label(nil, _now), do: "Free plan"
 
+  def status_label(%Subscription{status: "grace", plan: %Plan{kind: "paid"}} = s, now),
+    do: "Payment failed · " <> lower_first(status_detail(s, now))
+
   def status_label(%Subscription{status: "grace"} = subscription, now),
-    do: "Trial ended · " <> String.downcase(status_detail(subscription, now))
+    do: "Trial ended · " <> lower_first(status_detail(subscription, now))
 
   def status_label(%Subscription{plan: plan} = subscription, now) do
     case status_detail(subscription, now) do
       nil -> "#{plan.name} plan"
-      detail -> "#{plan.name} · #{String.downcase(detail)}"
+      detail -> "#{plan.name} · #{lower_first(detail)}"
     end
   end
+
+  # "Ends on 3 May" -> "ends on 3 May" (month names keep their capital)
+  defp lower_first(<<first::utf8, rest::binary>>), do: String.downcase(<<first::utf8>>) <> rest
 
   @doc """
   What's notable about the subscription's status, without the plan name:
@@ -123,6 +145,14 @@ defmodule Keepsakes.Billing do
 
   def status_detail(%Subscription{status: "past_due"}, _now), do: "Payment due"
   def status_detail(%Subscription{status: "canceled"}, _now), do: "Canceled"
+
+  def status_detail(
+        %Subscription{status: "active", cancel_at_period_end: true, current_period_end: ends},
+        _now
+      )
+      when not is_nil(ends),
+      do: "Ends on #{Calendar.strftime(ends, "%-d %B %Y")}"
+
   def status_detail(_subscription, _now), do: nil
 
   defp days(at, now) do
@@ -143,13 +173,57 @@ defmodule Keepsakes.Billing do
   sends its email. Safe to run often: each step only matches
   subscriptions that haven't had it yet. Returns how many of each it did.
   """
-  @spec advance(DateTime.t()) :: %{reminders: integer(), grace: integer(), free: integer()}
+  @spec advance(DateTime.t()) :: %{atom() => non_neg_integer()}
   def advance(now \\ DateTime.utc_now(:second)) do
     %{
+      confirmed: Payments.check_pending(now),
+      cancelled: Payments.end_cancelled(now),
+      renewed: Payments.renew_due(now),
+      retried: Payments.retry_due(now),
       reminders: send_trial_reminders(now),
       grace: start_grace(now),
       free: move_to_free(now)
     }
+  end
+
+  ## Paying (see Keepsakes.Billing.Payments)
+
+  defdelegate quote_price(scope, price), to: Payments
+  defdelegate start_checkout(scope, price, redirect_url), to: Payments
+  defdelegate confirm(tx_ref, gateway_id \\ nil), to: Payments
+  defdelegate abandon(tx_ref), to: Payments
+  defdelegate cancel(scope), to: Payments
+  defdelegate resume(scope), to: Payments
+  defdelegate cancel_scheduled_change(scope), to: Payments
+  defdelegate list_invoices(scope), to: Payments
+  defdelegate get_invoice!(scope, id), to: Payments
+
+  @doc "The card renewals are charged to, or nil."
+  def payment_method(%Scope{user: user}), do: Payments.payment_method(user.id)
+
+  @doc "The active price for `plan_slug`, `currency` and `interval`. Raises when missing."
+  @spec get_price!(String.t(), String.t(), String.t()) :: Price.t()
+  def get_price!(plan_slug, currency, interval) do
+    Repo.one!(
+      from p in Price,
+        join: plan in assoc(p, :plan),
+        where:
+          plan.slug == ^plan_slug and p.currency == ^currency and p.interval == ^interval and
+            p.active,
+        preload: [plan: plan]
+    )
+  end
+
+  @doc """
+  The subscription with its plan, price and any booked change, for the
+  billing page.
+  """
+  def get_subscription_details(%Scope{user: user}) do
+    Repo.one(
+      from s in Subscription,
+        where: s.user_id == ^user.id,
+        preload: [:plan, price: :plan, pending_price: :plan]
+    )
   end
 
   defp send_trial_reminders(now) do
@@ -205,12 +279,31 @@ defmodule Keepsakes.Billing do
         status: "active",
         plan_id: free.id,
         price_id: nil,
+        pending_price_id: nil,
+        cancel_at_period_end: false,
         grace_ends_at: nil,
+        retry_count: 0,
+        next_retry_at: nil,
         current_period_start: nil,
         current_period_end: nil
       }
 
-      step(subscription, "moved_to_free", true, changes, &Notifier.deliver_moved_to_free(&1.user))
+      moved =
+        step(
+          subscription,
+          "moved_to_free",
+          true,
+          changes,
+          &Notifier.deliver_moved_to_free(&1.user)
+        )
+
+      # A renewal that was never paid is closed off
+      if moved do
+        from(i in Invoice, where: i.user_id == ^subscription.user_id and i.status == "open")
+        |> Repo.update_all(set: [status: "void", updated_at: now])
+      end
+
+      moved
     end)
   end
 

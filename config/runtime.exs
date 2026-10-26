@@ -96,6 +96,16 @@ if config_env() != :test do
   end
 end
 
+# Payments: Flutterwave v3 (test-mode keys in dev/staging, live keys in
+# production). Tests stub the API with Req.Test (config/test.exs).
+if config_env() != :test do
+  config :keepsakes, Keepsakes.Billing.Gateways.Flutterwave,
+    public_key: env!("FLW_PUBLIC_KEY", :string?, nil),
+    secret_key: env!("FLW_SECRET_KEY", :string?, nil),
+    encryption_key: env!("FLW_ENCRYPTION_KEY", :string?, nil),
+    secret_hash: env!("FLW_SECRET_HASH", :string?, nil)
+end
+
 # Email: Resend in prod; in dev only when MAIL_DELIVERY=resend (otherwise
 # mail lands in the local /dev/mailbox). Tests always use Swoosh.Adapters.Test.
 config :keepsakes, :mail_from, {

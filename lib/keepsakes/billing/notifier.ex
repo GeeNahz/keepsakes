@@ -1,6 +1,7 @@
 defmodule Keepsakes.Billing.Notifier do
-  @moduledoc "Emails about the trial, grace period and plan changes."
+  @moduledoc "Emails about the trial, payments, renewals and plan changes."
   alias Keepsakes.Accounts.User
+  alias Keepsakes.Billing.{PaymentMethod, Price}
   alias Keepsakes.Mailer
 
   defp deliver(%User{} = user, opts) do
@@ -60,6 +61,61 @@ defmodule Keepsakes.Billing.Notifier do
       ]
     )
   end
+
+  @doc "A paid invoice: what was charged, for which plan and period."
+  def deliver_receipt(user, invoice, payment_method) do
+    lines =
+      [
+        "Plan: #{invoice.plan.name} (#{interval(invoice.price.interval)})",
+        "Period: #{date(invoice.period_start)} to #{date(invoice.period_end)}",
+        invoice.credit_minor > 0 &&
+          "Credit for unused days: −#{Price.format(invoice.currency, invoice.credit_minor)}",
+        "Paid: #{Price.format(invoice.currency, invoice.amount_minor)}" <>
+          if(payment_method, do: " with #{PaymentMethod.label(payment_method)}", else: "")
+      ]
+      |> Enum.filter(& &1)
+
+    deliver(user,
+      subject: "Your Keepsake receipt #{invoice.number}",
+      heading: "Thank you, payment received",
+      paragraphs: lines,
+      action: {"View receipt", KeepsakesWeb.Endpoint.url() <> "/billing/invoices/#{invoice.id}"},
+      footnote:
+        "Your plan renews automatically on #{date(invoice.period_end)}. " <>
+          "You can cancel any time from Plans & billing."
+    )
+  end
+
+  @doc "A renewal charge failed; we'll retry on `next_retry_at`."
+  def deliver_payment_failed(user, next_retry_at) do
+    deliver(user,
+      subject: "We couldn't renew your Keepsake plan",
+      heading: "Your renewal payment didn't go through",
+      paragraphs: [
+        "We couldn't charge your card for your Keepsake plan. You still have every " <>
+          "feature while we sort it out, and we'll try again on #{date(next_retry_at)}.",
+        "To fix it now, pay with another card from Plans & billing."
+      ],
+      action: {"Pay now", billing_url()}
+    )
+  end
+
+  @doc "Every retry failed; full access continues until `grace_ends_at`."
+  def deliver_renewal_grace(user, grace_ends_at) do
+    deliver(user,
+      subject: "Action needed: your Keepsake plan is about to end",
+      heading: "We still couldn't renew your plan",
+      paragraphs: [
+        "After several tries we couldn't charge your card. Your plan's features stay " <>
+          "on until #{date(grace_ends_at)}; after that your account moves to the Free plan.",
+        "Nothing is deleted. Pay with another card any time to keep your plan."
+      ],
+      action: {"Pay now", billing_url()}
+    )
+  end
+
+  defp interval("month"), do: "monthly"
+  defp interval("year"), do: "yearly"
 
   defp date(%DateTime{} = at), do: Calendar.strftime(at, "%-d %B %Y")
 end

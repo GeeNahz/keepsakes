@@ -20,7 +20,8 @@ defmodule KeepsakesWeb.BillingLiveTest do
       assert has_element?(lv, "#plan-plus", "₦5,000")
       assert has_element?(lv, "#plan-pro-max_albums", "Unlimited")
       assert has_element?(lv, "#plan-free-premium_templates .hero-minus")
-      assert has_element?(lv, "#choose-plus[disabled]")
+      assert has_element?(lv, "#choose-plus", "Choose Plus")
+      refute has_element?(lv, "#choose-plus[disabled]")
     end
 
     test "switches currency and interval", %{conn: conn} do
