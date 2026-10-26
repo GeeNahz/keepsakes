@@ -290,7 +290,10 @@ defmodule KeepsakesWeb.BillingLive.Index do
           Cancel plan
         </.button>
         <.button
-          :if={@subscription.status == "active" and @subscription.cancel_at_period_end}
+          :if={
+            @subscription.status == "active" and @subscription.cancel_at_period_end and
+              not @subscription.complimentary
+          }
           id="resume-plan"
           variant="primary"
           size="sm"
@@ -586,6 +589,10 @@ defmodule KeepsakesWeb.BillingLive.Index do
 
   defp plan_note(%{status: "past_due", next_retry_at: %DateTime{} = next}),
     do: "We'll try your card again on #{date(next)}. You keep every feature meanwhile."
+
+  defp plan_note(%{complimentary: true, current_period_end: ends_at}),
+    do:
+      "A gift from the Keepsake team until #{date(ends_at)}. After that you move to the Free plan, unless you choose a paid plan. Nothing you've added is deleted."
 
   defp plan_note(%{cancel_at_period_end: true}),
     do:

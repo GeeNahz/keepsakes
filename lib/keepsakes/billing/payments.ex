@@ -430,6 +430,8 @@ defmodule Keepsakes.Billing.Payments do
       current_period_start: period_start,
       current_period_end: period_end,
       cancel_at_period_end: false,
+      # Paying ends a plan given by staff
+      complimentary: false,
       grace_ends_at: nil,
       retry_count: 0,
       next_retry_at: nil,
@@ -654,8 +656,8 @@ defmodule Keepsakes.Billing.Payments do
       join: u in assoc(s, :user),
       where: p.kind == "paid" and s.status == "active" and not s.cancel_at_period_end,
       where: s.current_period_end <= ^now,
-      # Accounts paused for deletion aren't charged
-      where: is_nil(u.deletion_requested_at),
+      # Accounts paused for deletion or suspended aren't charged
+      where: is_nil(u.deletion_requested_at) and is_nil(u.suspended_at),
       preload: [:user, :plan, :price, :pending_price]
     )
     |> Repo.all()
@@ -668,7 +670,7 @@ defmodule Keepsakes.Billing.Payments do
     from(s in Subscription,
       join: u in assoc(s, :user),
       where: s.status == "past_due" and s.next_retry_at <= ^now,
-      where: is_nil(u.deletion_requested_at),
+      where: is_nil(u.deletion_requested_at) and is_nil(u.suspended_at),
       preload: [:user, :plan, :price, :pending_price]
     )
     |> Repo.all()
@@ -855,7 +857,8 @@ defmodule Keepsakes.Billing.Payments do
   @doc "Undoes `cancel/1` before the period ends."
   def resume(%Scope{user: user}) do
     case subscription_for(user.id) do
-      %Subscription{status: "active", cancel_at_period_end: true} = s ->
+      # A plan given by staff ends on its date; there's no card to renew it
+      %Subscription{status: "active", cancel_at_period_end: true, complimentary: false} = s ->
         transition(s, "resumed", cancel_at_period_end: false)
 
       _ ->
@@ -939,6 +942,7 @@ defmodule Keepsakes.Billing.Payments do
         price_id: nil,
         pending_price_id: nil,
         cancel_at_period_end: false,
+        complimentary: false,
         current_period_start: nil,
         current_period_end: nil
       )

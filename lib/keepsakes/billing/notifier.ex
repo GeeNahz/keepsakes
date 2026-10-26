@@ -49,6 +49,32 @@ defmodule Keepsakes.Billing.Notifier do
     )
   end
 
+  @doc "Staff added days to the free trial (Keepsakes.Customers)."
+  def deliver_trial_extended(user, ends_at) do
+    deliver(user,
+      subject: "Your Keepsake trial now runs until #{date(ends_at)}",
+      heading: "More time on your free trial",
+      paragraphs: [
+        "We've extended your free trial. You have every feature until #{date(ends_at)}.",
+        "Choose a plan any time to keep them after that."
+      ]
+    )
+  end
+
+  @doc "Staff gave a paid plan free of charge until `ends_at` (Keepsakes.Customers)."
+  def deliver_plan_given(user, plan, ends_at) do
+    deliver(user,
+      subject: "You've been given Keepsake #{plan.name}",
+      heading: "Enjoy #{plan.name}, on us",
+      paragraphs: [
+        "The Keepsake team has given you the #{plan.name} plan until #{date(ends_at)}, " <>
+          "free of charge. No card is needed and you won't be charged.",
+        "After that your account moves to the Free plan unless you choose a paid plan. " <>
+          "Nothing you've added is deleted."
+      ]
+    )
+  end
+
   @doc "The grace period ran out and the account is now on Free."
   def deliver_moved_to_free(user) do
     deliver(user,

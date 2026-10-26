@@ -36,6 +36,8 @@ defmodule Keepsakes.Billing.Subscription do
     belongs_to :pending_price, Keepsakes.Billing.Price
     # The discount code in use, if any
     belongs_to :discount_redemption, Keepsakes.Billing.DiscountRedemption
+    # A paid plan given by staff until current_period_end; never charged
+    field :complimentary, :boolean, default: false
 
     timestamps()
   end

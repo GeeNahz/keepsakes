@@ -15,6 +15,24 @@ defmodule KeepsakesWeb.AdminComponents do
   attr :label, :string, required: true
   attr :value, :string, required: true
   attr :note, :string, default: nil
+  attr :navigate, :string, default: nil, doc: "makes the tile a link (e.g. to a filtered list)"
+
+  def stat(%{navigate: path} = assigns) when is_binary(path) do
+    ~H"""
+    <.link
+      id={@id}
+      navigate={@navigate}
+      class="group flex flex-col gap-1 rounded-box border border-base-300 bg-base-100 p-5 text-base-content no-underline transition-colors hover:border-primary"
+    >
+      <span class="flex items-center justify-between text-sm text-ks-muted">
+        {@label}
+        <span class="hero-arrow-right size-4 opacity-0 transition-opacity group-hover:opacity-100" />
+      </span>
+      <span class="font-display text-[28px] font-bold leading-tight tabular-nums">{@value}</span>
+      <span :if={@note} class="text-[13px] text-ks-muted">{@note}</span>
+    </.link>
+    """
+  end
 
   def stat(assigns) do
     ~H"""

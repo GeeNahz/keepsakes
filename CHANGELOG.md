@@ -111,6 +111,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Admin dashboard at `admin.<host>/`: customers (new in 7 and 30 days), free trials, paying customers, share who have ever paid, 30-day churn, MRR and ARR per currency (list prices), photo storage, open tickets, and server-rendered SVG bar charts of sign-ups and uploads per day with table views (`Keepsakes.Metrics`, staff excluded).
 - Admin Staff page (`/staff`: add by account email, change roles, remove) and Roles pages (`/roles`, `/roles/new`, `/roles/:id`: name, description and grouped permission checkboxes, delete).
 - `docs/learning/admin-subdomain.md` explaining how one app serves the admin subdomain, and the admin row in the production checklist.
+- Admin Customers list at `admin.<host>/customers` (`users.view`): every customer account (staff left out), newest first, 50 at a time with Load more, search by name or email and filters by plan and status (including suspended and deletion pending), kept in the URL; the dashboard's Customers and Free trial tiles link to it.
+- Admin customer profile at `/customers/:id`: plan, trial or period end, card, banked free months, discount and plan history; albums, photos and storage against the plan with over-limit flags; albums (shared or not); support tickets; invoices (with `finance.view`); and staff activity on the account (with `audit.view`).
+- Customer fixes for staff with `users.manage`, each audited (and recorded in the plan history where it changes the plan):
+  - **Extend trial:** 1–90 days; also brings a trial in grace back. The customer is emailed.
+  - **Gift free months:** 1–12, used on their next paid checkout. Needs a reason.
+  - **Give a plan:** a paid plan until a date, free of charge and with no card. The customer is emailed.
+  - **Move to Free.**
+  - **Suspend / Unsuspend**, with a reason.
+- `Keepsakes.Customers` context behind those pages, and `users.suspended_at`, `users.suspension_reason` and `subscriptions.complimentary` columns.
+- Emails: "Your Keepsake trial now runs until …" and "You've been given Keepsake <plan>".
 
 ### Changed
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
@@ -141,6 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every owner-portal page (upload screen, Share, Template, Plans & billing, settings) now shows the header and album sidebar; the `sidebar={false}` option on `Layouts.app` is gone.
 - The owner header sticks to the top, and the album sidebar stays in view at viewport height while the page scrolls; a long album list scrolls inside the sidebar so New album and the storage meter stay visible.
 - `Scope` no longer carries unused `subscription`/`entitlements` fields; `Keepsakes.Format.bytes/1` is shared by pages and messages.
+- A suspended account can't log in by password or emailed link ("This account is suspended…"), its sessions are ended, its shared links stop opening, and its renewals and retries are skipped until it's unsuspended.
+- A plan given by staff ends on its date and moves the customer to Free without a charge. Plans & billing describes it as a gift and has no "Keep my plan" button for it. Paying for any plan replaces it.
 
 ### Fixed
 - The owner sidebar no longer stretches past the screen on long pages, which pushed the storage meter out of view.

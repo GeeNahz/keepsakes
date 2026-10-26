@@ -58,6 +58,16 @@ defmodule KeepsakesWeb.Router do
       live "/", DashboardLive, :index
     end
 
+    live_session :staff_customers,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "users.view"}}
+      ] do
+      live "/customers", CustomerLive.Index, :index
+      live "/customers/:id", CustomerLive.Show, :show
+    end
+
     live_session :staff_roles,
       root_layout: {KeepsakesWeb.Layouts, :admin_root},
       on_mount: [

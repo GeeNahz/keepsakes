@@ -38,8 +38,14 @@ defmodule KeepsakesWeb.Admin.DashboardLive do
           label="Customers"
           value={count(@metrics.customers)}
           note={"+#{count(@metrics.new_7d)} in 7 days · +#{count(@metrics.new_30d)} in 30"}
+          navigate={if(@customers?, do: ~p"/customers")}
         />
-        <.stat id="stat-trials" label="On the free trial" value={count(@metrics.trials)} />
+        <.stat
+          id="stat-trials"
+          label="On the free trial"
+          value={count(@metrics.trials)}
+          navigate={if(@customers?, do: ~p"/customers?status=trialing")}
+        />
         <.stat
           id="stat-paying"
           label="Paying"
@@ -92,7 +98,13 @@ defmodule KeepsakesWeb.Admin.DashboardLive do
     metrics =
       if StaffScope.can?(scope, "dashboard.view"), do: Metrics.dashboard(scope), else: nil
 
-    {:ok, assign(socket, page_title: "Dashboard", metrics: metrics)}
+    {:ok,
+     assign(socket,
+       page_title: "Dashboard",
+       metrics: metrics,
+       # Tiles link to the customer list for staff who can open it
+       customers?: StaffScope.can?(scope, "users.view")
+     )}
   end
 
   # NGN first, then USD, showing both even at zero

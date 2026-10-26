@@ -55,6 +55,16 @@ defmodule KeepsakesWeb.UserAuth do
   """
   def log_in_or_continue(conn, user, params \\ %{}) do
     cond do
+      # Suspended by staff (Keepsakes.Customers): no way in
+      user.suspended_at ->
+        conn
+        |> clear_flash()
+        |> put_flash(
+          :error,
+          "This account is suspended. Contact support if you think it's a mistake."
+        )
+        |> redirect(to: ~p"/auth/log-in")
+
       user.deletion_requested_at ->
         conn |> park(user, params) |> redirect(to: ~p"/auth/restore")
 
