@@ -51,6 +51,15 @@ defmodule KeepsakesWeb.SettingsLive.Profile do
             <span class="text-[13px] text-ks-muted">
               JPG, PNG, HEIC or WebP, up to 5 MB. It's cropped to a square.
             </span>
+            <progress
+              :for={entry <- @uploads.avatar.entries}
+              :if={entry.valid? and not entry.done?}
+              id="avatar-progress"
+              class="progress progress-primary h-1.5 w-56"
+              value={entry.progress}
+              max="100"
+              aria-label="Uploading photo"
+            ></progress>
             <p :for={err <- upload_errors(@uploads.avatar)} class="text-sm text-error">
               {error_text(err)}
             </p>

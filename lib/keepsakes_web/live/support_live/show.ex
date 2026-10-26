@@ -93,7 +93,14 @@ defmodule KeepsakesWeb.SupportLive.Show do
             >{@reply}</textarea>
             <.file_picker upload={@uploads.files} />
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <.button id="send-reply" variant="primary" phx-disable-with="Sending…">Send</.button>
+              <.button
+                id="send-reply"
+                variant="primary"
+                phx-disable-with="Sending…"
+                disabled={uploading?(@uploads.files)}
+              >
+                {if uploading?(@uploads.files), do: "Uploading…", else: "Send"}
+              </.button>
               <.button
                 :if={@ticket.status != "resolved"}
                 id="resolve-ticket"
@@ -151,6 +158,9 @@ defmodule KeepsakesWeb.SupportLive.Show do
     case result do
       {:ok, _message} ->
         {:noreply, socket |> assign(reply: "") |> reload()}
+
+      {:error, {:file, filename, reason}} ->
+        {:noreply, put_flash(socket, :error, Support.file_error(filename, reason))}
 
       {:error, :empty} ->
         {:noreply, put_flash(socket, :error, "Write a message or add a file.")}

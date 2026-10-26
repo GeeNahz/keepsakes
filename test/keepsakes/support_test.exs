@@ -31,14 +31,20 @@ defmodule Keepsakes.SupportTest do
 
   defp staff, do: user_fixture()
 
+  defp temp_file(contents) do
+    path = Path.join(System.tmp_dir!(), "ks-attach-#{System.unique_integer([:positive])}")
+    File.write!(path, contents)
+    on_exit(fn -> File.rm(path) end)
+    path
+  end
+
   describe "opening a ticket" do
     test "numbers it, keeps the message and files, and confirms by email", %{scope: scope} do
-      path = Path.join(System.tmp_dir!(), "ks-shot-#{System.unique_integer([:positive])}.png")
-      File.write!(path, "png-bytes")
+      path = temp_file(jpeg(width: 4000, height: 3000))
 
       ticket =
         ticket_fixture(scope, %{}, [
-          %{path: path, filename: "screen shot.png", content_type: "image/png", bytes: 9}
+          %{path: path, filename: "screen shot.jpg", content_type: "image/jpeg", bytes: 1}
         ])
 
       assert ticket.number =~ ~r/^KS-T-\d{4,}$/
@@ -50,8 +56,47 @@ defmodule Keepsakes.SupportTest do
       assert [%Message{author_type: "user", body: "It spins.", attachments: [attachment]}] =
                ticket.messages
 
-      assert attachment.filename == "screen shot.png"
-      assert {:ok, "png-bytes"} = Storage.get(attachment.storage_key)
+      # Photos are stored as one small WebP, longest side 1600 px
+      assert {attachment.filename, attachment.content_type} == {"screen shot.webp", "image/webp"}
+      {:ok, data} = Storage.get(attachment.storage_key)
+      assert attachment.bytes == byte_size(data)
+      {:ok, image} = Image.from_binary(data)
+      assert {Image.width(image), Image.height(image)} == {1600, 1200}
+    end
+
+    test "PDFs are kept as they are, up to 5 MB; fakes are refused", %{scope: scope} do
+      pdf = temp_file("%PDF-1.4 tiny")
+
+      ticket =
+        ticket_fixture(scope, %{}, [
+          %{path: pdf, filename: "invoice.pdf", content_type: "application/pdf", bytes: 1}
+        ])
+
+      [%{attachments: [attachment]}] = Support.get_ticket!(scope, ticket.number).messages
+      assert {:ok, "%PDF-1.4 tiny"} = Storage.get(attachment.storage_key)
+
+      big = temp_file(:binary.copy("x", Support.max_pdf_bytes() + 1))
+      not_pdf = temp_file("hello")
+      fake_photo = temp_file("not really a photo")
+      attrs = %{"category" => "other", "subject" => "Files", "body" => "See attached"}
+
+      assert {:error, {:file, "big.pdf", :too_large}} =
+               Support.create_ticket(scope, attrs, [
+                 %{path: big, filename: "big.pdf", content_type: "application/pdf", bytes: 1}
+               ])
+
+      assert {:error, {:file, "x.pdf", :unreadable}} =
+               Support.create_ticket(scope, attrs, [
+                 %{path: not_pdf, filename: "x.pdf", content_type: "application/pdf", bytes: 1}
+               ])
+
+      assert {:error, {:file, "me.png", :unreadable}} =
+               Support.create_ticket(scope, attrs, [
+                 %{path: fake_photo, filename: "me.png", content_type: "image/png", bytes: 1}
+               ])
+
+      # Nothing was half-saved
+      assert length(Support.list_tickets(scope)) == 1
     end
 
     test "abuse reports start at high priority", %{scope: scope} do
