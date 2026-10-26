@@ -58,12 +58,12 @@ defmodule KeepsakesWeb.Layouts do
     <div class="flex min-h-screen flex-col bg-base-200">
       <%!-- Fixed height (h-16) so the sticky sidebar can sit right under it --%>
       <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-base-300 bg-base-100 px-4 sm:px-8">
-        <.link navigate={~p"/albums"} class="text-base-content no-underline">
+        <.link navigate={~p"/app/albums"} class="text-base-content no-underline">
           <.logo />
         </.link>
         <nav class="flex items-center gap-5">
           <.link
-            navigate={~p"/albums"}
+            navigate={~p"/app/albums"}
             class="text-[15px] font-medium text-base-content no-underline hover:text-primary"
           >
             My albums
@@ -95,7 +95,7 @@ defmodule KeepsakesWeb.Layouts do
               <.link
                 :for={album <- @owner.albums}
                 id={"sidebar-album-#{album.id}"}
-                navigate={~p"/albums/#{album.slug}"}
+                navigate={~p"/app/albums/#{album.slug}"}
                 aria-current={album.id == @owner.current_album_id && "page"}
                 class={[
                   "flex items-center justify-between gap-2 rounded-field p-3 text-base-content no-underline transition-colors",
@@ -140,7 +140,7 @@ defmodule KeepsakesWeb.Layouts do
           >
             <.link
               :for={album <- @owner.albums}
-              navigate={~p"/albums/#{album.slug}"}
+              navigate={~p"/app/albums/#{album.slug}"}
               class={[
                 "shrink-0 rounded-full px-3.5 py-1.5 text-sm no-underline",
                 if(album.id == @owner.current_album_id,
@@ -234,7 +234,7 @@ defmodule KeepsakesWeb.Layouts do
           <%= if @current_scope && @current_scope.user do %>
             <.user_menu user={@current_scope.user} />
           <% else %>
-            <.link navigate={~p"/users/log-in"} class="text-[15px] font-medium">Log in</.link>
+            <.link navigate={~p"/auth/log-in"} class="text-[15px] font-medium">Log in</.link>
           <% end %>
         </div>
       </header>
@@ -274,22 +274,22 @@ defmodule KeepsakesWeb.Layouts do
         </div>
         <ul class="menu w-full p-0">
           <li>
-            <.link navigate={~p"/albums"}>
+            <.link navigate={~p"/app/albums"}>
               <.icon name="hero-photo" /> My albums
             </.link>
           </li>
           <li>
-            <.link id="user-menu-billing" navigate={~p"/billing"}>
+            <.link id="user-menu-billing" navigate={~p"/app/billing"}>
               <.icon name="hero-credit-card" /> Plans &amp; billing
             </.link>
           </li>
           <li>
-            <.link id="user-menu-settings" navigate={~p"/users/settings"}>
+            <.link id="user-menu-settings" navigate={~p"/app/settings"}>
               <.icon name="hero-cog-6-tooth" /> Settings
             </.link>
           </li>
           <li>
-            <.link id="user-menu-log-out" href={~p"/users/log-out"} method="delete">
+            <.link id="user-menu-log-out" href={~p"/auth/log-out"} method="delete">
               <.icon name="hero-arrow-right-start-on-rectangle" /> Log out
             </.link>
           </li>
@@ -317,7 +317,7 @@ defmodule KeepsakesWeb.Layouts do
           Confirm your email. We sent a link to <strong>{@user.email}</strong>.
         </span>
       </p>
-      <.form for={%{}} action={~p"/users/confirm/resend"} id="resend-confirmation-form">
+      <.form for={%{}} action={~p"/app/confirm-email/resend"} id="resend-confirmation-form">
         <.button id="resend-confirmation" size="sm" variant="outline">Resend link</.button>
       </.form>
     </div>
@@ -370,7 +370,7 @@ defmodule KeepsakesWeb.Layouts do
     ~H"""
     <.link
       id="sidebar-plan"
-      navigate={~p"/billing"}
+      navigate={~p"/app/billing"}
       class="mt-2.5 flex items-start justify-between gap-2 text-[13px] leading-snug text-ks-muted no-underline hover:text-primary"
     >
       <span class="min-w-0">{@label}</span>
@@ -396,7 +396,7 @@ defmodule KeepsakesWeb.Layouts do
           and guests can still view your albums; to add more, upgrade or make room.
         </span>
       </p>
-      <.button id="over-limit-plans" size="sm" variant="outline" navigate={~p"/billing"}>
+      <.button id="over-limit-plans" size="sm" variant="outline" navigate={~p"/app/billing"}>
         See plans
       </.button>
     </div>
@@ -439,7 +439,7 @@ defmodule KeepsakesWeb.Layouts do
         </p>
         <div class="flex justify-end gap-2.5">
           <.button type="button" phx-click={hide_modal("new-album-dialog")}>Close</.button>
-          <.button id="album-limit-plans" variant="primary" navigate={~p"/billing"}>
+          <.button id="album-limit-plans" variant="primary" navigate={~p"/app/billing"}>
             See plans
           </.button>
         </div>

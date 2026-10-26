@@ -1,6 +1,6 @@
 defmodule KeepsakesWeb.AlbumLive.Index do
   @moduledoc """
-  `/albums`, the owner's home. With no albums it shows the "Start your
+  `/app/albums`, the owner's home. With no albums it shows the "Start your
   first album" empty state (form events handled by `KeepsakesWeb.OwnerShell`);
   otherwise it opens the most recently created album.
   """
@@ -80,7 +80,7 @@ defmodule KeepsakesWeb.AlbumLive.Index do
   def mount(_params, _session, socket) do
     case List.last(socket.assigns.owner.albums) do
       nil -> {:ok, assign(socket, page_title: "My albums")}
-      album -> {:ok, push_navigate(socket, to: ~p"/albums/#{album.slug}")}
+      album -> {:ok, push_navigate(socket, to: ~p"/app/albums/#{album.slug}")}
     end
   end
 

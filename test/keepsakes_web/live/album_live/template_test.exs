@@ -16,15 +16,15 @@ defmodule KeepsakesWeb.AlbumLive.TemplateTest do
   end
 
   test "the album page links to the template picker", %{conn: conn, album: album} do
-    {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
-    assert has_element?(lv, ~s(#album-template[href="/albums/#{album.slug}/template"]))
+    {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
+    assert has_element?(lv, ~s(#album-template[href="/app/albums/#{album.slug}/template"]))
   end
 
   test "lists templates with previews, the current one and Coming soon", %{
     conn: conn,
     album: album
   } do
-    {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/template")
+    {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/template")
 
     assert has_element?(lv, "#template-trail", "In use")
     refute has_element?(lv, "#use-trail")
@@ -41,7 +41,7 @@ defmodule KeepsakesWeb.AlbumLive.TemplateTest do
   end
 
   test "using a template switches the album", %{conn: conn, scope: scope, album: album} do
-    {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/template")
+    {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/template")
 
     lv |> element("#use-daylight") |> render_click()
 
@@ -54,7 +54,7 @@ defmodule KeepsakesWeb.AlbumLive.TemplateTest do
 
   test "another user's private template can't be used", %{conn: conn, album: album} do
     template_fixture(%{slug: "theirs"}, user_fixture())
-    {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/template")
+    {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/template")
 
     refute has_element?(lv, "#template-theirs")
     assert render_click(lv, "use", %{"slug" => "theirs"}) =~ "isn&#39;t available"
@@ -68,7 +68,7 @@ defmodule KeepsakesWeb.AlbumLive.TemplateTest do
 
       {:ok, lv, _html} = live(conn, ~p"/a/preview/#{album.slug}/daylight/timeline")
       assert has_element?(lv, "#owner-preview-banner", "in Daylight")
-      assert has_element?(lv, ~s(#banner-templates[href="/albums/#{album.slug}/template"]))
+      assert has_element?(lv, ~s(#banner-templates[href="/app/albums/#{album.slug}/template"]))
 
       assert has_element?(
                lv,
@@ -80,7 +80,7 @@ defmodule KeepsakesWeb.AlbumLive.TemplateTest do
       assert {:error, {:redirect, %{to: to}}} =
                live(conn, ~p"/a/preview/#{album.slug}/nope/timeline")
 
-      assert to == "/albums/#{album.slug}/template"
+      assert to == "/app/albums/#{album.slug}/template"
     end
 
     # A fresh conn: the logged-in owner would skip the code page

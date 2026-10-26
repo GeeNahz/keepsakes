@@ -64,7 +64,7 @@ defmodule KeepsakesWeb.UserLive.Confirmation do
       {:ok,
        socket
        |> put_flash(:error, "That link is invalid or it has expired.")
-       |> push_navigate(to: ~p"/users/log-in")}
+       |> push_navigate(to: ~p"/auth/log-in")}
     end
   end
 
@@ -78,7 +78,7 @@ defmodule KeepsakesWeb.UserLive.Confirmation do
       heading: "Confirm your email",
       button_label: "Confirm",
       form_id: "confirmation_form",
-      action: ~p"/users/log-in?_action=confirmed"
+      action: ~p"/auth/log-in?_action=confirmed"
     )
   end
 
@@ -87,7 +87,7 @@ defmodule KeepsakesWeb.UserLive.Confirmation do
       heading: "Reset your password",
       button_label: "Continue",
       form_id: "reset_form",
-      action: ~p"/users/log-in?_action=reset"
+      action: ~p"/auth/log-in?_action=reset"
     )
   end
 
@@ -96,7 +96,7 @@ defmodule KeepsakesWeb.UserLive.Confirmation do
       heading: "Sign in to Keepsake",
       button_label: "Log in",
       form_id: "login_form",
-      action: ~p"/users/log-in"
+      action: ~p"/auth/log-in"
     )
   end
 end

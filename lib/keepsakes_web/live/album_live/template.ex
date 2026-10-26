@@ -1,6 +1,6 @@
 defmodule KeepsakesWeb.AlbumLive.Template do
   @moduledoc """
-  `/albums/:slug/template`: the template gallery for one album. Each card
+  `/app/albums/:slug/template`: the template gallery for one album. Each card
   shows the template in its own colours with the album's photos; Preview
   opens the album in that template (`/a/preview/:slug/:template/timeline`)
   before anything changes, and "Use this template" switches what guests
@@ -22,7 +22,7 @@ defmodule KeepsakesWeb.AlbumLive.Template do
         <div class="flex flex-col gap-1.5">
           <.link
             id="template-back"
-            navigate={~p"/albums/#{@album.slug}"}
+            navigate={~p"/app/albums/#{@album.slug}"}
             class="w-fit text-sm font-medium no-underline"
           >
             ← {@album.name}
@@ -55,7 +55,11 @@ defmodule KeepsakesWeb.AlbumLive.Template do
               <%= cond do %>
                 <% template.id == @current.id -> %>
                 <% template.premium and not @premium? -> %>
-                  <.button id={"upgrade-#{template.slug}"} variant="primary" navigate={~p"/billing"}>
+                  <.button
+                    id={"upgrade-#{template.slug}"}
+                    variant="primary"
+                    navigate={~p"/app/billing"}
+                  >
                     Upgrade to use
                   </.button>
                 <% true -> %>

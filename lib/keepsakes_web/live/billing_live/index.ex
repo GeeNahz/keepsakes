@@ -1,13 +1,13 @@
 defmodule KeepsakesWeb.BillingLive.Index do
   @moduledoc """
-  `/billing`: the owner's plan, what they're using against its limits, the
+  `/app/billing`: the owner's plan, what they're using against its limits, the
   card renewals are charged to, invoices, and the plans side by side in
   NGN or USD, monthly or yearly.
 
   Choosing a plan first shows what it means (`Billing.quote_price/2`):
   what's due today with any credit for unused days, or that a downgrade
   waits for the next renewal. Paying continues on Flutterwave's card page,
-  which returns to `/billing/return`. The page reloads when a payment is
+  which returns to `/app/billing/return`. The page reloads when a payment is
   confirmed (also from a webhook). Becomes the Billing tab of settings in
   Stage 6.
   """
@@ -146,7 +146,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
                   <td class="text-right">
                     <.link
                       :if={invoice.status == "paid"}
-                      navigate={~p"/billing/invoices/#{invoice.id}"}
+                      navigate={~p"/app/billing/invoices/#{invoice.id}"}
                       class="text-sm font-bold"
                     >
                       Receipt
@@ -583,7 +583,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
   def handle_event("confirm_plan", _params, %{assigns: %{quote: %Quote{} = quote}} = socket) do
     %{current_scope: scope} = socket.assigns
 
-    case Billing.start_checkout(scope, quote.price, url(~p"/billing/return")) do
+    case Billing.start_checkout(scope, quote.price, url(~p"/app/billing/return")) do
       {:ok, {:redirect, link}} ->
         {:noreply, redirect(socket, external: link)}
 

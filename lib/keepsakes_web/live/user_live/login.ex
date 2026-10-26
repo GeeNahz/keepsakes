@@ -34,7 +34,7 @@ defmodule KeepsakesWeb.UserLive.Login do
           for={@form}
           id="login_form_password"
           class="flex flex-col gap-1"
-          action={~p"/users/log-in"}
+          action={~p"/auth/log-in"}
           phx-submit="submit"
           phx-trigger-action={@trigger_submit}
         >
@@ -66,7 +66,7 @@ defmodule KeepsakesWeb.UserLive.Login do
             />
             <.link
               id="forgot-password-link"
-              navigate={~p"/users/reset-password"}
+              navigate={~p"/auth/reset-password"}
               class="mb-2 text-sm font-bold"
             >
               Forgot password?
@@ -100,7 +100,7 @@ defmodule KeepsakesWeb.UserLive.Login do
 
         <p :if={!@current_scope} class="text-[15px] text-ks-muted">
           New to Keepsake?
-          <.link navigate={~p"/users/register"} class="font-bold">Create an account</.link>
+          <.link navigate={~p"/auth/register"} class="font-bold">Create an account</.link>
         </p>
       </div>
     </Layouts.app>
@@ -129,7 +129,7 @@ defmodule KeepsakesWeb.UserLive.Login do
     case AuthThrottle.email_link(socket.assigns.client_ip, email) do
       :ok ->
         if user = Accounts.get_user_by_email(email) do
-          Accounts.deliver_login_instructions(user, &url(~p"/users/log-in/#{&1}"))
+          Accounts.deliver_login_instructions(user, &url(~p"/auth/log-in/#{&1}"))
         end
 
         info =
@@ -138,7 +138,7 @@ defmodule KeepsakesWeb.UserLive.Login do
         {:noreply,
          socket
          |> put_flash(:info, info)
-         |> push_navigate(to: ~p"/users/log-in")}
+         |> push_navigate(to: ~p"/auth/log-in")}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, AuthThrottle.message(reason))}

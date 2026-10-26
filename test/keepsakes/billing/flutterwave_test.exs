@@ -22,7 +22,7 @@ defmodule Keepsakes.Billing.Gateways.FlutterwaveTest do
                currency: "NGN",
                email: "ada@example.com",
                name: "Ada",
-               redirect_url: "http://localhost/billing/return",
+               redirect_url: "http://localhost/app/billing/return",
                title: "Keepsake",
                description: "Plus · monthly"
              })

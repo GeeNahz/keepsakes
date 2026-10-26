@@ -8,7 +8,7 @@ defmodule Keepsakes.Billing.PaymentsTest do
   alias Keepsakes.{Billing, FlutterwaveStub}
   alias Keepsakes.Billing.{Invoice, Payment, PaymentEvent, Payments, Quote}
 
-  @return "http://localhost:4000/billing/return"
+  @return "http://localhost:4000/app/billing/return"
 
   setup do
     FlutterwaveStub.stub()

@@ -14,7 +14,7 @@ defmodule KeepsakesWeb.UserSessionController do
 
   def create(conn, %{"_action" => "reset"} = params) do
     conn
-    |> put_session(:user_return_to, ~p"/users/settings#password")
+    |> put_session(:user_return_to, ~p"/app/settings#password")
     |> create(params, "You're signed in. Choose a new password below.")
   end
 
@@ -33,7 +33,7 @@ defmodule KeepsakesWeb.UserSessionController do
         UserAuth.disconnect_sessions(tokens_to_disconnect)
 
         conn
-        |> put_session(:user_return_to, ~p"/users/settings#password")
+        |> put_session(:user_return_to, ~p"/app/settings#password")
         |> put_flash(
           :info,
           "Your email is confirmed. Set a password to finish securing your account."
@@ -50,7 +50,7 @@ defmodule KeepsakesWeb.UserSessionController do
       _ ->
         conn
         |> put_flash(:error, "The link is invalid or it has expired.")
-        |> redirect(to: ~p"/users/log-in")
+        |> redirect(to: ~p"/auth/log-in")
     end
   end
 
@@ -68,14 +68,14 @@ defmodule KeepsakesWeb.UserSessionController do
         conn
         |> put_flash(:error, AuthThrottle.message(reason))
         |> put_flash(:email, String.slice(email, 0, 160))
-        |> redirect(to: ~p"/users/log-in")
+        |> redirect(to: ~p"/auth/log-in")
 
       nil ->
         # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
         conn
         |> put_flash(:error, "Invalid email or password")
         |> put_flash(:email, String.slice(email, 0, 160))
-        |> redirect(to: ~p"/users/log-in")
+        |> redirect(to: ~p"/auth/log-in")
     end
   end
 
@@ -88,7 +88,7 @@ defmodule KeepsakesWeb.UserSessionController do
     UserAuth.disconnect_sessions(expired_tokens)
 
     conn
-    |> put_session(:user_return_to, ~p"/users/settings")
+    |> put_session(:user_return_to, ~p"/app/settings")
     |> create(params, "Password updated successfully!")
   end
 

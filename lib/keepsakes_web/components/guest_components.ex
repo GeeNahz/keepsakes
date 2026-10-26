@@ -103,12 +103,12 @@ defmodule KeepsakesWeb.GuestComponents do
       <.link
         :if={@preview?}
         id="banner-templates"
-        navigate={~p"/albums/#{@album.slug}/template"}
+        navigate={~p"/app/albums/#{@album.slug}/template"}
         class="font-bold text-accent-content underline"
       >
         Templates
       </.link>
-      <.link navigate={~p"/albums/#{@album.slug}"} class="font-bold text-accent-content underline">
+      <.link navigate={~p"/app/albums/#{@album.slug}"} class="font-bold text-accent-content underline">
         Back to album
       </.link>
     </div>

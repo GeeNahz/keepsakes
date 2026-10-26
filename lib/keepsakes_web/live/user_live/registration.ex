@@ -21,7 +21,7 @@ defmodule KeepsakesWeb.UserLive.Registration do
           for={@form}
           id="registration_form"
           class="flex max-w-[440px] flex-col gap-1"
-          action={~p"/users/log-in?_action=registered"}
+          action={~p"/auth/log-in?_action=registered"}
           method="post"
           phx-submit="save"
           phx-change="validate"
@@ -71,7 +71,7 @@ defmodule KeepsakesWeb.UserLive.Registration do
           </.button>
           <p class="mt-3 text-[15px] text-ks-muted">
             Already have an account?
-            <.link navigate={~p"/users/log-in"} class="font-bold">Log in</.link>
+            <.link navigate={~p"/auth/log-in"} class="font-bold">Log in</.link>
           </p>
         </.form>
       <% else %>
@@ -85,7 +85,7 @@ defmodule KeepsakesWeb.UserLive.Registration do
           </p>
           <p class="text-[15px] text-ks-muted">
             Already have an account?
-            <.link navigate={~p"/users/log-in"} class="font-bold">Log in</.link>
+            <.link navigate={~p"/auth/log-in"} class="font-bold">Log in</.link>
           </p>
         </div>
       <% end %>
@@ -118,7 +118,7 @@ defmodule KeepsakesWeb.UserLive.Registration do
     with true <- Settings.get(:signups_open) || {:error, :closed},
          :ok <- AuthThrottle.register(socket.assigns.client_ip),
          {:ok, user} <- Accounts.register_user(user_params) do
-      {:ok, _} = Accounts.deliver_login_instructions(user, &url(~p"/users/log-in/#{&1}"))
+      {:ok, _} = Accounts.deliver_login_instructions(user, &url(~p"/auth/log-in/#{&1}"))
 
       # Submit the same email + password to the session controller, which
       # logs the new user in (LiveViews can't write the session cookie).

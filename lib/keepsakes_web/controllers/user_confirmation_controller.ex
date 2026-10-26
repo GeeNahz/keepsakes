@@ -21,10 +21,10 @@ defmodule KeepsakesWeb.UserConfirmationController do
           )
 
         true ->
-          {:ok, _} = Accounts.deliver_login_instructions(user, &url(~p"/users/log-in/#{&1}"))
+          {:ok, _} = Accounts.deliver_login_instructions(user, &url(~p"/auth/log-in/#{&1}"))
           put_flash(conn, :info, "Sent! Check #{user.email} for the confirmation link.")
       end
 
-    redirect(conn, to: ~p"/albums")
+    redirect(conn, to: ~p"/app/albums")
   end
 end

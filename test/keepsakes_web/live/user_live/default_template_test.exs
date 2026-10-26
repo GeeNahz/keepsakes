@@ -9,7 +9,7 @@ defmodule KeepsakesWeb.UserLive.DefaultTemplateTest do
   setup :register_and_log_in_user
 
   test "picking the template for new albums", %{conn: conn, user: user} do
-    {:ok, lv, _html} = live(conn, ~p"/users/settings")
+    {:ok, lv, _html} = live(conn, ~p"/app/settings")
     assert has_element?(lv, ~s(#default_template_slug option[value="trail"][selected]))
 
     lv

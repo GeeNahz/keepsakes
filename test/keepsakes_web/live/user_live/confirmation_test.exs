@@ -16,12 +16,12 @@ defmodule KeepsakesWeb.UserLive.ConfirmationTest do
 
   describe "Confirm user" do
     test "renders the confirm form for an unconfirmed user", %{conn: conn, unconfirmed_user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{login_token(user)}")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in/#{login_token(user)}")
       assert has_element?(lv, "#confirmation_form")
     end
 
     test "renders the login form for a confirmed user", %{conn: conn, confirmed_user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{login_token(user)}")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in/#{login_token(user)}")
       refute has_element?(lv, "#confirmation_form")
       assert has_element?(lv, ~s(#login_form button[name="user[remember_me]"]))
     end
@@ -32,19 +32,19 @@ defmodule KeepsakesWeb.UserLive.ConfirmationTest do
     } do
       conn = log_in_user(conn, user)
 
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{login_token(user)}")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in/#{login_token(user)}")
       assert has_element?(lv, "#login_form")
       refute has_element?(lv, ~s(#login_form button[name="user[remember_me]"]))
     end
 
     test "renders the reset form for reset links", %{conn: conn, confirmed_user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{login_token(user)}?reset=1")
-      assert has_element?(lv, ~s(#reset_form[action="/users/log-in?_action=reset"]))
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in/#{login_token(user)}?reset=1")
+      assert has_element?(lv, ~s(#reset_form[action="/auth/log-in?_action=reset"]))
     end
 
     test "confirms the given token once", %{conn: conn, unconfirmed_user: user} do
       token = login_token(user)
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{token}")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in/#{token}")
 
       form = form(lv, "#confirmation_form", %{"user" => %{"token" => token}})
       render_submit(form)
@@ -59,8 +59,8 @@ defmodule KeepsakesWeb.UserLive.ConfirmationTest do
       conn = build_conn()
 
       {:ok, _lv, html} =
-        live(conn, ~p"/users/log-in/#{token}")
-        |> follow_redirect(conn, ~p"/users/log-in")
+        live(conn, ~p"/auth/log-in/#{token}")
+        |> follow_redirect(conn, ~p"/auth/log-in")
 
       assert html =~ "That link is invalid or it has expired"
     end
@@ -70,7 +70,7 @@ defmodule KeepsakesWeb.UserLive.ConfirmationTest do
       confirmed_user: user
     } do
       token = login_token(user)
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{token}")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in/#{token}")
 
       form = form(lv, "#login_form", %{"user" => %{"token" => token}})
       render_submit(form)
@@ -84,16 +84,16 @@ defmodule KeepsakesWeb.UserLive.ConfirmationTest do
       conn = build_conn()
 
       {:ok, _lv, html} =
-        live(conn, ~p"/users/log-in/#{token}")
-        |> follow_redirect(conn, ~p"/users/log-in")
+        live(conn, ~p"/auth/log-in/#{token}")
+        |> follow_redirect(conn, ~p"/auth/log-in")
 
       assert html =~ "That link is invalid or it has expired"
     end
 
     test "redirects for an invalid token", %{conn: conn} do
       {:ok, _lv, html} =
-        live(conn, ~p"/users/log-in/invalid-token")
-        |> follow_redirect(conn, ~p"/users/log-in")
+        live(conn, ~p"/auth/log-in/invalid-token")
+        |> follow_redirect(conn, ~p"/auth/log-in")
 
       assert html =~ "That link is invalid or it has expired"
     end
