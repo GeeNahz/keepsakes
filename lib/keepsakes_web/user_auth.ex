@@ -41,6 +41,62 @@ defmodule KeepsakesWeb.UserAuth do
     |> redirect(to: user_return_to || signed_in_path(conn))
   end
 
+  ## The step between a correct password (or link) and being logged in
+
+  @pending_key :pending_login
+  # Seconds to finish two-step login or restore after the password
+  @pending_ttl 600
+
+  @doc """
+  Logs the user in after their password or emailed link checked out, unless
+  one more step comes first: a paused account is offered "Restore my
+  account" (`/auth/restore`), and two-step accounts are asked for a code
+  (`/auth/two-step`). Until then only the user's ID sits in the session.
+  """
+  def log_in_or_continue(conn, user, params \\ %{}) do
+    cond do
+      user.deletion_requested_at ->
+        conn |> park(user, params) |> redirect(to: ~p"/auth/restore")
+
+      Keepsakes.Accounts.TwoStep.enabled?(user) ->
+        conn |> park(user, params) |> redirect(to: ~p"/auth/two-step")
+
+      true ->
+        log_in_user(conn, user, params)
+    end
+  end
+
+  defp park(conn, user, params) do
+    put_session(conn, @pending_key, %{
+      "user_id" => user.id,
+      "remember_me" => params["remember_me"],
+      "at" => System.system_time(:second)
+    })
+  end
+
+  @doc "The user waiting on a login step, or nil when there's none (or it's too old)."
+  def pending_user(conn) do
+    with %{"user_id" => id, "at" => at} <- get_session(conn, @pending_key),
+         true <- System.system_time(:second) - at < @pending_ttl,
+         %Keepsakes.Accounts.User{} = user <- Accounts.get_user(id) do
+      user
+    else
+      _ -> nil
+    end
+  end
+
+  @doc "Finishes a parked login (after the code, or after restoring)."
+  def finish_pending_login(conn, user) do
+    pending = get_session(conn, @pending_key) || %{}
+
+    conn
+    |> delete_session(@pending_key)
+    |> log_in_user(user, %{"remember_me" => pending["remember_me"]})
+  end
+
+  @doc "Abandons a parked login."
+  def clear_pending_login(conn), do: delete_session(conn, @pending_key)
+
   @doc """
   Logs the user out.
 
@@ -110,13 +166,21 @@ defmodule KeepsakesWeb.UserAuth do
   # function will clear the session to avoid fixation attacks. See the
   # renew_session function to customize this behaviour.
   defp create_or_extend_session(conn, user, params) do
-    token = Accounts.generate_user_session_token(user)
+    token = Accounts.generate_user_session_token(user, device(conn))
     remember_me = get_session(conn, :user_remember_me)
 
     conn
     |> renew_session(user)
     |> put_token_in_session(token)
     |> maybe_write_remember_me_cookie(token, params, remember_me)
+  end
+
+  # The browser and address a session comes from, for Security -> devices
+  defp device(conn) do
+    %{
+      user_agent: conn |> get_req_header("user-agent") |> List.first(),
+      ip: conn.remote_ip |> :inet.ntoa() |> to_string()
+    }
   end
 
   # Do not renew session if the user is already logged in

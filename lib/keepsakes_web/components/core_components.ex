@@ -408,7 +408,20 @@ defmodule KeepsakesWeb.CoreComponents do
       <.avatar name="Godswill Nasara" />
   """
   attr :name, :string, required: true
+  attr :src, :string, default: nil, doc: "profile photo URL; initials show without one"
   attr :class, :any, default: "size-10 text-sm"
+  attr :rest, :global
+
+  def avatar(%{src: src} = assigns) when is_binary(src) do
+    ~H"""
+    <img
+      src={@src}
+      alt={@name}
+      class={["inline-block shrink-0 rounded-full bg-base-300 object-cover", @class]}
+      {@rest}
+    />
+    """
+  end
 
   def avatar(assigns) do
     ~H"""
@@ -419,6 +432,7 @@ defmodule KeepsakesWeb.CoreComponents do
         "inline-flex shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-content",
         @class
       ]}
+      {@rest}
     >
       {initials(@name)}
     </span>

@@ -14,7 +14,7 @@ defmodule KeepsakesWeb.UserSessionController do
 
   def create(conn, %{"_action" => "reset"} = params) do
     conn
-    |> put_session(:user_return_to, ~p"/app/settings#password")
+    |> put_session(:user_return_to, ~p"/app/settings/account#password")
     |> create(params, "You're signed in. Choose a new password below.")
   end
 
@@ -33,19 +33,19 @@ defmodule KeepsakesWeb.UserSessionController do
         UserAuth.disconnect_sessions(tokens_to_disconnect)
 
         conn
-        |> put_session(:user_return_to, ~p"/app/settings#password")
+        |> put_session(:user_return_to, ~p"/app/settings/account#password")
         |> put_flash(
           :info,
           "Your email is confirmed. Set a password to finish securing your account."
         )
-        |> UserAuth.log_in_user(user, user_params)
+        |> UserAuth.log_in_or_continue(user, user_params)
 
       {:ok, {user, tokens_to_disconnect}} ->
         UserAuth.disconnect_sessions(tokens_to_disconnect)
 
         conn
         |> put_flash(:info, info)
-        |> UserAuth.log_in_user(user, user_params)
+        |> UserAuth.log_in_or_continue(user, user_params)
 
       _ ->
         conn
@@ -62,7 +62,7 @@ defmodule KeepsakesWeb.UserSessionController do
          %Accounts.User{} = user <- Accounts.get_user_by_email_and_password(email, password) do
       conn
       |> put_flash(:info, info)
-      |> UserAuth.log_in_user(user, user_params)
+      |> UserAuth.log_in_or_continue(user, user_params)
     else
       {:error, {:rate_limited, _} = reason} ->
         conn
@@ -79,17 +79,19 @@ defmodule KeepsakesWeb.UserSessionController do
     end
   end
 
-  def update_password(conn, %{"user" => user_params} = params) do
+  def update_password(conn, %{"user" => user_params}) do
     user = conn.assigns.current_scope.user
     true = Accounts.sudo_mode?(user)
-    {:ok, {_user, expired_tokens}} = Accounts.update_user_password(user, user_params)
+    {:ok, {user, expired_tokens}} = Accounts.update_user_password(user, user_params)
 
     # disconnect all existing LiveViews with old sessions
     UserAuth.disconnect_sessions(expired_tokens)
 
+    # Already signed in (and past any two-step code): a fresh session only
     conn
-    |> put_session(:user_return_to, ~p"/app/settings")
-    |> create(params, "Password updated successfully!")
+    |> put_session(:user_return_to, ~p"/app/settings/account")
+    |> put_flash(:info, "Password updated successfully!")
+    |> UserAuth.log_in_user(user, user_params)
   end
 
   def delete(conn, _params) do

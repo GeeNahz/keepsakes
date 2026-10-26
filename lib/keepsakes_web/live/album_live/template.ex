@@ -58,7 +58,7 @@ defmodule KeepsakesWeb.AlbumLive.Template do
                   <.button
                     id={"upgrade-#{template.slug}"}
                     variant="primary"
-                    navigate={~p"/app/billing"}
+                    navigate={~p"/app/settings/billing"}
                   >
                     Upgrade to use
                   </.button>

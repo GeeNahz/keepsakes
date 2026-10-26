@@ -102,6 +102,8 @@ defmodule KeepsakesWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     get "/", PageController, :app
+    get "/settings", PageController, :settings
+    get "/billing", PageController, :billing
 
     live_session :require_authenticated_user,
       on_mount: [{KeepsakesWeb.UserAuth, :require_authenticated}, KeepsakesWeb.OwnerShell] do
@@ -113,15 +115,25 @@ defmodule KeepsakesWeb.Router do
       live "/albums/:slug/memories/:id", AlbumLive.Show, :edit
       live "/albums/:slug/share", AlbumLive.Share, :share
       live "/albums/:slug/template", AlbumLive.Template, :template
-      live "/billing", BillingLive.Index, :index
-      live "/billing/invoices/:id", BillingLive.Invoice, :show
-      live "/settings", UserLive.Settings, :edit
-      live "/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+      # Settings: one LiveView per tab (KeepsakesWeb.SettingsComponents)
+      live "/settings/profile", SettingsLive.Profile, :profile
+      live "/settings/account", SettingsLive.Account, :edit
+      live "/settings/account/confirm-email/:token", SettingsLive.Account, :confirm_email
+      live "/settings/security", SettingsLive.Security, :security
+      live "/settings/notifications", SettingsLive.Notifications, :notifications
+      live "/settings/sharing", SettingsLive.Sharing, :sharing
+      live "/settings/templates", SettingsLive.Templates, :templates
+      live "/settings/billing", BillingLive.Index, :index
+      live "/settings/billing/invoices/:id", BillingLive.Invoice, :show
+      live "/settings/referrals", SettingsLive.Referrals, :referrals
+      live "/settings/domains", SettingsLive.Domains, :domains
+      live "/settings/privacy", SettingsLive.Privacy, :privacy
     end
 
     # Flutterwave's card page sends the owner back here
     get "/billing/return", BillingController, :return
-    post "/settings/update-password", UserSessionController, :update_password
+    get "/settings/privacy/exports/:id", DataExportController, :show
+    post "/settings/account/update-password", UserSessionController, :update_password
     post "/confirm-email/resend", UserConfirmationController, :create
   end
 
@@ -140,5 +152,13 @@ defmodule KeepsakesWeb.Router do
 
     post "/log-in", UserSessionController, :create
     delete "/log-out", UserSessionController, :delete
+
+    # After a correct password or link: two-step code, or restoring a
+    # paused account (KeepsakesWeb.LoginStepController)
+    get "/two-step", LoginStepController, :two_step
+    post "/two-step", LoginStepController, :verify_two_step
+    delete "/two-step/cancel", LoginStepController, :cancel
+    get "/restore", LoginStepController, :restore
+    post "/restore", LoginStepController, :do_restore
   end
 end

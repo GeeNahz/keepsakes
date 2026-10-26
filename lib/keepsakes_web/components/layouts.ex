@@ -262,7 +262,10 @@ defmodule KeepsakesWeb.Layouts do
         aria-label="Account menu"
         class="cursor-pointer rounded-full transition hover:ring-4 hover:ring-ks-teal-soft focus-visible:ring-4 focus-visible:ring-ks-teal-soft"
       >
-        <.avatar name={Keepsakes.Accounts.User.full_name(@user)} />
+        <.avatar
+          name={Keepsakes.Accounts.User.full_name(@user)}
+          src={Keepsakes.Accounts.avatar_url(@user)}
+        />
       </div>
       <div
         tabindex="0"
@@ -279,12 +282,12 @@ defmodule KeepsakesWeb.Layouts do
             </.link>
           </li>
           <li>
-            <.link id="user-menu-billing" navigate={~p"/app/billing"}>
+            <.link id="user-menu-billing" navigate={~p"/app/settings/billing"}>
               <.icon name="hero-credit-card" /> Plans &amp; billing
             </.link>
           </li>
           <li>
-            <.link id="user-menu-settings" navigate={~p"/app/settings"}>
+            <.link id="user-menu-settings" navigate={~p"/app/settings/profile"}>
               <.icon name="hero-cog-6-tooth" /> Settings
             </.link>
           </li>
@@ -370,7 +373,7 @@ defmodule KeepsakesWeb.Layouts do
     ~H"""
     <.link
       id="sidebar-plan"
-      navigate={~p"/app/billing"}
+      navigate={~p"/app/settings/billing"}
       class="mt-2.5 flex items-start justify-between gap-2 text-[13px] leading-snug text-ks-muted no-underline hover:text-primary"
     >
       <span class="min-w-0">{@label}</span>
@@ -396,7 +399,7 @@ defmodule KeepsakesWeb.Layouts do
           and guests can still view your albums; to add more, upgrade or make room.
         </span>
       </p>
-      <.button id="over-limit-plans" size="sm" variant="outline" navigate={~p"/app/billing"}>
+      <.button id="over-limit-plans" size="sm" variant="outline" navigate={~p"/app/settings/billing"}>
         See plans
       </.button>
     </div>
@@ -439,7 +442,7 @@ defmodule KeepsakesWeb.Layouts do
         </p>
         <div class="flex justify-end gap-2.5">
           <.button type="button" phx-click={hide_modal("new-album-dialog")}>Close</.button>
-          <.button id="album-limit-plans" variant="primary" navigate={~p"/app/billing"}>
+          <.button id="album-limit-plans" variant="primary" navigate={~p"/app/settings/billing"}>
             See plans
           </.button>
         </div>

@@ -1,24 +1,24 @@
-defmodule KeepsakesWeb.UserLive.SettingsTest do
+defmodule KeepsakesWeb.SettingsLive.AccountTest do
   use KeepsakesWeb.ConnCase, async: true
 
   alias Keepsakes.Accounts
   import Phoenix.LiveViewTest
   import Keepsakes.AccountsFixtures
 
-  describe "Settings page" do
-    test "renders settings page", %{conn: conn} do
+  describe "Account tab" do
+    test "renders the email and password forms", %{conn: conn} do
       {:ok, lv, _html} =
         conn
         |> log_in_user(user_fixture())
-        |> live(~p"/app/settings")
+        |> live(~p"/app/settings/account")
 
-      assert has_element?(lv, "#name_form")
+      assert has_element?(lv, "#settings-tab-account[aria-current=page]")
       assert has_element?(lv, "#email_form")
       assert has_element?(lv, "#password_form")
     end
 
     test "redirects if user is not logged in", %{conn: conn} do
-      assert {:error, redirect} = live(conn, ~p"/app/settings")
+      assert {:error, redirect} = live(conn, ~p"/app/settings/account")
 
       assert {:redirect, %{to: path, flash: flash}} = redirect
       assert path == ~p"/auth/log-in"
@@ -31,7 +31,7 @@ defmodule KeepsakesWeb.UserLive.SettingsTest do
         |> log_in_user(user_fixture(),
           token_authenticated_at: DateTime.add(DateTime.utc_now(:second), -11, :minute)
         )
-        |> live(~p"/app/settings")
+        |> live(~p"/app/settings/account")
         |> follow_redirect(conn, ~p"/auth/log-in")
 
       assert conn.resp_body =~ "You must re-authenticate to access this page."
@@ -47,13 +47,11 @@ defmodule KeepsakesWeb.UserLive.SettingsTest do
     test "updates the user email", %{conn: conn, user: user} do
       new_email = unique_user_email()
 
-      {:ok, lv, _html} = live(conn, ~p"/app/settings")
+      {:ok, lv, _html} = live(conn, ~p"/app/settings/account")
 
       result =
         lv
-        |> form("#email_form", %{
-          "user" => %{"email" => new_email}
-        })
+        |> form("#email_form", %{"user" => %{"email" => new_email}})
         |> render_submit()
 
       assert result =~ "A link to confirm your email"
@@ -61,59 +59,25 @@ defmodule KeepsakesWeb.UserLive.SettingsTest do
     end
 
     test "renders errors with invalid data (phx-change)", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/app/settings")
+      {:ok, lv, _html} = live(conn, ~p"/app/settings/account")
 
       result =
         lv
         |> element("#email_form")
-        |> render_change(%{
-          "action" => "update_email",
-          "user" => %{"email" => "with spaces"}
-        })
+        |> render_change(%{"action" => "update_email", "user" => %{"email" => "with spaces"}})
 
       assert result =~ "must have the @ sign and no spaces"
     end
 
     test "renders errors with invalid data (phx-submit)", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/app/settings")
+      {:ok, lv, _html} = live(conn, ~p"/app/settings/account")
 
       result =
         lv
-        |> form("#email_form", %{
-          "user" => %{"email" => user.email}
-        })
+        |> form("#email_form", %{"user" => %{"email" => user.email}})
         |> render_submit()
 
       assert result =~ "did not change"
-    end
-  end
-
-  describe "update name form" do
-    setup %{conn: conn} do
-      user = user_fixture()
-      %{conn: log_in_user(conn, user), user: user}
-    end
-
-    test "updates the name and the avatar menu", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/app/settings")
-
-      lv
-      |> form("#name_form", %{"user" => %{"first_name" => "Grace", "last_name" => "Hopper"}})
-      |> render_submit()
-
-      assert Accounts.get_user!(user.id) |> Accounts.User.full_name() == "Grace Hopper"
-      assert has_element?(lv, ~s(#user-menu-button [aria-label="Grace Hopper"]))
-    end
-
-    test "requires a first name", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/app/settings")
-
-      result =
-        lv
-        |> form("#name_form", %{"user" => %{"first_name" => ""}})
-        |> render_submit()
-
-      assert result =~ "can&#39;t be blank"
     end
   end
 
@@ -126,7 +90,7 @@ defmodule KeepsakesWeb.UserLive.SettingsTest do
     test "updates the user password", %{conn: conn, user: user} do
       new_password = valid_user_password()
 
-      {:ok, lv, _html} = live(conn, ~p"/app/settings")
+      {:ok, lv, _html} = live(conn, ~p"/app/settings/account")
 
       form =
         form(lv, "#password_form", %{
@@ -141,7 +105,7 @@ defmodule KeepsakesWeb.UserLive.SettingsTest do
 
       new_password_conn = follow_trigger_action(form, conn)
 
-      assert redirected_to(new_password_conn) == ~p"/app/settings"
+      assert redirected_to(new_password_conn) == ~p"/app/settings/account"
 
       assert get_session(new_password_conn, :user_token) != get_session(conn, :user_token)
 
@@ -152,16 +116,13 @@ defmodule KeepsakesWeb.UserLive.SettingsTest do
     end
 
     test "renders errors with invalid data (phx-change)", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/app/settings")
+      {:ok, lv, _html} = live(conn, ~p"/app/settings/account")
 
       result =
         lv
         |> element("#password_form")
         |> render_change(%{
-          "user" => %{
-            "password" => "too short",
-            "password_confirmation" => "does not match"
-          }
+          "user" => %{"password" => "too short", "password_confirmation" => "does not match"}
         })
 
       assert result =~ "should be at least 12 character(s)"
@@ -169,15 +130,12 @@ defmodule KeepsakesWeb.UserLive.SettingsTest do
     end
 
     test "renders errors with invalid data (phx-submit)", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/app/settings")
+      {:ok, lv, _html} = live(conn, ~p"/app/settings/account")
 
       result =
         lv
         |> form("#password_form", %{
-          "user" => %{
-            "password" => "too short",
-            "password_confirmation" => "does not match"
-          }
+          "user" => %{"password" => "too short", "password_confirmation" => "does not match"}
         })
         |> render_submit()
 
@@ -200,39 +158,35 @@ defmodule KeepsakesWeb.UserLive.SettingsTest do
     end
 
     test "updates the user email once", %{conn: conn, user: user, token: token, email: email} do
-      {:error, redirect} = live(conn, ~p"/app/settings/confirm-email/#{token}")
+      {:error, redirect} = live(conn, ~p"/app/settings/account/confirm-email/#{token}")
 
       assert {:live_redirect, %{to: path, flash: flash}} = redirect
-      assert path == ~p"/app/settings"
-      assert %{"info" => message} = flash
-      assert message == "Email changed successfully."
+      assert path == ~p"/app/settings/account"
+      assert %{"info" => "Email changed successfully."} = flash
       refute Accounts.get_user_by_email(user.email)
       assert Accounts.get_user_by_email(email)
 
       # use confirm token again
-      {:error, redirect} = live(conn, ~p"/app/settings/confirm-email/#{token}")
+      {:error, redirect} = live(conn, ~p"/app/settings/account/confirm-email/#{token}")
       assert {:live_redirect, %{to: path, flash: flash}} = redirect
-      assert path == ~p"/app/settings"
-      assert %{"error" => message} = flash
-      assert message == "Email change link is invalid or it has expired."
+      assert path == ~p"/app/settings/account"
+      assert %{"error" => "Email change link is invalid or it has expired."} = flash
     end
 
     test "does not update email with invalid token", %{conn: conn, user: user} do
-      {:error, redirect} = live(conn, ~p"/app/settings/confirm-email/oops")
+      {:error, redirect} = live(conn, ~p"/app/settings/account/confirm-email/oops")
       assert {:live_redirect, %{to: path, flash: flash}} = redirect
-      assert path == ~p"/app/settings"
-      assert %{"error" => message} = flash
-      assert message == "Email change link is invalid or it has expired."
+      assert path == ~p"/app/settings/account"
+      assert %{"error" => "Email change link is invalid or it has expired."} = flash
       assert Accounts.get_user_by_email(user.email)
     end
 
     test "redirects if user is not logged in", %{token: token} do
       conn = build_conn()
-      {:error, redirect} = live(conn, ~p"/app/settings/confirm-email/#{token}")
+      {:error, redirect} = live(conn, ~p"/app/settings/account/confirm-email/#{token}")
       assert {:redirect, %{to: path, flash: flash}} = redirect
       assert path == ~p"/auth/log-in"
-      assert %{"error" => message} = flash
-      assert message == "You must log in to access this page."
+      assert %{"error" => "You must log in to access this page."} = flash
     end
   end
 end

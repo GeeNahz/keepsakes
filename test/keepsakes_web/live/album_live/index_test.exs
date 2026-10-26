@@ -26,7 +26,7 @@ defmodule KeepsakesWeb.AlbumLive.IndexTest do
                ~s(#user-menu-button [aria-label="#{Keepsakes.Accounts.User.full_name(user)}"])
              )
 
-      assert has_element?(lv, ~s(#user-menu-settings[href="/app/settings"]))
+      assert has_element?(lv, ~s(#user-menu-settings[href="/app/settings/profile"]))
       refute has_element?(lv, "#confirm-email-banner")
     end
 

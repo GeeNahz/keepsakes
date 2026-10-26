@@ -23,6 +23,27 @@ defmodule Keepsakes.Accounts.User do
     field :free_months_banked, :integer, default: 0
     belongs_to :referred_by, __MODULE__
 
+    field :bio, :string
+
+    # Two-step login (Keepsakes.Accounts.TwoStep)
+    field :totp_secret, Keepsakes.Encrypted.Binary, redact: true
+    field :totp_enabled_at, :utc_datetime
+    field :recovery_codes, {:array, :string}, default: [], redact: true
+
+    # Email preferences
+    field :notify_product_news, :boolean, default: false
+    field :notify_guest_activity, :boolean, default: true
+    field :notify_billing_reminders, :boolean, default: true
+
+    # Defaults for new share links
+    field :share_code_mode, :string, default: "auto"
+    field :share_expires_in, :string, default: "never"
+    field :share_default_view, :string, default: "timeline"
+    field :share_show_details, :boolean, default: true
+    field :share_allow_downloads, :boolean, default: false
+
+    field :deletion_requested_at, :utc_datetime
+
     timestamps()
   end
 
@@ -55,6 +76,35 @@ defmodule Keepsakes.Accounts.User do
     user
     |> cast(attrs, [:first_name, :last_name])
     |> validate_name()
+  end
+
+  @doc "Profile tab: name and a short bio."
+  def profile_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:first_name, :last_name, :bio])
+    |> validate_name()
+    |> update_change(:bio, &trim/1)
+    |> validate_length(:bio, max: 160)
+  end
+
+  @doc "Notifications tab."
+  def notifications_changeset(user, attrs) do
+    cast(user, attrs, [:notify_product_news, :notify_guest_activity, :notify_billing_reminders])
+  end
+
+  @doc "Sharing defaults tab: what new share links start with."
+  def sharing_defaults_changeset(user, attrs) do
+    user
+    |> cast(attrs, [
+      :share_code_mode,
+      :share_expires_in,
+      :share_default_view,
+      :share_show_details,
+      :share_allow_downloads
+    ])
+    |> validate_inclusion(:share_code_mode, ~w(auto manual))
+    |> validate_inclusion(:share_expires_in, ~w(never 7 30))
+    |> validate_inclusion(:share_default_view, ~w(timeline autoscroll slideshow))
   end
 
   defp validate_name(changeset) do

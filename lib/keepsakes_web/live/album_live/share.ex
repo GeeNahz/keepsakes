@@ -339,7 +339,7 @@ defmodule KeepsakesWeb.AlbumLive.Share do
           <.link
             :if={not @downloads?}
             id="downloads-upgrade"
-            navigate={~p"/app/billing"}
+            navigate={~p"/app/settings/billing"}
             class="-mt-2 text-[13px] text-ks-muted no-underline hover:text-primary"
           >
             Guest downloads come with Plus and Pro.
@@ -432,7 +432,8 @@ defmodule KeepsakesWeb.AlbumLive.Share do
      |> assign(
        page_title: "Share · #{album.name}",
        album: album,
-       mode: "auto",
+       # Sharing defaults (settings) preselect how the code is made
+       mode: scope.user.share_code_mode || "auto",
        editing: false,
        code_error: nil,
        downloads?: Entitlements.can?(scope, :guest_downloads)
@@ -485,7 +486,7 @@ defmodule KeepsakesWeb.AlbumLive.Share do
 
     {:noreply,
      socket
-     |> assign(editing: false, mode: "auto")
+     |> assign(editing: false, mode: socket.assigns.current_scope.user.share_code_mode || "auto")
      |> assign_link(nil)
      |> put_flash(:info, "Sharing is off. The old link and code no longer work.")}
   end

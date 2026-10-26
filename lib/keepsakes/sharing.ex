@@ -11,7 +11,7 @@ defmodule Keepsakes.Sharing do
   alias Keepsakes.Accounts.Scope
   alias Keepsakes.Albums.{Album, Memory}
   alias Keepsakes.{Entitlements, Repo}
-  alias Keepsakes.Sharing.ShareLink
+  alias Keepsakes.Sharing.{Notifier, ShareLink}
 
   @slug_alphabet ~c"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
@@ -31,16 +31,26 @@ defmodule Keepsakes.Sharing do
           {:ok, ShareLink.t()} | {:error, String.t() | Ecto.Changeset.t()}
   def create_link(scope, album, mode, code \\ nil)
 
-  def create_link(%Scope{user: %{id: user_id}}, %Album{user_id: user_id} = album, mode, code) do
+  def create_link(
+        %Scope{user: %{id: user_id} = user} = scope,
+        %Album{user_id: user_id} = album,
+        mode,
+        code
+      ) do
     with {:ok, code, origin} <- pick_code(mode, code) do
+      # The owner's sharing defaults (settings) set up the new link
       %ShareLink{
         album_id: album.id,
         user_id: user_id,
         slug: new_slug(album),
         code: code,
-        code_origin: origin
+        code_origin: origin,
+        default_view: user.share_default_view || "timeline",
+        show_details: user.share_show_details != false,
+        allow_downloads:
+          user.share_allow_downloads == true and Entitlements.can?(scope, :guest_downloads)
       }
-      |> Ecto.Changeset.change()
+      |> ShareLink.settings_changeset(%{expires_in: user.share_expires_in || "never"})
       |> Ecto.Changeset.unique_constraint(:album_id)
       |> Ecto.Changeset.unique_constraint(:slug)
       |> Repo.insert()
@@ -117,9 +127,12 @@ defmodule Keepsakes.Sharing do
   @doc "The link for a public slug with its album and owner, or `nil`."
   @spec get_link_by_slug(String.t()) :: ShareLink.t() | nil
   def get_link_by_slug(slug) when is_binary(slug) do
-    ShareLink
-    |> where(slug: ^slug)
-    |> preload([:album, :user])
+    # Links of an account paused for deletion don't open
+    from(l in ShareLink,
+      join: u in assoc(l, :user),
+      where: l.slug == ^slug and is_nil(u.deletion_requested_at),
+      preload: [:album, user: u]
+    )
     |> Repo.one()
   end
 
@@ -135,9 +148,44 @@ defmodule Keepsakes.Sharing do
     now = DateTime.utc_now(:second)
 
     from(l in ShareLink, where: l.id == ^id)
-    |> Repo.update_all(inc: [open_count: 1], set: [last_opened_at: now])
+    |> Repo.update_all(inc: [open_count: 1, opens_since_digest: 1], set: [last_opened_at: now])
 
     :ok
+  end
+
+  @doc """
+  Sends each owner with guest activity on (and visits since last time) one
+  email listing which albums were opened and how often, then counts from
+  zero again. Counts are cleared for owners with it off too, so turning it
+  back on doesn't bring a pile-up. Returns how many emails were sent.
+  """
+  def send_guest_digests do
+    links =
+      from(l in ShareLink,
+        join: u in assoc(l, :user),
+        join: a in assoc(l, :album),
+        where: l.opens_since_digest > 0 and is_nil(u.deletion_requested_at),
+        preload: [user: u, album: a]
+      )
+      |> Repo.all()
+
+    links
+    |> Enum.group_by(& &1.user_id)
+    |> Enum.count(fn {_user_id, [%{user: user} | _] = user_links} ->
+      # Take away only what this email covers; visits arriving meanwhile stay
+      Enum.each(user_links, fn link ->
+        from(l in ShareLink, where: l.id == ^link.id)
+        |> Repo.update_all(inc: [opens_since_digest: -link.opens_since_digest])
+      end)
+
+      if user.notify_guest_activity do
+        visits = Enum.map(user_links, &{&1.album.name, &1.opens_since_digest})
+        Notifier.deliver_guest_digest(user, visits)
+        true
+      else
+        false
+      end
+    end)
   end
 
   @doc """

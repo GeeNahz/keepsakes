@@ -19,7 +19,7 @@ defmodule Keepsakes.Billing.Notifier do
     end
   end
 
-  defp billing_url, do: KeepsakesWeb.Endpoint.url() <> "/app/billing"
+  defp billing_url, do: KeepsakesWeb.Endpoint.url() <> "/app/settings/billing"
 
   @doc "A week before the trial ends."
   def deliver_trial_ending(user, ends_at) do
@@ -82,7 +82,8 @@ defmodule Keepsakes.Billing.Notifier do
       heading: "Thank you, payment received",
       paragraphs: lines,
       action:
-        {"View receipt", KeepsakesWeb.Endpoint.url() <> "/app/billing/invoices/#{invoice.id}"},
+        {"View receipt",
+         KeepsakesWeb.Endpoint.url() <> "/app/settings/billing/invoices/#{invoice.id}"},
       footnote:
         "Your plan renews automatically on #{date(invoice.period_end)}. " <>
           "You can cancel any time from Plans & billing."
@@ -114,6 +115,21 @@ defmodule Keepsakes.Billing.Notifier do
         "Nothing is deleted. Pay with another card any time to keep your plan."
       ],
       action: {"Pay now", billing_url()}
+    )
+  end
+
+  @doc "A paid plan renews in a few days (billing reminders on)."
+  def deliver_renewal_soon(user, price, renews_on) do
+    deliver(user,
+      subject: "Your Keepsake plan renews on #{date(renews_on)}",
+      heading: "Your plan renews soon",
+      paragraphs: [
+        "Your #{price.plan.name} plan renews on #{date(renews_on)} for " <>
+          "#{Price.format(price)} (before any discount), charged to your saved card.",
+        "Nothing to do if you'd like to keep it. You can change or cancel your plan any time " <>
+          "before then."
+      ],
+      footnote: "You can turn these reminders off in Settings → Notifications."
     )
   end
 

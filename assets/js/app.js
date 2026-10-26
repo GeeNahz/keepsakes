@@ -44,6 +44,14 @@ window.addEventListener("ks:clear", e => { e.target.value = "" })
 // JS.dispatch("ks:print") opens the browser's print dialog (receipts)
 window.addEventListener("ks:print", () => window.print())
 
+// JS.dispatch("ks:reveal") on an item in a horizontally scrolling row
+// centres it by scrolling only the row (scrollIntoView can shift the page)
+window.addEventListener("ks:reveal", e => {
+  const row = e.target.parentElement
+  if (row.scrollWidth <= row.clientWidth) return
+  row.scrollLeft = e.target.offsetLeft - row.offsetLeft - (row.clientWidth - e.target.offsetWidth) / 2
+})
+
 // JS.dispatch("ks:copy", detail: %{from: "#selector"}) on a button copies the
 // target's value (or text) and briefly swaps the button's
 // [data-copy-label] text to "Copied"

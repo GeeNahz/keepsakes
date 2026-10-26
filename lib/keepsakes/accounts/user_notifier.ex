@@ -38,6 +38,35 @@ defmodule Keepsakes.Accounts.UserNotifier do
     end
   end
 
+  @doc "The account is paused and will be deleted on `delete_on`."
+  def deliver_deletion_scheduled(user, delete_on) do
+    deliver(user,
+      subject: "Your Keepsake account will be deleted",
+      heading: "Your account is scheduled for deletion",
+      paragraphs: [
+        "As you asked, your account is paused: you've been signed out, your shared links " <>
+          "no longer open and your plan won't renew.",
+        "Everything (albums, photos and details) will be deleted for good on " <>
+          "#{Calendar.strftime(delete_on, "%-d %B %Y")}. Changed your mind? Log in before then " <>
+          "and choose Restore my account."
+      ],
+      action: {"Log in to restore", KeepsakesWeb.Endpoint.url() <> "/auth/log-in"}
+    )
+  end
+
+  @doc "A data export is ready to download for 7 days."
+  def deliver_export_ready(user, url) do
+    deliver(user,
+      subject: "Your Keepsake export is ready",
+      heading: "Your export is ready",
+      paragraphs: [
+        "We've packed your albums, photos and their details into a zip file.",
+        "The download link works for 7 days."
+      ],
+      action: {"Download my export", url}
+    )
+  end
+
   @doc """
   Deliver "reset your password" instructions.
   """

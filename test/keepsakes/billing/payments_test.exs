@@ -184,6 +184,21 @@ defmodule Keepsakes.Billing.PaymentsTest do
       %{ended: ended}
     end
 
+    test "a heads-up goes out once, a few days before, if wanted", %{user: user} do
+      soon = DateTime.add(DateTime.utc_now(:second), 2, :day)
+      update_subscription(user, current_period_end: soon)
+
+      assert %{renewal_reminders: 1} = Billing.advance()
+      assert_email_sent(&assert(&1.subject =~ "Your Keepsake plan renews on"))
+      assert %{renewal_reminders: 0} = Billing.advance()
+
+      # A new period gets its own heads-up, unless reminders are off
+      update_subscription(user, current_period_end: DateTime.add(soon, 1, :hour))
+      {:ok, _} = Keepsakes.Accounts.update_notifications(user, %{notify_billing_reminders: false})
+      assert %{renewal_reminders: 0} = Billing.advance()
+      refute_email_sent()
+    end
+
     test "charge the saved card and extend the period", %{user: user, ended: ended} do
       assert %{renewed: 1} = Billing.advance()
 

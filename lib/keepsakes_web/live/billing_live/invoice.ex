@@ -1,5 +1,5 @@
 defmodule KeepsakesWeb.BillingLive.Invoice do
-  @moduledoc "`/app/billing/invoices/:id`: a receipt the owner can read or print."
+  @moduledoc "`/app/settings/billing/invoices/:id`: a receipt the owner can read or print."
   use KeepsakesWeb, :live_view
 
   alias Keepsakes.Billing
@@ -13,7 +13,7 @@ defmodule KeepsakesWeb.BillingLive.Invoice do
         <div class="flex items-center justify-between gap-4 print:hidden">
           <.link
             id="invoice-back"
-            navigate={~p"/app/billing"}
+            navigate={~p"/app/settings/billing"}
             class="text-sm font-medium no-underline"
           >
             ← Plans &amp; billing

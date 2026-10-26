@@ -25,6 +25,8 @@ defmodule Keepsakes.Sharing.ShareLink do
     field :slideshow_music, :boolean, default: false
     field :open_count, :integer, default: 0
     field :last_opened_at, :utc_datetime
+    # Visits since the last guest-activity email
+    field :opens_since_digest, :integer, default: 0
     # "never" | "7" | "30", only for the settings form
     field :expires_in, :string, virtual: true
 
