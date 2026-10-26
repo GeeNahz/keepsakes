@@ -32,6 +32,30 @@ defmodule Keepsakes.BillingFixtures do
     plan
   end
 
+  @doc """
+  Pays for `price` (or the NGN monthly price of the plan slug) through the
+  stubbed gateway (`Keepsakes.FlutterwaveStub.stub/1` first). Returns the
+  paid invoice with its payments.
+  """
+  def pay_fixture(user, price \\ "plus") do
+    price = if is_binary(price), do: Billing.get_price!(price, "NGN", "month"), else: price
+    scope = Keepsakes.Accounts.Scope.for_user(user)
+
+    {:ok, {:redirect, link}} =
+      Billing.start_checkout(scope, price, "http://localhost:4000/app/billing/return")
+
+    "https://checkout.flutterwave.test/pay/" <> tx_ref = link
+    {:ok, :paid} = Billing.confirm(tx_ref, "fw-" <> tx_ref)
+
+    Repo.one!(
+      from i in Keepsakes.Billing.Invoice,
+        where: i.user_id == ^user.id and i.status == "paid",
+        order_by: [desc: i.number],
+        limit: 1,
+        preload: :payments
+    )
+  end
+
   @doc "Sets subscription fields directly (e.g. to move a trial's end date)."
   def update_subscription(%{id: user_id}, fields) do
     {1, _} =

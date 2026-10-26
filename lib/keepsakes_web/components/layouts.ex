@@ -392,6 +392,27 @@ defmodule KeepsakesWeb.Layouts do
       permission: "users.view"
     },
     %{
+      key: :finance,
+      label: "Finance",
+      icon: "hero-banknotes",
+      path: "/finance",
+      permission: "finance.view"
+    },
+    %{
+      key: :plans,
+      label: "Plans",
+      icon: "hero-squares-2x2",
+      path: "/plans",
+      permission: "plans.manage"
+    },
+    %{
+      key: :discounts,
+      label: "Discount codes",
+      icon: "hero-ticket",
+      path: "/discounts",
+      permission: "discounts.manage"
+    },
+    %{
       key: :staff,
       label: "Staff",
       icon: "hero-user-group",

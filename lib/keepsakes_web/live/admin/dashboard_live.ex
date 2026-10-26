@@ -64,6 +64,7 @@ defmodule KeepsakesWeb.Admin.DashboardLive do
           label={"MRR · #{currency}"}
           value={Price.format(currency, mrr)}
           note={"#{Price.format(currency, mrr * 12)} a year · list prices"}
+          navigate={if(@finance?, do: ~p"/finance")}
         />
         <.stat
           id="stat-storage"
@@ -103,7 +104,8 @@ defmodule KeepsakesWeb.Admin.DashboardLive do
        page_title: "Dashboard",
        metrics: metrics,
        # Tiles link to the customer list for staff who can open it
-       customers?: StaffScope.can?(scope, "users.view")
+       customers?: StaffScope.can?(scope, "users.view"),
+       finance?: StaffScope.can?(scope, "finance.view")
      )}
   end
 

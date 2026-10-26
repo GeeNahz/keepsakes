@@ -10,7 +10,8 @@ defmodule Keepsakes.FlutterwaveStub do
   default, `:pending`, `:failed`); `:amount_minor`/`:currency` - override
   what verify reports (defaults to the payment's own); `:token_charge` -
   result of tokenized charges (`:successful` default, `:failed`,
-  `:pending`); `:checkout` - `:ok` (default) or `:down`.
+  `:pending`); `:checkout` - `:ok` (default) or `:down`; `:refund` - `:ok`
+  (default) or `:failed`.
   """
   import ExUnit.Assertions, only: [flunk: 1]
 
@@ -70,6 +71,18 @@ defmodule Keepsakes.FlutterwaveStub do
               body["currency"]
             )
         })
+    end
+  end
+
+  defp respond(conn, "POST", "/v3/transactions/" <> _rest, _body, opts) do
+    case Keyword.get(opts, :refund, :ok) do
+      :ok ->
+        Req.Test.json(conn, %{status: "success", message: "Transaction refund initiated"})
+
+      :failed ->
+        conn
+        |> Plug.Conn.put_status(400)
+        |> Req.Test.json(%{status: "error", message: "Refund amount exceeds balance"})
     end
   end
 

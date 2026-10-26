@@ -216,7 +216,12 @@ defmodule KeepsakesWeb.Admin.CustomerLive.Show do
               :for={i <- @profile.invoices}
               class="flex items-center justify-between gap-3 py-2 text-[15px]"
             >
-              <span class="font-mono text-sm">{i.number}</span>
+              <.link
+                navigate={~p"/finance/invoices/#{i.id}"}
+                class="font-mono text-sm font-bold text-primary"
+              >
+                {i.number}
+              </.link>
               <span class="tabular-nums">{Price.format(i.currency, i.amount_minor)}</span>
               <.badge variant={if(i.status == "paid", do: "ready", else: "muted")}>{i.status}</.badge>
               <span class="font-mono text-xs text-ks-muted">{date(i.inserted_at)}</span>

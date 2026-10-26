@@ -75,6 +75,34 @@ defmodule Keepsakes.Billing.Notifier do
     )
   end
 
+  @doc """
+  Finance refunded (part of) a payment (Keepsakes.Finance). `user` may be
+  a stand-in built from the invoice's billing name and email when the
+  account no longer exists.
+  """
+  def deliver_refund(user, invoice, refund) do
+    plan_line =
+      case refund.plan_action do
+        "end_now" ->
+          "Your plan has ended and your account is now on the Free plan."
+
+        "end_at_period_end" ->
+          "Your plan stays on until the end of the current period and won't renew."
+      end
+
+    deliver(user,
+      subject: "Refund for Keepsake invoice #{invoice.number}",
+      heading: "We've refunded #{Price.format(refund.currency, refund.amount_minor)}",
+      paragraphs: [
+        "We've refunded #{Price.format(refund.currency, refund.amount_minor)} of invoice " <>
+          "#{invoice.number} to the card you paid with. Banks usually take 5–10 working days " <>
+          "to show it.",
+        plan_line,
+        "Nothing you've added is deleted."
+      ]
+    )
+  end
+
   @doc "The grace period ran out and the account is now on Free."
   def deliver_moved_to_free(user) do
     deliver(user,

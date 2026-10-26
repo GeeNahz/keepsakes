@@ -61,8 +61,12 @@ defmodule Keepsakes.Billing.Payments do
     price = Repo.preload(price, :plan)
     subscription = subscription_for(user.id)
 
+    # A price replaced in the admin portal stays payable by those already on
+    # it (e.g. "Pay now" after a failed renewal); new buyers get the new one
+    own_price? = subscription && subscription.price_id == price.id
+
     cond do
-      price.plan.kind != "paid" or not price.active ->
+      price.plan.kind != "paid" or not (price.active or own_price?) ->
         {:error, :not_paid_plan}
 
       paying?(subscription) and subscription.price_id == price.id ->
@@ -241,6 +245,8 @@ defmodule Keepsakes.Billing.Payments do
       Multi.new()
       |> Multi.insert(:invoice, %Invoice{
         user_id: user.id,
+        billing_name: User.full_name(user),
+        billing_email: user.email,
         subscription_id: subscription && subscription.id,
         number: next_invoice_number(),
         kind: "checkout",
@@ -753,6 +759,8 @@ defmodule Keepsakes.Billing.Payments do
 
     Repo.insert!(%Invoice{
       user_id: subscription.user_id,
+      billing_name: User.full_name(subscription.user),
+      billing_email: subscription.user.email,
       subscription_id: subscription.id,
       number: next_invoice_number(),
       kind: "renewal",
@@ -851,6 +859,45 @@ defmodule Keepsakes.Billing.Payments do
 
       _ ->
         {:error, :not_cancellable}
+    end
+  end
+
+  @doc """
+  What a refund does to the customer's paid plan (`Keepsakes.Finance`):
+  `:end_now` moves them to Free straight away, `:end_at_period_end` lets
+  the period run out with no renewal. Nothing happens when they aren't on
+  a paid plan any more. No email here; the refund email explains it.
+  """
+  def end_after_refund(user_id, action) do
+    case subscription_for(user_id) do
+      %Subscription{plan: %Plan{kind: "paid"}, complimentary: false} = s
+      when s.status in ["active", "past_due", "grace"] ->
+        case action do
+          :end_now ->
+            free = Repo.get_by!(Plan, slug: "free")
+
+            transition(s, "refunded_to_free",
+              status: "active",
+              plan_id: free.id,
+              price_id: nil,
+              pending_price_id: nil,
+              cancel_at_period_end: false,
+              current_period_start: nil,
+              current_period_end: nil,
+              grace_ends_at: nil,
+              retry_count: 0,
+              next_retry_at: nil
+            )
+
+          :end_at_period_end ->
+            transition(s, "refunded_no_renewal",
+              cancel_at_period_end: true,
+              pending_price_id: nil
+            )
+        end
+
+      _ ->
+        {:ok, :no_plan}
     end
   end
 
