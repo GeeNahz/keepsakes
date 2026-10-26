@@ -35,6 +35,14 @@ config :keepsakes, Keepsakes.Storage,
 # Geocoding requests go to Req.Test stubs, only when a test opts in
 config :keepsakes, Keepsakes.Media.Geocoder, adapter: :none
 
+# Flutterwave calls go to Req.Test stubs named after the gateway module
+config :keepsakes, Keepsakes.Billing.Gateways.Flutterwave,
+  public_key: "FLWPUBK_TEST-public",
+  secret_key: "FLWSECK_TEST-secret",
+  encryption_key: "FLWSECK_TEST-enc",
+  secret_hash: "test-webhook-hash",
+  req_options: [plug: {Req.Test, Keepsakes.Billing.Gateways.Flutterwave}, retry: false]
+
 # Read settings straight from the (sandboxed) DB in tests
 config :keepsakes, Keepsakes.Settings.Cache, enabled: false
 

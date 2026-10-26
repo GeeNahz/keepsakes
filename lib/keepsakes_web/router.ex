@@ -29,10 +29,12 @@ defmodule KeepsakesWeb.Router do
     get "/", PageController, :home
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", KeepsakesWeb do
-  #   pipe_through :api
-  # end
+  # Payment provider callbacks: no session or CSRF; each provider signs its own
+  scope "/webhooks", KeepsakesWeb do
+    pipe_through :api
+
+    post "/flutterwave", WebhookController, :flutterwave
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:keepsakes, :dev_routes) do
@@ -109,10 +111,13 @@ defmodule KeepsakesWeb.Router do
       live "/albums/:slug/share", AlbumLive.Share, :share
       live "/albums/:slug/template", AlbumLive.Template, :template
       live "/billing", BillingLive.Index, :index
+      live "/billing/invoices/:id", BillingLive.Invoice, :show
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end
 
+    # Flutterwave's card page sends the owner back here
+    get "/billing/return", BillingController, :return
     post "/users/update-password", UserSessionController, :update_password
     post "/users/confirm/resend", UserConfirmationController, :create
   end

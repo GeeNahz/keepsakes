@@ -7,6 +7,10 @@ defmodule Keepsakes.Billing.Subscription do
   `active`, `past_due` (a renewal failed and is being retried) and
   `canceled`. When grace runs out the user moves to the Free plan as
   `active`.
+
+  Paid plans run in periods (`current_period_start`/`_end`) and renew from
+  the saved card at the end of each; `cancel_at_period_end` stops that and
+  moves the user to Free when the period ends.
   """
   use Keepsakes.Schema
 
@@ -20,10 +24,14 @@ defmodule Keepsakes.Billing.Subscription do
     field :current_period_start, :utc_datetime
     field :current_period_end, :utc_datetime
     field :cancel_at_period_end, :boolean, default: false
+    field :retry_count, :integer, default: 0
+    field :next_retry_at, :utc_datetime
 
     belongs_to :user, Keepsakes.Accounts.User
     belongs_to :plan, Keepsakes.Billing.Plan
     belongs_to :price, Keepsakes.Billing.Price
+    # A downgrade or interval change that applies at the next renewal
+    belongs_to :pending_price, Keepsakes.Billing.Price
 
     timestamps()
   end

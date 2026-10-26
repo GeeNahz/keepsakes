@@ -41,6 +41,9 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 // which a server re-render can't do while the input has focus
 window.addEventListener("ks:clear", e => { e.target.value = "" })
 
+// JS.dispatch("ks:print") opens the browser's print dialog (receipts)
+window.addEventListener("ks:print", () => window.print())
+
 // JS.dispatch("ks:copy", detail: %{from: "#selector"}) on a button copies the
 // target's value (or text) and briefly swaps the button's
 // [data-copy-label] text to "Copied"
