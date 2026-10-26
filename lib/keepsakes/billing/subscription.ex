@@ -32,6 +32,8 @@ defmodule Keepsakes.Billing.Subscription do
     belongs_to :price, Keepsakes.Billing.Price
     # A downgrade or interval change that applies at the next renewal
     belongs_to :pending_price, Keepsakes.Billing.Price
+    # The discount code in use, if any
+    belongs_to :discount_redemption, Keepsakes.Billing.DiscountRedemption
 
     timestamps()
   end

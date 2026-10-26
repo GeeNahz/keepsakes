@@ -29,7 +29,7 @@ defmodule Keepsakes.Billing.Payments do
   alias Keepsakes.Accounts.{Scope, User}
   alias Keepsakes.Billing.{Charge, Gateway, Invoice, Notifier, Payment, PaymentMethod}
   alias Keepsakes.Billing.{PaymentEvent, Plan, Price, Quote, Subscription, SubscriptionEvent}
-  alias Keepsakes.Billing.WebhookWorker
+  alias Keepsakes.Billing.{DiscountCode, DiscountRedemption, Discounts, WebhookWorker}
   alias Keepsakes.{Repo, Settings}
 
   # Below this (₦1 / $1) a credited upgrade waits for renewal instead
@@ -44,10 +44,20 @@ defmodule Keepsakes.Billing.Payments do
 
   ## Quotes and checkout
 
-  @doc "What choosing `price` costs now (see `Keepsakes.Billing.Quote`)."
-  @spec quote_price(Scope.t(), Price.t(), DateTime.t()) ::
-          {:ok, Quote.t()} | {:error, :not_paid_plan | :current_plan}
-  def quote_price(%Scope{user: user}, %Price{} = price, now \\ DateTime.utc_now(:second)) do
+  @doc """
+  What choosing `price` costs now (see `Keepsakes.Billing.Quote`).
+
+  Options: `:code` - a discount code the customer typed; `:now`. Without a
+  code, a discount the subscription already has still applies when it
+  covers the plan. Free months earned through referrals lengthen the
+  first paid period.
+  """
+  @spec quote_price(Scope.t(), Price.t(), keyword()) ::
+          {:ok, Quote.t()}
+          | {:error, :not_paid_plan | :current_plan | {:code, Discounts.problem() | atom()}}
+  def quote_price(%Scope{user: user}, %Price{} = price, opts \\ []) do
+    now = Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:second) end)
+    typed = opts |> Keyword.get(:code) |> blank_to_nil()
     price = Repo.preload(price, :plan)
     subscription = subscription_for(user.id)
 
@@ -59,25 +69,73 @@ defmodule Keepsakes.Billing.Payments do
         {:error, :current_plan}
 
       paying?(subscription) and not upgrade?(subscription.price, price) ->
-        {:ok, scheduled(subscription, price)}
+        if typed, do: {:error, {:code, :not_now}}, else: {:ok, scheduled(subscription, price)}
 
       true ->
-        credit = credit(subscription, price, now)
-        amount = price.amount_minor - credit
-
-        if amount < @min_charge_minor and paying?(subscription) do
-          {:ok, scheduled(subscription, price)}
-        else
-          {:ok,
-           %Quote{
-             mode: :checkout,
-             price: price,
-             subtotal_minor: price.amount_minor,
-             credit_minor: credit,
-             amount_minor: amount,
-             period_end: period_end(subscription, price, now)
-           }}
+        with {:ok, discount} <- discount_for(typed, user.id, subscription, price, now) do
+          checkout_quote(subscription, price, discount, now)
         end
+    end
+  end
+
+  # {percent, label, new code or nil}, from a typed code or the discount
+  # the subscription already has
+  defp discount_for(nil, _user_id, subscription, price, now) do
+    redemption = subscription && subscription.discount_redemption
+
+    case Discounts.active(redemption, price.plan, now) do
+      nil -> {:ok, nil}
+      r -> {:ok, {r.percent_off, Discounts.label(r.discount_code.code, r.percent_off), nil}}
+    end
+  end
+
+  defp discount_for(typed, user_id, _subscription, price, now) do
+    case Discounts.check(typed, user_id, price, now) do
+      {:ok, code} -> {:ok, {code.percent_off, Discounts.label(code.code, code.percent_off), code}}
+      {:error, problem} -> {:error, {:code, problem}}
+    end
+  end
+
+  defp checkout_quote(subscription, price, discount, now) do
+    {percent, label, code} = discount || {0, nil, nil}
+    discount_minor = Discounts.amount_off(price.amount_minor, percent)
+    credit = min(credit(subscription, price, now), price.amount_minor - discount_minor)
+    amount = price.amount_minor - discount_minor - credit
+    free_months = (subscription && subscription.user.free_months_banked) || 0
+
+    cond do
+      # A credited upgrade that leaves (almost) nothing to pay waits for renewal
+      amount < @min_charge_minor and paying?(subscription) and is_nil(code) ->
+        {:ok, scheduled(subscription, price)}
+
+      # Card payments need an amount; a 100% code can't start a card plan
+      amount < @min_charge_minor ->
+        {:error, {:code, :too_much}}
+
+      true ->
+        {:ok,
+         %Quote{
+           mode: :checkout,
+           price: price,
+           subtotal_minor: price.amount_minor,
+           discount_minor: discount_minor,
+           discount_label: label,
+           discount_code: code,
+           credit_minor: credit,
+           amount_minor: amount,
+           free_months: free_months,
+           period_end:
+             subscription |> period_end(price, now) |> DateTime.shift(month: free_months)
+         }}
+    end
+  end
+
+  defp blank_to_nil(nil), do: nil
+
+  defp blank_to_nil(value) do
+    case String.trim(value) do
+      "" -> nil
+      trimmed -> trimmed
     end
   end
 
@@ -144,8 +202,8 @@ defmodule Keepsakes.Billing.Payments do
   """
   @spec start_checkout(Scope.t(), Price.t(), String.t()) ::
           {:ok, {:redirect, String.t()} | {:scheduled, Quote.t()}} | {:error, term()}
-  def start_checkout(%Scope{user: user} = scope, %Price{} = price, redirect_url) do
-    with {:ok, quote} <- quote_price(scope, price) do
+  def start_checkout(%Scope{user: user} = scope, %Price{} = price, redirect_url, opts \\ []) do
+    with {:ok, quote} <- quote_price(scope, price, Keyword.take(opts, [:code])) do
       case quote.mode do
         :scheduled -> schedule_change(user, quote)
         :checkout -> open_checkout(user, quote, redirect_url)
@@ -190,6 +248,10 @@ defmodule Keepsakes.Billing.Payments do
         price_id: quote.price.id,
         currency: quote.price.currency,
         subtotal_minor: quote.subtotal_minor,
+        discount_minor: quote.discount_minor,
+        discount_label: quote.discount_label,
+        # Only a newly typed code; one already in use stays on the subscription
+        discount_code_id: quote.discount_code && quote.discount_code.id,
         credit_minor: quote.credit_minor,
         amount_minor: quote.amount_minor
       })
@@ -298,9 +360,15 @@ defmodule Keepsakes.Billing.Payments do
       {:ok, :already} ->
         {:ok, :paid}
 
-      {:ok, {user, invoice, method}} ->
+      {:ok, {user, invoice, method, referrer}} ->
         Keepsakes.Billing.broadcast_change(user.id)
         Notifier.deliver_receipt(user, invoice, method)
+
+        with {referrer, reward} <- referrer do
+          Keepsakes.Billing.broadcast_change(referrer.id)
+          Notifier.deliver_referral_reward(referrer, user, reward)
+        end
+
         {:ok, :paid}
 
       {:error, reason} ->
@@ -314,17 +382,27 @@ defmodule Keepsakes.Billing.Payments do
     subscription =
       Repo.one!(from s in Subscription, where: s.user_id == ^payment.user_id, lock: "FOR UPDATE")
 
-    subscription = Repo.preload(subscription, [:plan, :price])
+    subscription = Repo.preload(subscription, [:plan, :price, :discount_redemption])
+    user = Repo.one!(from u in User, where: u.id == ^payment.user_id, lock: "FOR UPDATE")
 
     {period_start, period_end} =
       case invoice.kind do
         "checkout" ->
-          {now, period_end(subscription, price, now)}
+          # Free months earned through referrals are spent here
+          {now,
+           subscription
+           |> period_end(price, now)
+           |> DateTime.shift(month: user.free_months_banked)}
 
         "renewal" ->
           start = subscription.current_period_end || now
           {start, add_interval(start, price.interval)}
       end
+
+    if invoice.kind == "checkout" and user.free_months_banked > 0,
+      do: user |> Ecto.Changeset.change(free_months_banked: 0) |> Repo.update!()
+
+    redemption = settle_discount(invoice, subscription, period_start, now)
 
     payment
     |> Ecto.Changeset.change(status: "successful", gateway_id: charge.gateway_id, raw: charge.raw)
@@ -354,7 +432,8 @@ defmodule Keepsakes.Billing.Payments do
       cancel_at_period_end: false,
       grace_ends_at: nil,
       retry_count: 0,
-      next_retry_at: nil
+      next_retry_at: nil,
+      discount_redemption_id: redemption && redemption.id
     )
     |> Repo.update!()
 
@@ -379,8 +458,64 @@ defmodule Keepsakes.Billing.Payments do
         do: save_card(payment.user_id, charge.card),
         else: payment_method(payment.user_id)
 
-    user = Repo.get!(User, payment.user_id)
-    {user, %{invoice | price: price, plan: price.plan}, method}
+    referrer = reward_referrer(user, now)
+    {user, %{invoice | price: price, plan: price.plan}, method, referrer}
+  end
+
+  # The discount the subscription carries after this payment: a newly typed
+  # code is redeemed now; a `once` discount ends with the invoice it covered
+  defp settle_discount(invoice, subscription, period_start, now) do
+    redemption =
+      case invoice.discount_code_id do
+        nil ->
+          subscription.discount_redemption
+
+        code_id ->
+          Discounts.redeem(Repo.get!(DiscountCode, code_id), invoice.user_id, period_start)
+      end
+
+    case redemption do
+      %DiscountRedemption{duration: "once"} = r when invoice.discount_minor > 0 ->
+        Discounts.finish(r, now)
+
+      other ->
+        other
+    end
+  end
+
+  # A referred user's first payment earns their inviter a month: added to
+  # the current paid period, or banked for their first one. Once per
+  # referred user (referral_rewarded_at).
+  defp reward_referrer(%User{referred_by_id: nil}, _now), do: nil
+  defp reward_referrer(%User{referral_rewarded_at: %DateTime{}}, _now), do: nil
+
+  defp reward_referrer(%User{} = user, now) do
+    user |> Ecto.Changeset.change(referral_rewarded_at: now) |> Repo.update!()
+
+    referrer = Repo.one(from u in User, where: u.id == ^user.referred_by_id, lock: "FOR UPDATE")
+    subscription = referrer && subscription_for(referrer.id)
+
+    cond do
+      is_nil(referrer) ->
+        nil
+
+      paying?(subscription) and subscription.current_period_end ->
+        extended = DateTime.shift(subscription.current_period_end, month: 1)
+
+        subscription
+        |> Ecto.Changeset.change(current_period_end: extended)
+        |> Repo.update!()
+
+        Repo.insert!(event(subscription, "referral_month", to_plan: subscription.plan.slug))
+        {referrer, {:extended, extended}}
+
+      true ->
+        referrer
+        |> Ecto.Changeset.change(free_months_banked: referrer.free_months_banked + 1)
+        |> Repo.update!()
+
+        {referrer, :banked}
+    end
   end
 
   defp save_card(user_id, card) do
@@ -591,18 +726,37 @@ defmodule Keepsakes.Billing.Payments do
         where:
           i.subscription_id == ^subscription.id and i.kind == "renewal" and i.status == "open",
         limit: 1
-    ) ||
-      Repo.insert!(%Invoice{
-        user_id: subscription.user_id,
-        subscription_id: subscription.id,
-        number: next_invoice_number(),
-        kind: "renewal",
-        plan_id: price.plan_id,
-        price_id: price.id,
-        currency: price.currency,
-        subtotal_minor: price.amount_minor,
-        amount_minor: price.amount_minor
-      })
+    ) || new_renewal_invoice(subscription, Repo.preload(price, :plan))
+  end
+
+  # A discount still running for the period about to start comes off
+  defp new_renewal_invoice(subscription, price) do
+    subscription = Repo.preload(subscription, discount_redemption: :discount_code)
+    period_start = subscription.current_period_end || DateTime.utc_now(:second)
+
+    {discount_minor, label} =
+      case Discounts.active(subscription.discount_redemption, price.plan, period_start) do
+        nil ->
+          {0, nil}
+
+        r ->
+          {Discounts.amount_off(price.amount_minor, r.percent_off),
+           Discounts.label(r.discount_code.code, r.percent_off)}
+      end
+
+    Repo.insert!(%Invoice{
+      user_id: subscription.user_id,
+      subscription_id: subscription.id,
+      number: next_invoice_number(),
+      kind: "renewal",
+      plan_id: price.plan_id,
+      price_id: price.id,
+      currency: price.currency,
+      subtotal_minor: price.amount_minor,
+      discount_minor: discount_minor,
+      discount_label: label,
+      amount_minor: price.amount_minor - discount_minor
+    })
   end
 
   # First failure: past_due, retry tomorrow. Later ones: next retry day, or
@@ -745,7 +899,13 @@ defmodule Keepsakes.Billing.Payments do
     Repo.one(
       from s in Subscription,
         where: s.user_id == ^user_id,
-        preload: [:plan, price: :plan, pending_price: :plan]
+        preload: [
+          :plan,
+          :user,
+          price: :plan,
+          pending_price: :plan,
+          discount_redemption: :discount_code
+        ]
     )
   end
 

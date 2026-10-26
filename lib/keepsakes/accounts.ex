@@ -65,7 +65,9 @@ defmodule Keepsakes.Accounts do
   @doc """
   Registers a user with first name, last name, email and password.
 
-  The account starts unconfirmed; see `deliver_login_instructions/2`.
+  The account starts unconfirmed; see `deliver_login_instructions/2`. It
+  gets its own invite code, and `referral_code:` (from an invite link)
+  records who invited it; unknown codes are ignored.
 
   ## Examples
 
@@ -76,9 +78,18 @@ defmodule Keepsakes.Accounts do
       {:error, %Ecto.Changeset{}}
 
   """
-  def register_user(attrs) do
+  def register_user(attrs, opts \\ []) do
+    referrer = referrer(opts[:referral_code])
+
+    changeset =
+      %User{}
+      |> User.registration_changeset(attrs)
+      |> Ecto.Changeset.put_change(:referral_code, new_referral_code())
+      |> Ecto.Changeset.put_change(:referred_by_id, referrer && referrer.id)
+      |> Ecto.Changeset.unique_constraint(:referral_code)
+
     Ecto.Multi.new()
-    |> Ecto.Multi.insert(:user, User.registration_changeset(%User{}, attrs))
+    |> Ecto.Multi.insert(:user, changeset)
     |> Keepsakes.Billing.start_trial(:user)
     |> Repo.transaction()
     |> case do
@@ -86,6 +97,18 @@ defmodule Keepsakes.Accounts do
       {:error, :user, changeset, _} -> {:error, changeset}
     end
   end
+
+  # Invite codes: 8 characters, no lookalikes (0/O, 1/I)
+  @code_alphabet ~c"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+  defp new_referral_code,
+    do: for(_ <- 1..8, into: "", do: <<Enum.random(@code_alphabet)>>)
+
+  defp referrer(code) when is_binary(code) and code != "" do
+    Repo.get_by(User, referral_code: code |> String.trim() |> String.upcase())
+  end
+
+  defp referrer(_code), do: nil
 
   @doc """
   Returns a changeset for live validation of the registration form.

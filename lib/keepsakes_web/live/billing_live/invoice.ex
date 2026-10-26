@@ -54,6 +54,14 @@ defmodule KeepsakesWeb.BillingLive.Invoice do
               </span>
               <span>{Price.format(@invoice.currency, @invoice.subtotal_minor)}</span>
             </div>
+            <div
+              :if={@invoice.discount_minor > 0}
+              id="receipt-discount"
+              class="flex justify-between gap-3"
+            >
+              <span class="text-ks-muted">{@invoice.discount_label || "Discount"}</span>
+              <span>−{Price.format(@invoice.currency, @invoice.discount_minor)}</span>
+            </div>
             <div :if={@invoice.credit_minor > 0} class="flex justify-between gap-3">
               <span class="text-ks-muted">Credit for unused days of the previous plan</span>
               <span>−{Price.format(@invoice.currency, @invoice.credit_minor)}</span>

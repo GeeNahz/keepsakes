@@ -16,6 +16,13 @@ defmodule Keepsakes.Accounts.User do
     # Template new albums get (nil: the system default)
     belongs_to :default_template, Keepsakes.Templates.Template
 
+    # Referrals: their own invite code, who invited them, and free months
+    # earned before they started paying
+    field :referral_code, :string
+    field :referral_rewarded_at, :utc_datetime
+    field :free_months_banked, :integer, default: 0
+    belongs_to :referred_by, __MODULE__
+
     timestamps()
   end
 

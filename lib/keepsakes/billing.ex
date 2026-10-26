@@ -188,8 +188,8 @@ defmodule Keepsakes.Billing do
 
   ## Paying (see Keepsakes.Billing.Payments)
 
-  defdelegate quote_price(scope, price), to: Payments
-  defdelegate start_checkout(scope, price, redirect_url), to: Payments
+  defdelegate quote_price(scope, price, opts \\ []), to: Payments
+  defdelegate start_checkout(scope, price, redirect_url, opts \\ []), to: Payments
   defdelegate confirm(tx_ref, gateway_id \\ nil), to: Payments
   defdelegate abandon(tx_ref), to: Payments
   defdelegate cancel(scope), to: Payments
@@ -200,6 +200,26 @@ defmodule Keepsakes.Billing do
 
   @doc "The card renewals are charged to, or nil."
   def payment_method(%Scope{user: user}), do: Payments.payment_method(user.id)
+
+  ## Referrals
+
+  @doc """
+  The user's invite code and how it's going: `%{code, joined, paid,
+  banked}`; `paid` people each earned them a month, `banked` months wait
+  for their first paid period.
+  """
+  def referrals(%Scope{user: user}) do
+    user = Repo.get!(User, user.id)
+
+    {joined, paid} =
+      from(u in User,
+        where: u.referred_by_id == ^user.id,
+        select: {count(u.id), count(u.referral_rewarded_at)}
+      )
+      |> Repo.one()
+
+    %{code: user.referral_code, joined: joined, paid: paid, banked: user.free_months_banked}
+  end
 
   @doc "The active price for `plan_slug`, `currency` and `interval`. Raises when missing."
   @spec get_price!(String.t(), String.t(), String.t()) :: Price.t()
@@ -222,7 +242,12 @@ defmodule Keepsakes.Billing do
     Repo.one(
       from s in Subscription,
         where: s.user_id == ^user.id,
-        preload: [:plan, price: :plan, pending_price: :plan]
+        preload: [
+          :plan,
+          price: :plan,
+          pending_price: :plan,
+          discount_redemption: :discount_code
+        ]
     )
   end
 

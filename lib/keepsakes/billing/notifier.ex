@@ -68,6 +68,8 @@ defmodule Keepsakes.Billing.Notifier do
       [
         "Plan: #{invoice.plan.name} (#{interval(invoice.price.interval)})",
         "Period: #{date(invoice.period_start)} to #{date(invoice.period_end)}",
+        invoice.discount_minor > 0 &&
+          "#{invoice.discount_label || "Discount"}: −#{Price.format(invoice.currency, invoice.discount_minor)}",
         invoice.credit_minor > 0 &&
           "Credit for unused days: −#{Price.format(invoice.currency, invoice.credit_minor)}",
         "Paid: #{Price.format(invoice.currency, invoice.amount_minor)}" <>
@@ -112,6 +114,28 @@ defmodule Keepsakes.Billing.Notifier do
         "Nothing is deleted. Pay with another card any time to keep your plan."
       ],
       action: {"Pay now", billing_url()}
+    )
+  end
+
+  @doc "Someone the user invited made their first payment: a free month."
+  def deliver_referral_reward(user, referred, reward) do
+    detail =
+      case reward do
+        {:extended, until} ->
+          "We've added a month to your plan, so it now renews on #{date(until)}."
+
+        :banked ->
+          "It's saved for you and will be added to your first paid period when you choose a plan."
+      end
+
+    deliver(user,
+      subject: "You earned a free month of Keepsake",
+      heading: "Thanks for spreading the word",
+      paragraphs: [
+        "#{referred.first_name} joined Keepsake with your invite link and just chose a plan, " <>
+          "so you've earned a free month.",
+        detail
+      ]
     )
   end
 

@@ -70,6 +70,19 @@ defmodule KeepsakesWeb.UserLive.RegistrationTest do
       assert get_session(conn, :user_token)
     end
 
+    test "an invite link records who invited the new user", %{conn: conn} do
+      inviter = user_fixture()
+      {:ok, lv, _html} = live(conn, ~p"/auth/register?ref=#{inviter.referral_code}")
+
+      email = unique_user_email()
+
+      lv
+      |> form("#registration_form", user: valid_user_attributes(email: email))
+      |> render_submit()
+
+      assert Accounts.get_user_by_email(email).referred_by_id == inviter.id
+    end
+
     test "renders errors for duplicated email", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/auth/register")
 
