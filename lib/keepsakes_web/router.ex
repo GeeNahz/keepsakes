@@ -2,9 +2,12 @@ defmodule KeepsakesWeb.Router do
   use KeepsakesWeb, :router
 
   import KeepsakesWeb.UserAuth
+  import KeepsakesWeb.Hosts, only: [only_main_host: 2, only_admin_host: 2]
+  import KeepsakesWeb.Admin.Auth, only: [fetch_staff: 2, require_staff: 2, redirect_if_staff: 2]
 
   pipeline :browser do
     plug :accepts, ["html"]
+    plug :only_main_host
     plug :fetch_session
     plug :fetch_live_flash
     plug :put_root_layout, html: {KeepsakesWeb.Layouts, :root}
@@ -13,8 +16,68 @@ defmodule KeepsakesWeb.Router do
     plug :fetch_current_scope_for_user
   end
 
+  # The staff portal on admin.<host>: its own session (host-only cookie),
+  # never indexed. See KeepsakesWeb.Hosts and docs/learning/admin-subdomain.md.
+  pipeline :admin_browser do
+    plug :accepts, ["html"]
+    plug :only_admin_host
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {KeepsakesWeb.Layouts, :admin_root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers, %{"x-robots-tag" => "noindex, nofollow"}
+    plug :fetch_staff
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
+  end
+
+  ## Admin portal (matched by host first, so its "/" isn't the landing page)
+
+  scope "/", KeepsakesWeb.Admin, host: "admin." do
+    pipe_through [:admin_browser, :redirect_if_staff]
+
+    get "/log-in", SessionController, :new
+    post "/log-in", SessionController, :create
+    get "/two-step", SessionController, :code
+    post "/two-step", SessionController, :verify
+    get "/two-step/setup", SessionController, :setup
+    post "/two-step/setup", SessionController, :enable
+    post "/two-step/finish", SessionController, :finish
+  end
+
+  scope "/", KeepsakesWeb.Admin, host: "admin." do
+    pipe_through [:admin_browser, :require_staff]
+
+    delete "/log-out", SessionController, :delete
+
+    live_session :staff,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [{KeepsakesWeb.Admin.Auth, :require_staff}] do
+      live "/", DashboardLive, :index
+    end
+
+    live_session :staff_roles,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "roles.manage"}}
+      ] do
+      live "/staff", StaffLive.Index, :index
+      live "/roles", RoleLive.Index, :index
+      live "/roles/new", RoleLive.Form, :new
+      live "/roles/:id", RoleLive.Form, :edit
+    end
+
+    live_session :staff_audit,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "audit.view"}}
+      ] do
+      live "/audit", AuditLive.Index, :index
+    end
   end
 
   # Photos on local disk, authorised by the signed token in the URL itself

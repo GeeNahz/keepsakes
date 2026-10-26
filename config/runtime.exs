@@ -117,6 +117,22 @@ config :keepsakes, :mail_from, {
 # admin portal's inbox exists). Empty: no emails.
 if config_env() != :test do
   config :keepsakes, :support_inbox, env!("SUPPORT_INBOX", :string?, nil)
+
+  # Granted Super Admin at startup and when this address signs up; takes
+  # precedence over (but doesn't replace) `mix keepsakes.staff.grant`
+  config :keepsakes, :super_admin_email, env!("SUPER_ADMIN_EMAIL", :string?, nil)
+
+  # Staff without two-step login must set it up before getting in.
+  # Off for now; set to true for production (see docs/learning/admin-subdomain.md).
+  config :keepsakes,
+         :require_staff_two_step,
+         env!("REQUIRE_STAFF_TWO_STEP", :boolean?, nil) || false
+
+  # Must start with "admin." like in prod (the router matches that prefix)
+  dev_admin_host = config_env() == :dev && env!("ADMIN_HOST", :string?, nil)
+
+  if dev_admin_host && String.starts_with?(dev_admin_host, "admin."),
+    do: config(:keepsakes, :admin_host, dev_admin_host)
 end
 
 mail_delivery =
@@ -164,8 +180,20 @@ if config_env() == :prod do
 
   config :keepsakes, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
+  # The staff portal answers only on its own host: admin.<PHX_HOST> unless
+  # ADMIN_HOST says otherwise. See docs/learning/admin-subdomain.md.
+  admin_host = System.get_env("ADMIN_HOST") || "admin." <> host
+
+  # The router picks admin routes by the "admin." prefix (compiled in)
+  String.starts_with?(admin_host, "admin.") ||
+    raise "ADMIN_HOST must start with \"admin.\" (got #{inspect(admin_host)})"
+
+  config :keepsakes, :admin_host, admin_host
+
   config :keepsakes, KeepsakesWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
+    # LiveView sockets may come from the main site or the admin portal
+    check_origin: ["//#{host}", "//#{admin_host}"],
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.

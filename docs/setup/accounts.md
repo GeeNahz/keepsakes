@@ -16,6 +16,7 @@ Tick a stage off only when its accounts exist and its variables are set in
 | 1 Accounts | Resend | `RESEND_API_KEY`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | register a user, confirmation email arrives |
 | 2 Albums & uploads | Cloudflare R2 | `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, optional `GEOCODER` | `mix keepsakes.storage.check` (or `bin/keepsakes eval "Keepsakes.Release.storage_check()"` in a release) |
 | 5 Billing | Flutterwave | added in Stage 5 | sandbox checkout |
+| 7 Admin portal | DNS `admin.` record (Stage 11) | `SUPER_ADMIN_EMAIL`, optional `ADMIN_HOST`, **`REQUIRE_STAFF_TWO_STEP=true` in production** (off during development) | sign in at `admin.<host>` |
 | 8 Domains | Namecheap DNS (`edge.` record) | added in Stage 8 | `curl --resolve` |
 | 11 Deploy | DigitalOcean, GitHub secrets, UptimeRobot | added in Stage 11 | staging pipeline green |
 

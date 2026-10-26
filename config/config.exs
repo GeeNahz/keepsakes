@@ -63,6 +63,14 @@ config :error_tracker,
   otp_app: :keepsakes,
   enabled: true
 
+# The staff portal's host (prod derives it from PHX_HOST in runtime.exs).
+# *.localhost resolves to this machine, so dev needs no hosts-file edits.
+config :keepsakes, :admin_host, "admin.localhost"
+
+# Whether staff must have two-step login to open the admin portal
+# (REQUIRE_STAFF_TWO_STEP). Off for now; turn on for production.
+config :keepsakes, :require_staff_two_step, false
+
 # Configure the endpoint
 config :keepsakes, KeepsakesWeb.Endpoint,
   url: [host: "localhost"],
