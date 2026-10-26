@@ -385,6 +385,13 @@ defmodule KeepsakesWeb.Layouts do
   @admin_nav [
     %{key: :dashboard, label: "Dashboard", icon: "hero-chart-bar", path: "/", permission: nil},
     %{
+      key: :customers,
+      label: "Customers",
+      icon: "hero-users",
+      path: "/customers",
+      permission: "users.view"
+    },
+    %{
       key: :staff,
       label: "Staff",
       icon: "hero-user-group",

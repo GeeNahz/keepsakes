@@ -127,10 +127,10 @@ defmodule Keepsakes.Sharing do
   @doc "The link for a public slug with its album and owner, or `nil`."
   @spec get_link_by_slug(String.t()) :: ShareLink.t() | nil
   def get_link_by_slug(slug) when is_binary(slug) do
-    # Links of an account paused for deletion don't open
+    # Links of an account paused for deletion or suspended don't open
     from(l in ShareLink,
       join: u in assoc(l, :user),
-      where: l.slug == ^slug and is_nil(u.deletion_requested_at),
+      where: l.slug == ^slug and is_nil(u.deletion_requested_at) and is_nil(u.suspended_at),
       preload: [:album, user: u]
     )
     |> Repo.one()

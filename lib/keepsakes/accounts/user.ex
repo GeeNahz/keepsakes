@@ -44,6 +44,10 @@ defmodule Keepsakes.Accounts.User do
 
     field :deletion_requested_at, :utc_datetime
 
+    # Set by staff (Keepsakes.Customers): no sign-in, shared links stop
+    field :suspended_at, :utc_datetime
+    field :suspension_reason, :string
+
     timestamps()
   end
 

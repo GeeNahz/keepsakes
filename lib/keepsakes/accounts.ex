@@ -265,6 +265,35 @@ defmodule Keepsakes.Accounts do
     end
   end
 
+  @doc """
+  Suspends the account (staff only, through `Keepsakes.Customers`): signs
+  it out everywhere (returns the tokens to disconnect); it can't sign in,
+  its shared links stop and renewals pause until `unsuspend/1`.
+  """
+  @spec suspend(User.t(), String.t()) :: {:ok, User.t(), [UserToken.t()]}
+  def suspend(%User{} = user, reason) do
+    Repo.transact(fn ->
+      user =
+        user
+        |> Ecto.Changeset.change(
+          suspended_at: DateTime.utc_now(:second),
+          suspension_reason: reason
+        )
+        |> Repo.update!()
+
+      {_count, tokens} =
+        from(t in UserToken, where: t.user_id == ^user.id and t.context == "session", select: t)
+        |> Repo.delete_all()
+
+      {:ok, {user, tokens}}
+    end)
+    |> then(fn {:ok, {user, tokens}} -> {:ok, user, tokens} end)
+  end
+
+  @doc "Lifts a suspension."
+  def unsuspend(%User{} = user),
+    do: user |> Ecto.Changeset.change(suspended_at: nil, suspension_reason: nil) |> Repo.update()
+
   @doc "When a paused account will be deleted."
   def deletion_date(%User{deletion_requested_at: at}),
     do: DateTime.add(at, @deletion_grace_days, :day)
