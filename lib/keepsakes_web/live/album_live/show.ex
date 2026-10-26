@@ -378,7 +378,12 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         {@notice}
       </span>
       <div class="flex items-center gap-2">
-        <.button id="limit-notice-plans" size="sm" variant="outline" navigate={~p"/app/billing"}>
+        <.button
+          id="limit-notice-plans"
+          size="sm"
+          variant="outline"
+          navigate={~p"/app/settings/billing"}
+        >
           See plans
         </.button>
         <button

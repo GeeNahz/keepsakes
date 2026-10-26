@@ -26,6 +26,9 @@ defmodule KeepsakesWeb.AuthThrottle do
     end
   end
 
+  @doc "Two-step codes: 6 tries per 15 minutes per account."
+  def two_step(user_id), do: RateLimit.check("auth:two_step:#{user_id}", 15 * @minute, 6)
+
   def register(ip) do
     RateLimit.check("auth:register:ip:#{ip}", 60 * @minute, 10)
   end

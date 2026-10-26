@@ -181,6 +181,7 @@ defmodule Keepsakes.Billing do
       renewed: Payments.renew_due(now),
       retried: Payments.retry_due(now),
       reminders: send_trial_reminders(now),
+      renewal_reminders: send_renewal_reminders(now),
       grace: start_grace(now),
       free: move_to_free(now)
     }
@@ -267,8 +268,50 @@ defmodule Keepsakes.Billing do
         "trial_reminder",
         dynamic([s], is_nil(s.trial_reminder_sent_at)),
         %{trial_reminder_sent_at: now},
-        &Notifier.deliver_trial_ending(&1.user, &1.trial_ends_at)
+        fn s ->
+          # Recorded either way; only emailed when billing reminders are on
+          if s.user.notify_billing_reminders,
+            do: Notifier.deliver_trial_ending(s.user, s.trial_ends_at)
+        end
       )
+    end)
+  end
+
+  @renewal_heads_up_days 3
+
+  # A heads-up a few days before a paid plan renews, once per period, for
+  # people with billing reminders on
+  defp send_renewal_reminders(now) do
+    soon = DateTime.add(now, @renewal_heads_up_days, :day)
+
+    from(s in Subscription,
+      join: p in assoc(s, :plan),
+      join: u in assoc(s, :user),
+      where: p.kind == "paid" and s.status == "active" and not s.cancel_at_period_end,
+      where: s.current_period_end > ^now and s.current_period_end <= ^soon,
+      where:
+        is_nil(s.renewal_reminder_sent_for) or s.renewal_reminder_sent_for != s.current_period_end,
+      where: u.notify_billing_reminders and is_nil(u.deletion_requested_at),
+      preload: [:user, :plan, price: :plan, pending_price: :plan]
+    )
+    |> Repo.all()
+    |> Enum.count(fn subscription ->
+      {count, _} =
+        from(s in Subscription,
+          where:
+            s.id == ^subscription.id and s.current_period_end == ^subscription.current_period_end,
+          where:
+            is_nil(s.renewal_reminder_sent_for) or
+              s.renewal_reminder_sent_for != s.current_period_end
+        )
+        |> Repo.update_all(set: [renewal_reminder_sent_for: subscription.current_period_end])
+
+      if count == 1 do
+        price = subscription.pending_price || subscription.price
+        Notifier.deliver_renewal_soon(subscription.user, price, subscription.current_period_end)
+      end
+
+      count == 1
     end)
   end
 

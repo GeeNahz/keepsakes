@@ -14,8 +14,16 @@ defmodule KeepsakesWeb.OwnerShellTest do
           ~p"/app/albums/#{album.slug}/upload",
           ~p"/app/albums/#{album.slug}/share",
           ~p"/app/albums/#{album.slug}/template",
-          ~p"/app/billing",
-          ~p"/app/settings"
+          ~p"/app/settings/profile",
+          ~p"/app/settings/account",
+          ~p"/app/settings/security",
+          ~p"/app/settings/notifications",
+          ~p"/app/settings/sharing",
+          ~p"/app/settings/templates",
+          ~p"/app/settings/billing",
+          ~p"/app/settings/referrals",
+          ~p"/app/settings/domains",
+          ~p"/app/settings/privacy"
         ] do
       {:ok, lv, _html} = live(conn, path)
       assert has_element?(lv, "#user-menu"), "no header on #{path}"

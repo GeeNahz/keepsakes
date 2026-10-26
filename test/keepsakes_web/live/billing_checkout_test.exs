@@ -14,7 +14,7 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
   end
 
   defp live_billing(conn) do
-    {:ok, lv, _html} = live(conn, ~p"/app/billing")
+    {:ok, lv, _html} = live(conn, ~p"/app/settings/billing")
     Req.Test.allow(Flutterwave, self(), lv.pid)
     lv
   end
@@ -73,8 +73,8 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
     assert has_element?(lv, "#quote-terms", "₦4,000 while your discount lasts, then ₦5,000")
   end
 
-  test "the invite card shares a sign-up link with the user's code", %{conn: conn, user: user} do
-    lv = live_billing(conn)
+  test "the Referrals tab shares a sign-up link with the user's code", %{conn: conn, user: user} do
+    {:ok, lv, _html} = live(conn, ~p"/app/settings/referrals")
     code = Keepsakes.Accounts.get_user!(user.id).referral_code
 
     assert has_element?(lv, ~s(#referral-link[value$="/auth/register?ref=#{code}"]))
@@ -93,7 +93,7 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
         ~p"/app/billing/return?status=successful&tx_ref=#{tx_ref}&transaction_id=fw-#{tx_ref}"
       )
 
-    assert redirected_to(conn) == "/app/billing"
+    assert redirected_to(conn) == "/app/settings/billing"
     assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Payment received"
 
     lv = live_billing(conn)
@@ -105,7 +105,7 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
     assert has_element?(lv, "#invoices a", "Receipt")
 
     [invoice] = Billing.list_invoices(scope)
-    {:ok, receipt, _html} = live(conn, ~p"/app/billing/invoices/#{invoice.id}")
+    {:ok, receipt, _html} = live(conn, ~p"/app/settings/billing/invoices/#{invoice.id}")
     assert has_element?(receipt, "#receipt-number", invoice.number)
     assert has_element?(receipt, "#receipt-amount", "₦5,000")
   end

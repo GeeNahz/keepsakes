@@ -651,8 +651,11 @@ defmodule Keepsakes.Billing.Payments do
   def renew_due(now) do
     from(s in Subscription,
       join: p in assoc(s, :plan),
+      join: u in assoc(s, :user),
       where: p.kind == "paid" and s.status == "active" and not s.cancel_at_period_end,
       where: s.current_period_end <= ^now,
+      # Accounts paused for deletion aren't charged
+      where: is_nil(u.deletion_requested_at),
       preload: [:user, :plan, :price, :pending_price]
     )
     |> Repo.all()
@@ -663,7 +666,9 @@ defmodule Keepsakes.Billing.Payments do
   @doc "Retries failed renewals that are due, moving to grace after the last."
   def retry_due(now) do
     from(s in Subscription,
+      join: u in assoc(s, :user),
       where: s.status == "past_due" and s.next_retry_at <= ^now,
+      where: is_nil(u.deletion_requested_at),
       preload: [:user, :plan, :price, :pending_price]
     )
     |> Repo.all()

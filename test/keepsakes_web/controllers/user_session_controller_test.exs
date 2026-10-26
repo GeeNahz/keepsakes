@@ -117,7 +117,7 @@ defmodule KeepsakesWeb.UserSessionControllerTest do
       conn = post(conn, ~p"/auth/log-in?_action=confirmed", %{"user" => %{"token" => token}})
 
       assert get_session(conn, :user_token)
-      assert redirected_to(conn) == ~p"/app/settings#password"
+      assert redirected_to(conn) == ~p"/app/settings/account#password"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Set a password"
 
       confirmed = Accounts.get_user!(user.id)
@@ -131,7 +131,7 @@ defmodule KeepsakesWeb.UserSessionControllerTest do
       conn = post(conn, ~p"/auth/log-in?_action=reset", %{"user" => %{"token" => token}})
 
       assert get_session(conn, :user_token)
-      assert redirected_to(conn) == ~p"/app/settings#password"
+      assert redirected_to(conn) == ~p"/app/settings/account#password"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Choose a new password"
     end
 

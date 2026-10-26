@@ -1,6 +1,6 @@
 defmodule KeepsakesWeb.BillingLive.Index do
   @moduledoc """
-  `/app/billing`: the owner's plan, what they're using against its limits, the
+  `/app/settings/billing`: the owner's plan, what they're using against its limits, the
   card renewals are charged to, invoices, and the plans side by side in
   NGN or USD, monthly or yearly.
 
@@ -8,10 +8,11 @@ defmodule KeepsakesWeb.BillingLive.Index do
   what's due today with any credit for unused days, or that a downgrade
   waits for the next renewal. Paying continues on Flutterwave's card page,
   which returns to `/app/billing/return`. The page reloads when a payment is
-  confirmed (also from a webhook). Becomes the Billing tab of settings in
-  Stage 6.
+  confirmed (also from a webhook). It's the Billing tab of settings.
   """
   use KeepsakesWeb, :live_view
+
+  import KeepsakesWeb.SettingsComponents
 
   alias Keepsakes.{Albums, Billing, Entitlements, Format}
   alias Keepsakes.Billing.{Discounts, Features, PaymentMethod, Price, Quote}
@@ -24,15 +25,16 @@ defmodule KeepsakesWeb.BillingLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner}>
-      <div class="mx-auto flex w-full max-w-[1040px] flex-col gap-8">
-        <div class="flex flex-col gap-1.5">
-          <h1 class="text-[32px] font-bold">Plans &amp; billing</h1>
-          <p class="text-base text-ks-muted">
-            Your plan, what you're using, and what each plan includes.
-          </p>
-        </div>
-
+    <.settings_shell
+      flash={@flash}
+      current_scope={@current_scope}
+      owner={@owner}
+      tab={:billing}
+      title="Plans & billing"
+      subtitle="Your plan, what you're using, and what each plan includes."
+      wide
+    >
+      <div class="flex flex-col gap-8">
         <section
           id="current-plan"
           aria-label="Your plan"
@@ -113,50 +115,6 @@ defmodule KeepsakesWeb.BillingLive.Index do
           </p>
         </section>
 
-        <section
-          id="referrals"
-          aria-label="Invite friends"
-          class="grid gap-5 rounded-2xl border border-base-300 bg-base-100 p-7 md:grid-cols-[minmax(0,1fr)_auto]"
-        >
-          <div class="flex flex-col gap-2">
-            <h2 class="text-xl font-bold">Invite friends, get a free month</h2>
-            <p class="text-sm leading-relaxed text-ks-muted">
-              Share your link. When someone joins with it and chooses a plan, you get a month free.
-            </p>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <input
-                id="referral-link"
-                type="text"
-                readonly
-                value={url(~p"/auth/register?ref=#{@referrals.code}")}
-                class="input h-11 min-w-0 flex-1 border-ks-field bg-base-200 font-mono text-sm"
-              />
-              <.button
-                id="copy-referral"
-                type="button"
-                variant="secondary"
-                phx-click={JS.dispatch("ks:copy", detail: %{from: "#referral-link"})}
-              >
-                <span data-copy-label>Copy link</span>
-              </.button>
-            </div>
-          </div>
-          <dl id="referral-stats" class="grid grid-cols-3 gap-4 self-center text-center md:w-72">
-            <div class="flex flex-col gap-1">
-              <dt class="text-xs text-ks-muted">Joined</dt>
-              <dd class="text-2xl font-bold tabular-nums">{@referrals.joined}</dd>
-            </div>
-            <div class="flex flex-col gap-1">
-              <dt class="text-xs text-ks-muted">Months earned</dt>
-              <dd class="text-2xl font-bold tabular-nums">{@referrals.paid}</dd>
-            </div>
-            <div class="flex flex-col gap-1">
-              <dt class="text-xs text-ks-muted">Waiting</dt>
-              <dd class="text-2xl font-bold tabular-nums">{@referrals.banked}</dd>
-            </div>
-          </dl>
-        </section>
-
         <section :if={@invoices != []} id="invoices" aria-label="Invoices" class="flex flex-col gap-4">
           <h2 class="text-2xl font-bold">Invoices</h2>
           <div class="overflow-x-auto rounded-2xl border border-base-300 bg-base-100">
@@ -190,7 +148,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
                   <td class="text-right">
                     <.link
                       :if={invoice.status == "paid"}
-                      navigate={~p"/app/billing/invoices/#{invoice.id}"}
+                      navigate={~p"/app/settings/billing/invoices/#{invoice.id}"}
                       class="text-sm font-bold"
                     >
                       Receipt
@@ -246,7 +204,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
           </.button>
         </div>
       </.modal>
-    </Layouts.app>
+    </.settings_shell>
     """
   end
 
@@ -671,7 +629,6 @@ defmodule KeepsakesWeb.BillingLive.Index do
       plan: Billing.current_plan(scope),
       payment_method: Billing.payment_method(scope),
       invoices: Billing.list_invoices(scope),
-      referrals: Billing.referrals(scope),
       limits: Entitlements.all(scope),
       usage: %{
         storage_bytes: socket.assigns.owner.storage_used,

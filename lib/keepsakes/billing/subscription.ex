@@ -26,6 +26,8 @@ defmodule Keepsakes.Billing.Subscription do
     field :cancel_at_period_end, :boolean, default: false
     field :retry_count, :integer, default: 0
     field :next_retry_at, :utc_datetime
+    # The period end a renewal heads-up was sent for
+    field :renewal_reminder_sent_for, :utc_datetime
 
     belongs_to :user, Keepsakes.Accounts.User
     belongs_to :plan, Keepsakes.Billing.Plan

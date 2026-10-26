@@ -19,6 +19,9 @@ defmodule Keepsakes.Accounts.UserToken do
     field :context, :string
     field :sent_to, :string
     field :authenticated_at, :utc_datetime
+    # Session tokens: the device that signed in, for Security -> devices
+    field :user_agent, :string
+    field :ip, :string
     belongs_to :user, Keepsakes.Accounts.User
 
     timestamps(type: :utc_datetime, updated_at: false)
@@ -43,10 +46,19 @@ defmodule Keepsakes.Accounts.UserToken do
   and devices in the UI and allow users to explicitly expire any
   session they deem invalid.
   """
-  def build_session_token(user) do
+  def build_session_token(user, device \\ %{}) do
     token = :crypto.strong_rand_bytes(@rand_size)
     dt = user.authenticated_at || DateTime.utc_now(:second)
-    {token, %UserToken{token: token, context: "session", user_id: user.id, authenticated_at: dt}}
+
+    {token,
+     %UserToken{
+       token: token,
+       context: "session",
+       user_id: user.id,
+       authenticated_at: dt,
+       user_agent: device[:user_agent] && String.slice(device[:user_agent], 0, 255),
+       ip: device[:ip]
+     }}
   end
 
   @doc """
