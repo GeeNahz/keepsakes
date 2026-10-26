@@ -145,7 +145,7 @@ defmodule KeepsakesWeb.GuestLiveTest do
     end
 
     test "needs the owner", %{conn: conn, album: album} do
-      assert {:error, {:redirect, %{to: "/users/log-in"}}} =
+      assert {:error, {:redirect, %{to: "/auth/log-in"}}} =
                live(conn, ~p"/a/preview/#{album.slug}/timeline")
 
       stranger = conn |> log_in_user(user_fixture())

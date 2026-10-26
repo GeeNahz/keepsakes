@@ -122,14 +122,14 @@ defmodule KeepsakesWeb.GuestAccess do
           {:halt,
            socket
            |> put_flash(:error, "That template isn't available.")
-           |> redirect(to: "/albums/#{album_slug}/template")}
+           |> redirect(to: "/app/albums/#{album_slug}/template")}
         end
 
       _ ->
         {:halt,
          socket
          |> put_flash(:error, "You must log in to access this page.")
-         |> redirect(to: "/users/log-in")}
+         |> redirect(to: "/auth/log-in")}
     end
   end
 

@@ -19,7 +19,7 @@ defmodule Keepsakes.Billing.Notifier do
     end
   end
 
-  defp billing_url, do: KeepsakesWeb.Endpoint.url() <> "/billing"
+  defp billing_url, do: KeepsakesWeb.Endpoint.url() <> "/app/billing"
 
   @doc "A week before the trial ends."
   def deliver_trial_ending(user, ends_at) do
@@ -79,7 +79,8 @@ defmodule Keepsakes.Billing.Notifier do
       subject: "Your Keepsake receipt #{invoice.number}",
       heading: "Thank you, payment received",
       paragraphs: lines,
-      action: {"View receipt", KeepsakesWeb.Endpoint.url() <> "/billing/invoices/#{invoice.id}"},
+      action:
+        {"View receipt", KeepsakesWeb.Endpoint.url() <> "/app/billing/invoices/#{invoice.id}"},
       footnote:
         "Your plan renews automatically on #{date(invoice.period_end)}. " <>
           "You can cancel any time from Plans & billing."

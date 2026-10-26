@@ -1,6 +1,6 @@
 defmodule KeepsakesWeb.AlbumLive.Share do
   @moduledoc """
-  `/albums/:slug/share`: the Share page from the canvas.
+  `/app/albums/:slug/share`: the Share page from the canvas.
 
   Not shared yet: pick how the access code is made (random or your own)
   and create the link. Shared: copy the link, the code and an invite
@@ -21,7 +21,7 @@ defmodule KeepsakesWeb.AlbumLive.Share do
         <div class="flex flex-col gap-1.5">
           <.link
             id="share-back"
-            navigate={~p"/albums/#{@album.slug}"}
+            navigate={~p"/app/albums/#{@album.slug}"}
             class="w-fit text-sm font-medium no-underline"
           >
             ← {@album.name}
@@ -339,7 +339,7 @@ defmodule KeepsakesWeb.AlbumLive.Share do
           <.link
             :if={not @downloads?}
             id="downloads-upgrade"
-            navigate={~p"/billing"}
+            navigate={~p"/app/billing"}
             class="-mt-2 text-[13px] text-ks-muted no-underline hover:text-primary"
           >
             Guest downloads come with Plus and Pro.

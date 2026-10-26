@@ -84,7 +84,7 @@ defmodule KeepsakesWeb.OwnerShell do
           |> update(:owner, &%{&1 | new_album_form: new_album_form()})
           |> refresh()
           |> put_flash(:info, "“#{album.name}” is ready. Add your first memory.")
-          |> push_navigate(to: "/albums/#{album.slug}")
+          |> push_navigate(to: "/app/albums/#{album.slug}")
 
         {:halt, socket}
 

@@ -1,5 +1,5 @@
 defmodule KeepsakesWeb.BillingLive.Invoice do
-  @moduledoc "`/billing/invoices/:id`: a receipt the owner can read or print."
+  @moduledoc "`/app/billing/invoices/:id`: a receipt the owner can read or print."
   use KeepsakesWeb, :live_view
 
   alias Keepsakes.Billing
@@ -11,7 +11,11 @@ defmodule KeepsakesWeb.BillingLive.Invoice do
     <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner}>
       <div class="mx-auto flex w-full max-w-[640px] flex-col gap-6">
         <div class="flex items-center justify-between gap-4 print:hidden">
-          <.link id="invoice-back" navigate={~p"/billing"} class="text-sm font-medium no-underline">
+          <.link
+            id="invoice-back"
+            navigate={~p"/app/billing"}
+            class="text-sm font-medium no-underline"
+          >
             ← Plans &amp; billing
           </.link>
           <.button id="print-receipt" size="sm" phx-click={JS.dispatch("ks:print")}>

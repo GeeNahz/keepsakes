@@ -3,10 +3,10 @@ defmodule KeepsakesWeb.AlbumLive.Show do
   One album, in three live actions that share this process so uploads
   started on the album page keep going on the upload screen:
 
-    * `:show` (`/albums/:slug`) - AlbumNoPhotos or the Album grid
-    * `:upload` (`/albums/:slug/upload`) - Upload one / Bulk upload:
+    * `:show` (`/app/albums/:slug`) - AlbumNoPhotos or the Album grid
+    * `:upload` (`/app/albums/:slug/upload`) - Upload one / Bulk upload:
       `UploadQueue` + `MemoryForm`, Prev/Next, Save or Cancel
-    * `:edit` (`/albums/:slug/memories/:id`) - the memory editor dialog
+    * `:edit` (`/app/albums/:slug/memories/:id`) - the memory editor dialog
 
   Each file becomes a draft memory as soon as it finishes uploading and is
   optimised in the background (`Keepsakes.Media.ProcessMemory`); the page
@@ -43,7 +43,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         <div class="flex flex-col gap-1.5">
           <.link
             id="upload-back"
-            navigate={~p"/albums/#{@album.slug}"}
+            navigate={~p"/app/albums/#{@album.slug}"}
             class="w-fit text-sm font-medium no-underline"
           >
             ← {@album.name}
@@ -157,7 +157,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
           </div>
           <div class="flex flex-col items-end gap-1.5">
             <div class="flex flex-wrap gap-2.5">
-              <.button id="album-template" navigate={~p"/albums/#{@album.slug}/template"}>
+              <.button id="album-template" navigate={~p"/app/albums/#{@album.slug}/template"}>
                 <.icon name="hero-swatch" class="size-[18px]" /> Template
               </.button>
               <%= if @stats.count > 0 do %>
@@ -167,7 +167,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
                 <.button
                   id="share-album"
                   variant="primary"
-                  navigate={~p"/albums/#{@album.slug}/share"}
+                  navigate={~p"/app/albums/#{@album.slug}/share"}
                 >
                   <.icon name="hero-link" class="size-[18px]" /> Share album
                 </.button>
@@ -188,7 +188,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         <.link
           :if={@drafts != []}
           id="resume-upload"
-          patch={~p"/albums/#{@album.slug}/upload"}
+          patch={~p"/app/albums/#{@album.slug}/upload"}
           class="flex items-center justify-between gap-3 rounded-box border border-ks-amber-soft bg-ks-amber-soft px-5 py-3.5 text-[15px] text-ks-amber-deep no-underline"
         >
           <span>
@@ -250,7 +250,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
               id={dom_id}
               memory={memory}
               cover={@album.cover_memory_id == memory.id}
-              patch={~p"/albums/#{@album.slug}/memories/#{memory.id}"}
+              patch={~p"/app/albums/#{@album.slug}/memories/#{memory.id}"}
             />
           </div>
         <% end %>
@@ -261,7 +261,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         id="edit-memory-dialog"
         title="Edit memory"
         show
-        on_cancel={JS.patch(~p"/albums/#{@album.slug}")}
+        on_cancel={JS.patch(~p"/app/albums/#{@album.slug}")}
         box_class="max-w-[860px]"
       >
         <.memory_form
@@ -281,7 +281,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
           >
             <.icon name="hero-trash" class="size-4" /> Delete
           </.button>
-          <.button id="edit-done" variant="primary" patch={~p"/albums/#{@album.slug}"}>Done</.button>
+          <.button id="edit-done" variant="primary" patch={~p"/app/albums/#{@album.slug}"}>Done</.button>
         </div>
       </.modal>
     </Layouts.app>
@@ -378,7 +378,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         {@notice}
       </span>
       <div class="flex items-center gap-2">
-        <.button id="limit-notice-plans" size="sm" variant="outline" navigate={~p"/billing"}>
+        <.button id="limit-notice-plans" size="sm" variant="outline" navigate={~p"/app/billing"}>
           See plans
         </.button>
         <button
@@ -543,7 +543,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
          count
        )
      )
-     |> push_patch(to: ~p"/albums/#{album.slug}")}
+     |> push_patch(to: ~p"/app/albums/#{album.slug}")}
   end
 
   def handle_event("discard", _params, socket) do
@@ -562,7 +562,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
      socket
      |> assign(album: Albums.get_album_by_slug!(scope, album.slug))
      |> assign_drafts([])
-     |> push_patch(to: ~p"/albums/#{album.slug}")}
+     |> push_patch(to: ~p"/app/albums/#{album.slug}")}
   end
 
   def handle_event("delete_memory", _params, %{assigns: %{selected: %Memory{} = memory}} = socket) do
@@ -574,7 +574,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
      |> assign(album: Albums.get_album_by_slug!(scope, album.slug))
      |> load_memories()
      |> put_flash(:info, "Memory deleted.")
-     |> push_patch(to: ~p"/albums/#{album.slug}")}
+     |> push_patch(to: ~p"/app/albums/#{album.slug}")}
   end
 
   defp handle_progress(:photos, entry, socket) do
@@ -644,7 +644,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
 
   defp open_upload_screen(socket) do
     if socket.assigns.uploads.photos.entries != [],
-      do: push_patch(socket, to: ~p"/albums/#{socket.assigns.album.slug}/upload"),
+      do: push_patch(socket, to: ~p"/app/albums/#{socket.assigns.album.slug}/upload"),
       else: socket
   end
 

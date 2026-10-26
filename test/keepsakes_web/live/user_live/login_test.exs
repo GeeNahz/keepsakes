@@ -6,13 +6,13 @@ defmodule KeepsakesWeb.UserLive.LoginTest do
 
   describe "login page" do
     test "renders the password form, the sign-in link button and the links", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in")
 
       assert has_element?(lv, "#login_form_password")
       assert has_element?(lv, "#login-submit")
       assert has_element?(lv, "#magic-link-submit")
       assert has_element?(lv, "#forgot-password-link")
-      assert has_element?(lv, ~s(a[href="/users/register"]))
+      assert has_element?(lv, ~s(a[href="/auth/register"]))
     end
   end
 
@@ -20,12 +20,12 @@ defmodule KeepsakesWeb.UserLive.LoginTest do
     test "sends magic link email when user exists", %{conn: conn} do
       user = user_fixture()
 
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in")
 
       {:ok, _lv, html} =
         form(lv, "#login_form_password", user: %{email: user.email})
         |> render_submit(%{user: %{magic: "true"}})
-        |> follow_redirect(conn, ~p"/users/log-in")
+        |> follow_redirect(conn, ~p"/auth/log-in")
 
       assert html =~ "If your email is in our system"
 
@@ -34,12 +34,12 @@ defmodule KeepsakesWeb.UserLive.LoginTest do
     end
 
     test "does not disclose if user is registered", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in")
 
       {:ok, _lv, html} =
         form(lv, "#login_form_password", user: %{email: "idonotexist@example.com"})
         |> render_submit(%{user: %{magic: "true"}})
-        |> follow_redirect(conn, ~p"/users/log-in")
+        |> follow_redirect(conn, ~p"/auth/log-in")
 
       assert html =~ "If your email is in our system"
     end
@@ -49,7 +49,7 @@ defmodule KeepsakesWeb.UserLive.LoginTest do
     test "redirects if user logs in with valid credentials", %{conn: conn} do
       user = user_fixture()
 
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in")
 
       form =
         form(lv, "#login_form_password",
@@ -58,13 +58,13 @@ defmodule KeepsakesWeb.UserLive.LoginTest do
 
       conn = submit_form(form, conn)
 
-      assert redirected_to(conn) == ~p"/albums"
+      assert redirected_to(conn) == ~p"/app/albums"
     end
 
     test "redirects to login page with a flash error if credentials are invalid", %{
       conn: conn
     } do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in")
 
       form =
         form(lv, "#login_form_password", user: %{email: "test@email.com", password: "123456"})
@@ -73,31 +73,31 @@ defmodule KeepsakesWeb.UserLive.LoginTest do
 
       conn = follow_trigger_action(form, conn)
       assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
-      assert redirected_to(conn) == ~p"/users/log-in"
+      assert redirected_to(conn) == ~p"/auth/log-in"
     end
   end
 
   describe "login navigation" do
     test "goes to registration from the Create an account link", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in")
 
       {:ok, register_lv, _html} =
         lv
-        |> element(~s(a[href="/users/register"]))
+        |> element(~s(a[href="/auth/register"]))
         |> render_click()
-        |> follow_redirect(conn, ~p"/users/register")
+        |> follow_redirect(conn, ~p"/auth/register")
 
       assert has_element?(register_lv, "#registration_form")
     end
 
     test "goes to the reset page from Forgot password?", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in")
 
       {:ok, reset_lv, _html} =
         lv
         |> element("#forgot-password-link")
         |> render_click()
-        |> follow_redirect(conn, ~p"/users/reset-password")
+        |> follow_redirect(conn, ~p"/auth/reset-password")
 
       assert has_element?(reset_lv, "#reset_password_form")
     end
@@ -110,14 +110,14 @@ defmodule KeepsakesWeb.UserLive.LoginTest do
     end
 
     test "shows login page with email filled in and read-only", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/auth/log-in")
 
       assert has_element?(
                lv,
                ~s(#login_form_password input[type="email"][readonly][value="#{user.email}"])
              )
 
-      refute has_element?(lv, ~s(a[href="/users/register"]))
+      refute has_element?(lv, ~s(a[href="/auth/register"]))
     end
   end
 end

@@ -10,12 +10,12 @@ defmodule KeepsakesWeb.OwnerShellTest do
     album = album_fixture(scope)
 
     for path <- [
-          ~p"/albums/#{album.slug}",
-          ~p"/albums/#{album.slug}/upload",
-          ~p"/albums/#{album.slug}/share",
-          ~p"/albums/#{album.slug}/template",
-          ~p"/billing",
-          ~p"/users/settings"
+          ~p"/app/albums/#{album.slug}",
+          ~p"/app/albums/#{album.slug}/upload",
+          ~p"/app/albums/#{album.slug}/share",
+          ~p"/app/albums/#{album.slug}/template",
+          ~p"/app/billing",
+          ~p"/app/settings"
         ] do
       {:ok, lv, _html} = live(conn, path)
       assert has_element?(lv, "#user-menu"), "no header on #{path}"

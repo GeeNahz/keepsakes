@@ -27,7 +27,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
 
   describe "album page" do
     test "no photos: drop zone, placeholders and share disabled", %{conn: conn, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
 
       assert has_element?(lv, "#album-title", "Our Little One")
       assert has_element?(lv, "#album-subtitle", "No memories yet")
@@ -46,7 +46,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
       earlier = memory_fixture(scope, album, %{title: "First birthday", month: 4, year: 2019})
       {:ok, _} = Albums.set_cover(scope, Keepsakes.Repo.reload!(album), earlier)
 
-      {:ok, lv, html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, html} = live(conn, ~p"/app/albums/#{album.slug}")
 
       assert has_element?(
                lv,
@@ -63,7 +63,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
 
     test "incomplete memories are flagged", %{conn: conn, scope: scope, album: album} do
       memory = memory_fixture(scope, album, %{title: "Beach day"})
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
 
       assert has_element?(lv, "#memories-#{memory.id}", "Needs date")
     end
@@ -71,11 +71,11 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
     test "another owner's album is not found", %{conn: conn} do
       other = album_fixture(user_scope_fixture(), name: "Private")
 
-      assert_raise Ecto.NoResultsError, fn -> live(conn, ~p"/albums/#{other.slug}") end
+      assert_raise Ecto.NoResultsError, fn -> live(conn, ~p"/app/albums/#{other.slug}") end
     end
 
     test "New album dialog creates an album", %{conn: conn, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
       assert has_element?(lv, "#sidebar-new-album")
 
       assert lv |> form("#new-album-form", album: %{name: " "}) |> render_submit() =~
@@ -85,7 +85,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
         lv
         |> form("#new-album-form", album: %{name: "Lagos Trip 2023", description: "Sun"})
         |> render_submit()
-        |> follow_redirect(conn, ~p"/albums/lagos-trip-2023")
+        |> follow_redirect(conn, ~p"/app/albums/lagos-trip-2023")
 
       assert html =~ "Lagos Trip 2023"
     end
@@ -93,10 +93,10 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
 
   describe "uploading" do
     test "a picked photo opens the upload screen as a draft", %{conn: conn, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
 
       upload(lv, [{"IMG_2041.jpg", jpeg(taken: "2019:04:12 10:00:00")}])
-      assert_patch(lv, ~p"/albums/#{album.slug}/upload")
+      assert_patch(lv, ~p"/app/albums/#{album.slug}/upload")
 
       assert [draft] = Albums.list_drafts(scope_of(conn), album)
       assert draft.original_filename == "IMG_2041.jpg"
@@ -113,7 +113,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
     end
 
     test "filling the form makes it ready and saving publishes it", %{conn: conn, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/upload")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/upload")
       assert has_element?(lv, "#drop-zone")
 
       upload(lv, [{"IMG_1.jpg", jpeg()}])
@@ -134,7 +134,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
       assert Albums.get_memory!(scope_of(conn), draft.id).people == ["Ada"]
 
       lv |> element("#upload-save") |> render_click()
-      assert_patch(lv, ~p"/albums/#{album.slug}")
+      assert_patch(lv, ~p"/app/albums/#{album.slug}")
 
       assert has_element?(lv, "#memories-#{draft.id}", "First birthday")
       assert has_element?(lv, "#memories-#{draft.id}", "Cover")
@@ -142,7 +142,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
     end
 
     test "bulk: counter, prev/next and publishing incomplete photos", %{conn: conn, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/upload")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/upload")
       upload(lv, [{"a.jpg", jpeg()}, {"b.jpg", jpeg()}, {"c.jpg", jpeg()}])
 
       [first, second, third] = Albums.list_drafts(scope_of(conn), album)
@@ -162,30 +162,30 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
       assert has_element?(lv, "#upload-save", "Upload 3 photos")
 
       lv |> element("#upload-save") |> render_click()
-      assert_patch(lv, ~p"/albums/#{album.slug}")
+      assert_patch(lv, ~p"/app/albums/#{album.slug}")
       assert has_element?(lv, "#memories-#{third.id}", "Needs name + date")
     end
 
     test "cancel deletes the drafts", %{conn: conn, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/upload")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/upload")
       upload(lv, [{"a.jpg", jpeg()}])
 
       lv |> element("#upload-cancel") |> render_click()
-      assert_patch(lv, ~p"/albums/#{album.slug}")
+      assert_patch(lv, ~p"/app/albums/#{album.slug}")
       assert Albums.list_drafts(scope_of(conn), album) == []
     end
 
     test "drafts left behind can be resumed", %{conn: conn, scope: scope, album: album} do
       draft_fixture(scope, album)
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
 
       lv |> element("#resume-upload") |> render_click()
-      assert_patch(lv, ~p"/albums/#{album.slug}/upload")
+      assert_patch(lv, ~p"/app/albums/#{album.slug}/upload")
       assert has_element?(lv, "#memory-form")
     end
 
     test "rejects files that aren't photos", %{conn: conn, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/upload")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/upload")
 
       input =
         file_input(lv, "#upload-form", :photos, [
@@ -201,9 +201,9 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
       one = memory_fixture(scope, album, %{title: "One", month: 1, year: 2020})
       two = memory_fixture(scope, album, %{title: "Two", month: 2, year: 2020})
 
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
       lv |> element("#memories-#{two.id}") |> render_click()
-      assert_patch(lv, ~p"/albums/#{album.slug}/memories/#{two.id}")
+      assert_patch(lv, ~p"/app/albums/#{album.slug}/memories/#{two.id}")
       assert has_element?(lv, "#edit-memory-dialog")
 
       lv |> form("#memory-form", memory: %{title: "Second", cover: "true"}) |> render_change()
@@ -212,7 +212,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
       refute has_element?(lv, "#memories-#{one.id}", "Cover")
 
       lv |> element("#delete-memory") |> render_click()
-      assert_patch(lv, ~p"/albums/#{album.slug}")
+      assert_patch(lv, ~p"/app/albums/#{album.slug}")
       refute has_element?(lv, "#memories-#{two.id}")
       assert has_element?(lv, "#album-subtitle", "1 memory")
     end
@@ -221,7 +221,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
       other = memory_fixture(scope, album_fixture(scope), %{title: "Elsewhere"})
 
       assert_raise Ecto.NoResultsError, fn ->
-        live(conn, ~p"/albums/#{album.slug}/memories/#{other.id}")
+        live(conn, ~p"/app/albums/#{album.slug}/memories/#{other.id}")
       end
     end
   end

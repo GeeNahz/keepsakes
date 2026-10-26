@@ -19,12 +19,12 @@ defmodule KeepsakesWeb.AlbumLive.ShareTest do
     scope: scope,
     album: album
   } do
-    {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+    {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
     assert has_element?(lv, "#share-album[disabled]")
 
     guest_memory_fixture(scope, album)
-    {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
-    assert has_element?(lv, ~s(#share-album[href="/albums/#{album.slug}/share"]))
+    {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
+    assert has_element?(lv, ~s(#share-album[href="/app/albums/#{album.slug}/share"]))
     assert has_element?(lv, ~s(#preview-as-guest[href="/a/preview/#{album.slug}/timeline"]))
   end
 
@@ -34,7 +34,7 @@ defmodule KeepsakesWeb.AlbumLive.ShareTest do
       scope: scope,
       album: album
     } do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/share")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/share")
       assert has_element?(lv, "#share-setup")
       refute has_element?(lv, "#share-live")
       refute has_element?(lv, "#share-settings-form")
@@ -52,7 +52,7 @@ defmodule KeepsakesWeb.AlbumLive.ShareTest do
     end
 
     test "your own code is validated", %{conn: conn, scope: scope, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/share")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/share")
 
       lv |> form("#share-create-form", %{mode: "manual"}) |> render_change()
       assert has_element?(lv, "#share-own-code")
@@ -73,7 +73,7 @@ defmodule KeepsakesWeb.AlbumLive.ShareTest do
     end
 
     test "changing the code", %{conn: conn, scope: scope, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/share")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/share")
 
       lv |> element("#change-code") |> render_click()
       assert has_element?(lv, "#change-code-panel")
@@ -94,7 +94,7 @@ defmodule KeepsakesWeb.AlbumLive.ShareTest do
     end
 
     test "settings save as they change", %{conn: conn, scope: scope, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/share")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/share")
 
       lv
       |> form("#share-settings-form",
@@ -111,12 +111,12 @@ defmodule KeepsakesWeb.AlbumLive.ShareTest do
 
     test "activity shows visits", %{conn: conn, album: album, link: link} do
       :ok = Sharing.record_open(link)
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/share")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/share")
       assert has_element?(lv, "#share-activity", "Opened once · last opened just now")
     end
 
     test "turning sharing off", %{conn: conn, scope: scope, album: album} do
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/share")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/share")
 
       lv |> element("#turn-off-sharing") |> render_click()
       assert has_element?(lv, "#share-setup")
@@ -126,6 +126,6 @@ defmodule KeepsakesWeb.AlbumLive.ShareTest do
 
   test "another owner's album is not found", %{conn: conn} do
     other = album_fixture(user_scope_fixture())
-    assert_raise Ecto.NoResultsError, fn -> live(conn, ~p"/albums/#{other.slug}/share") end
+    assert_raise Ecto.NoResultsError, fn -> live(conn, ~p"/app/albums/#{other.slug}/share") end
   end
 end

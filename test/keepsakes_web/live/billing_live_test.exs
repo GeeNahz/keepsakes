@@ -7,10 +7,10 @@ defmodule KeepsakesWeb.BillingLiveTest do
 
   setup :register_and_log_in_user
 
-  describe "/billing" do
+  describe "/app/billing" do
     test "shows the trial, usage and the three plans", %{conn: conn, scope: scope} do
       album_fixture(scope)
-      {:ok, lv, _html} = live(conn, ~p"/billing")
+      {:ok, lv, _html} = live(conn, ~p"/app/billing")
 
       assert has_element?(lv, "#current-plan-name", "Free trial")
       assert has_element?(lv, "#current-plan-status", "60 days left")
@@ -25,7 +25,7 @@ defmodule KeepsakesWeb.BillingLiveTest do
     end
 
     test "switches currency and interval", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/billing")
+      {:ok, lv, _html} = live(conn, ~p"/app/billing")
 
       lv |> element(~s(#currency-switch button[phx-value-to="USD"])) |> render_click()
       lv |> element(~s(#interval-switch button[phx-value-to="year"])) |> render_click()
@@ -42,7 +42,7 @@ defmodule KeepsakesWeb.BillingLiveTest do
       for _ <- 1..3, do: album_fixture(scope)
       put_on_plan(user, "free")
 
-      {:ok, lv, _html} = live(conn, ~p"/billing")
+      {:ok, lv, _html} = live(conn, ~p"/app/billing")
       assert has_element?(lv, "#plan-free", "Current")
       assert has_element?(lv, "#choose-free[disabled]")
       assert has_element?(lv, "#usage-albums", "3 of 2")
@@ -59,9 +59,9 @@ defmodule KeepsakesWeb.BillingLiveTest do
       album = album_fixture(scope)
       put_on_plan(user, "free")
 
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
       assert has_element?(lv, "#storage-meter", "of 1 GB")
-      assert has_element?(lv, ~s(#sidebar-plan[href="/billing"]), "Free plan")
+      assert has_element?(lv, ~s(#sidebar-plan[href="/app/billing"]), "Free plan")
     end
 
     test "the New album dialog explains a full plan", %{conn: conn, scope: scope, user: user} do
@@ -69,7 +69,7 @@ defmodule KeepsakesWeb.BillingLiveTest do
       album_fixture(scope)
       put_on_plan(user, "free")
 
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
       assert has_element?(lv, "#album-limit-notice", "Your plan includes 2 albums")
       refute has_element?(lv, "#new-album-form")
     end
@@ -78,7 +78,7 @@ defmodule KeepsakesWeb.BillingLiveTest do
       album = album_fixture(scope)
       put_on_plan(user, plan_fixture(%{"max_memories_per_album" => 0}))
 
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}")
 
       photo =
         file_input(lv, "#upload-form", :photos, [
@@ -88,7 +88,7 @@ defmodule KeepsakesWeb.BillingLiveTest do
       render_upload(photo, "IMG_1.jpg")
 
       assert has_element?(lv, "#limit-notice", "IMG_1.jpg wasn't added")
-      assert has_element?(lv, ~s(#limit-notice-plans[href="/billing"]))
+      assert has_element?(lv, ~s(#limit-notice-plans[href="/app/billing"]))
       assert Keepsakes.Albums.list_drafts(scope, album) == []
     end
 
@@ -97,18 +97,18 @@ defmodule KeepsakesWeb.BillingLiveTest do
       share_link_fixture(scope, album)
       put_on_plan(user, "free")
 
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/share")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/share")
       assert has_element?(lv, "#share_link_allow_downloads[disabled]")
-      assert has_element?(lv, ~s(#downloads-upgrade[href="/billing"]))
+      assert has_element?(lv, ~s(#downloads-upgrade[href="/app/billing"]))
     end
 
     test "premium templates offer an upgrade", %{conn: conn, scope: scope, user: user} do
       album = album_fixture(scope)
       put_on_plan(user, "free")
 
-      {:ok, lv, _html} = live(conn, ~p"/albums/#{album.slug}/template")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums/#{album.slug}/template")
       assert has_element?(lv, "#template-daylight", "Premium")
-      assert has_element?(lv, ~s(#upgrade-daylight[href="/billing"]))
+      assert has_element?(lv, ~s(#upgrade-daylight[href="/app/billing"]))
       refute has_element?(lv, "#use-daylight")
       assert render_click(lv, "use", %{"slug" => "daylight"}) =~ "need the Plus or Pro plan"
     end

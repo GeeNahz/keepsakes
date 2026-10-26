@@ -103,6 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Daylight is a premium template. Premium templates need Plus or Pro to choose (the picker offers "Upgrade to use", the settings list marks them), and albums or defaults set to one fall back to the system default when the plan no longer includes them.
 - Guest downloads need a plan with guest downloads: the Share page switch is disabled with a link to plans, and downloads stop if the plan drops them.
 - "Made with Keepsake" on the guest timeline is hidden on plans with remove branding.
+- The owner portal moved under `/app`: `/app/albums/...`, `/app/billing/...` (including the Flutterwave return page `/app/billing/return`), `/app/settings` (was `/users/settings`), `/app/settings/update-password` and `/app/confirm-email/resend`; `/app` on its own opens the album list.
+- Sign-in pages moved under `/auth`: `/auth/register`, `/auth/log-in`, `/auth/log-in/:token`, `/auth/reset-password` and `/auth/log-out` (were under `/users`). The landing page (`/`), guest links (`/a/...`), webhooks and media URLs are unchanged.
 - Every owner-portal page (upload screen, Share, Template, Plans & billing, settings) now shows the header and album sidebar; the `sidebar={false}` option on `Layouts.app` is gone.
 - The owner header sticks to the top, and the album sidebar stays in view at viewport height while the page scrolls; a long album list scrolls inside the sidebar so New album and the storage meter stay visible.
 - `Scope` no longer carries unused `subscription`/`entitlements` fields; `Keepsakes.Format.bytes/1` is shared by pages and messages.

@@ -5,7 +5,7 @@ defmodule KeepsakesWeb.AlbumLive.IndexTest do
   import Keepsakes.AccountsFixtures
 
   test "requires a logged-in user", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/users/log-in"}}} = live(conn, ~p"/albums")
+    assert {:error, {:redirect, %{to: "/auth/log-in"}}} = live(conn, ~p"/app/albums")
   end
 
   describe "owner shell" do
@@ -15,7 +15,7 @@ defmodule KeepsakesWeb.AlbumLive.IndexTest do
       conn: conn,
       user: user
     } do
-      {:ok, lv, _html} = live(conn, ~p"/albums")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums")
 
       assert has_element?(lv, "#albums-empty")
       assert has_element?(lv, "#album-sidebar")
@@ -26,12 +26,12 @@ defmodule KeepsakesWeb.AlbumLive.IndexTest do
                ~s(#user-menu-button [aria-label="#{Keepsakes.Accounts.User.full_name(user)}"])
              )
 
-      assert has_element?(lv, ~s(#user-menu-settings[href="/users/settings"]))
+      assert has_element?(lv, ~s(#user-menu-settings[href="/app/settings"]))
       refute has_element?(lv, "#confirm-email-banner")
     end
 
     test "creates the first album from the empty state", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/albums")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums")
 
       assert lv
              |> form("#first-album-form", album: %{name: ""})
@@ -41,7 +41,7 @@ defmodule KeepsakesWeb.AlbumLive.IndexTest do
         lv
         |> form("#first-album-form", album: %{name: "Our Little One"})
         |> render_submit()
-        |> follow_redirect(conn, ~p"/albums/our-little-one")
+        |> follow_redirect(conn, ~p"/app/albums/our-little-one")
 
       assert has_element?(show, "#album-title", "Our Little One")
       assert has_element?(show, "#sidebar-albums a[aria-current=page]", "Our Little One")
@@ -55,15 +55,15 @@ defmodule KeepsakesWeb.AlbumLive.IndexTest do
       |> Ecto.Changeset.change(inserted_at: DateTime.add(older.inserted_at, -3600))
       |> Keepsakes.Repo.update!()
 
-      assert {:error, {:live_redirect, %{to: "/albums/newer"}}} = live(conn, ~p"/albums")
+      assert {:error, {:live_redirect, %{to: "/app/albums/newer"}}} = live(conn, ~p"/app/albums")
     end
 
     test "unconfirmed users see the confirm-email banner", %{conn: conn} do
       conn = log_in_user(conn, unconfirmed_user_fixture())
-      {:ok, lv, _html} = live(conn, ~p"/albums")
+      {:ok, lv, _html} = live(conn, ~p"/app/albums")
 
       assert has_element?(lv, "#confirm-email-banner")
-      assert has_element?(lv, ~s(#resend-confirmation-form[action="/users/confirm/resend"]))
+      assert has_element?(lv, ~s(#resend-confirmation-form[action="/app/confirm-email/resend"]))
     end
   end
 end

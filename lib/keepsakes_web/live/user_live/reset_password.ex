@@ -61,7 +61,7 @@ defmodule KeepsakesWeb.UserLive.ResetPassword do
       <% end %>
 
       <p class="text-[15px] text-ks-muted">
-        Remembered it? <.link navigate={~p"/users/log-in"} class="font-bold">Back to log in</.link>
+        Remembered it? <.link navigate={~p"/auth/log-in"} class="font-bold">Back to log in</.link>
       </p>
     </Layouts.app>
     """
@@ -86,7 +86,7 @@ defmodule KeepsakesWeb.UserLive.ResetPassword do
         if user = Accounts.get_user_by_email(email) do
           Accounts.deliver_password_reset_instructions(
             user,
-            &url(~p"/users/log-in/#{&1}?reset=1")
+            &url(~p"/auth/log-in/#{&1}?reset=1")
           )
         end
 

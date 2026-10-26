@@ -9,7 +9,7 @@ defmodule KeepsakesWeb.UserLive.ResetPasswordTest do
     user = user_fixture()
     # the fixture's own confirmation email
     assert_email_sent(subject: "Confirm your Keepsake account")
-    {:ok, lv, _html} = live(conn, ~p"/users/reset-password")
+    {:ok, lv, _html} = live(conn, ~p"/auth/reset-password")
 
     lv |> form("#reset_password_form", user: %{email: user.email}) |> render_submit()
 
@@ -22,7 +22,7 @@ defmodule KeepsakesWeb.UserLive.ResetPasswordTest do
   end
 
   test "shows the same confirmation for unknown emails", %{conn: conn} do
-    {:ok, lv, _html} = live(conn, ~p"/users/reset-password")
+    {:ok, lv, _html} = live(conn, ~p"/auth/reset-password")
 
     lv |> form("#reset_password_form", user: %{email: "nobody@example.com"}) |> render_submit()
 

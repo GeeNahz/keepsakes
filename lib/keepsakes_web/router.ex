@@ -96,9 +96,12 @@ defmodule KeepsakesWeb.Router do
 
   ## Authentication routes
 
-  # Owner portal: everything here needs a logged-in user
-  scope "/", KeepsakesWeb do
+  # Owner portal under /app: everything here needs a logged-in user
+  # (the super-admin portal lives on its own admin.<host> subdomain)
+  scope "/app", KeepsakesWeb do
     pipe_through [:browser, :require_authenticated_user]
+
+    get "/", PageController, :app
 
     live_session :require_authenticated_user,
       on_mount: [{KeepsakesWeb.UserAuth, :require_authenticated}, KeepsakesWeb.OwnerShell] do
@@ -112,29 +115,30 @@ defmodule KeepsakesWeb.Router do
       live "/albums/:slug/template", AlbumLive.Template, :template
       live "/billing", BillingLive.Index, :index
       live "/billing/invoices/:id", BillingLive.Invoice, :show
-      live "/users/settings", UserLive.Settings, :edit
-      live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+      live "/settings", UserLive.Settings, :edit
+      live "/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end
 
     # Flutterwave's card page sends the owner back here
     get "/billing/return", BillingController, :return
-    post "/users/update-password", UserSessionController, :update_password
-    post "/users/confirm/resend", UserConfirmationController, :create
+    post "/settings/update-password", UserSessionController, :update_password
+    post "/confirm-email/resend", UserConfirmationController, :create
   end
 
-  # Auth pages: work logged out, but know about the current user if any
-  scope "/", KeepsakesWeb do
+  # Sign-in pages under /auth: work logged out, but know about the current
+  # user if any
+  scope "/auth", KeepsakesWeb do
     pipe_through [:browser]
 
     live_session :current_user,
       on_mount: [{KeepsakesWeb.UserAuth, :mount_current_scope}] do
-      live "/users/register", UserLive.Registration, :new
-      live "/users/log-in", UserLive.Login, :new
-      live "/users/log-in/:token", UserLive.Confirmation, :new
-      live "/users/reset-password", UserLive.ResetPassword, :new
+      live "/register", UserLive.Registration, :new
+      live "/log-in", UserLive.Login, :new
+      live "/log-in/:token", UserLive.Confirmation, :new
+      live "/reset-password", UserLive.ResetPassword, :new
     end
 
-    post "/users/log-in", UserSessionController, :create
-    delete "/users/log-out", UserSessionController, :delete
+    post "/log-in", UserSessionController, :create
+    delete "/log-out", UserSessionController, :delete
   end
 end

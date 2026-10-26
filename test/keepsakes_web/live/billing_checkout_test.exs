@@ -14,7 +14,7 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
   end
 
   defp live_billing(conn) do
-    {:ok, lv, _html} = live(conn, ~p"/billing")
+    {:ok, lv, _html} = live(conn, ~p"/app/billing")
     Req.Test.allow(Flutterwave, self(), lv.pid)
     lv
   end
@@ -41,10 +41,10 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
     conn =
       get(
         conn,
-        ~p"/billing/return?status=successful&tx_ref=#{tx_ref}&transaction_id=fw-#{tx_ref}"
+        ~p"/app/billing/return?status=successful&tx_ref=#{tx_ref}&transaction_id=fw-#{tx_ref}"
       )
 
-    assert redirected_to(conn) == "/billing"
+    assert redirected_to(conn) == "/app/billing"
     assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Payment received"
 
     lv = live_billing(conn)
@@ -56,7 +56,7 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
     assert has_element?(lv, "#invoices a", "Receipt")
 
     [invoice] = Billing.list_invoices(scope)
-    {:ok, receipt, _html} = live(conn, ~p"/billing/invoices/#{invoice.id}")
+    {:ok, receipt, _html} = live(conn, ~p"/app/billing/invoices/#{invoice.id}")
     assert has_element?(receipt, "#receipt-number", invoice.number)
     assert has_element?(receipt, "#receipt-amount", "₦5,000")
   end
@@ -66,7 +66,7 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
       Billing.start_checkout(scope, Billing.get_price!("plus", "NGN", "month"), "http://x")
 
     "https://checkout.flutterwave.test/pay/" <> tx_ref = link
-    conn = get(conn, ~p"/billing/return?status=cancelled&tx_ref=#{tx_ref}")
+    conn = get(conn, ~p"/app/billing/return?status=cancelled&tx_ref=#{tx_ref}")
 
     assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "haven't been charged"
     assert Billing.get_subscription(scope).plan.slug == "trial"
@@ -79,7 +79,7 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
       Billing.start_checkout(other, Billing.get_price!("plus", "NGN", "month"), "http://x")
 
     "https://checkout.flutterwave.test/pay/" <> tx_ref = link
-    conn = get(conn, ~p"/billing/return?status=successful&tx_ref=#{tx_ref}")
+    conn = get(conn, ~p"/app/billing/return?status=successful&tx_ref=#{tx_ref}")
 
     assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "couldn't find that payment"
     assert Billing.get_subscription(other).plan.slug == "trial"

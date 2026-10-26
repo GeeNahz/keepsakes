@@ -1,6 +1,6 @@
 defmodule KeepsakesWeb.BillingController do
   @moduledoc """
-  `GET /billing/return`: where Flutterwave sends the customer after the
+  `GET /app/billing/return`: where Flutterwave sends the customer after the
   card page, with `status`, `tx_ref` and (on success) `transaction_id`.
   The query string is only a hint: the payment is confirmed with
   Flutterwave before anything changes.
@@ -18,25 +18,27 @@ defmodule KeepsakesWeb.BillingController do
 
     cond do
       is_nil(payment) ->
-        conn |> put_flash(:error, "We couldn't find that payment.") |> redirect(to: ~p"/billing")
+        conn
+        |> put_flash(:error, "We couldn't find that payment.")
+        |> redirect(to: ~p"/app/billing")
 
       params["status"] == "cancelled" ->
         Billing.abandon(tx_ref)
 
         conn
         |> put_flash(:info, "Payment cancelled. You haven't been charged.")
-        |> redirect(to: ~p"/billing")
+        |> redirect(to: ~p"/app/billing")
 
       true ->
         result = Billing.confirm(tx_ref, params["transaction_id"])
 
         conn
         |> put_flash(flash_kind(result), message(result))
-        |> redirect(to: ~p"/billing")
+        |> redirect(to: ~p"/app/billing")
     end
   end
 
-  def return(conn, _params), do: redirect(conn, to: ~p"/billing")
+  def return(conn, _params), do: redirect(conn, to: ~p"/app/billing")
 
   defp flash_kind({:ok, _}), do: :info
   defp flash_kind(_), do: :error
