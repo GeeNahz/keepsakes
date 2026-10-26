@@ -24,12 +24,61 @@ defmodule KeepsakesWeb.BillingCheckoutTest do
 
     lv |> element("#choose-plus") |> render_click()
     assert has_element?(lv, "#checkout-dialog #quote-amount", "₦5,000")
-    assert has_element?(lv, "#quote-summary", "remaining trial days are included")
+    assert has_element?(lv, "#quote-terms", "including your remaining trial days")
 
     assert {:error, {:redirect, %{to: "https://checkout.flutterwave.test/pay/" <> tx_ref}}} =
              lv |> element("#confirm-plan") |> render_click()
 
     assert Repo.get_by!(Payment, tx_ref: tx_ref).amount_minor == 500_000
+  end
+
+  test "a discount code in the dialog lowers the charge and goes to checkout", %{conn: conn} do
+    {:ok, _} =
+      Keepsakes.Billing.Discounts.create_code(%{
+        code: "LAUNCH20",
+        percent_off: 20,
+        duration: "once"
+      })
+
+    lv = live_billing(conn)
+    lv |> element("#choose-plus") |> render_click()
+
+    lv |> form("#discount-form", code: "nope") |> render_submit()
+    assert has_element?(lv, "#code-error", "That code isn't valid.")
+
+    lv |> form("#discount-form", code: "launch20") |> render_submit()
+    refute has_element?(lv, "#code-error")
+    assert has_element?(lv, "#quote-discount", "LAUNCH20 · 20% off")
+    assert has_element?(lv, "#quote-amount", "₦4,000")
+
+    assert {:error, {:redirect, %{to: "https://checkout.flutterwave.test/pay/" <> tx_ref}}} =
+             lv |> element("#confirm-plan") |> render_click()
+
+    assert Repo.get_by!(Payment, tx_ref: tx_ref).amount_minor == 400_000
+  end
+
+  test "a repeating code says how long the lower price lasts", %{conn: conn} do
+    {:ok, _} =
+      Keepsakes.Billing.Discounts.create_code(%{
+        code: "SPRING",
+        percent_off: 20,
+        duration: "repeating",
+        duration_months: 3
+      })
+
+    lv = live_billing(conn)
+    lv |> element("#choose-plus") |> render_click()
+    lv |> form("#discount-form", code: "spring") |> render_submit()
+
+    assert has_element?(lv, "#quote-terms", "₦4,000 while your discount lasts, then ₦5,000")
+  end
+
+  test "the invite card shares a sign-up link with the user's code", %{conn: conn, user: user} do
+    lv = live_billing(conn)
+    code = Keepsakes.Accounts.get_user!(user.id).referral_code
+
+    assert has_element?(lv, ~s(#referral-link[value$="/auth/register?ref=#{code}"]))
+    assert has_element?(lv, "#referral-stats", "Joined")
   end
 
   test "the return page confirms and the page shows the plan", %{conn: conn, scope: scope} do

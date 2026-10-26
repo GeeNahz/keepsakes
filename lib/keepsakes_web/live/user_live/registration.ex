@@ -99,11 +99,13 @@ defmodule KeepsakesWeb.UserLive.Registration do
     {:ok, redirect(socket, to: KeepsakesWeb.UserAuth.signed_in_path(socket))}
   end
 
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     socket =
       socket
       |> assign(
         page_title: "Create account",
+        # From an invite link: /auth/register?ref=CODE
+        referral_code: params["ref"],
         signups_open: Settings.get(:signups_open),
         client_ip: AuthThrottle.client_ip(get_connect_info(socket, :peer_data)),
         trigger_submit: false
@@ -117,7 +119,8 @@ defmodule KeepsakesWeb.UserLive.Registration do
   def handle_event("save", %{"user" => user_params}, socket) do
     with true <- Settings.get(:signups_open) || {:error, :closed},
          :ok <- AuthThrottle.register(socket.assigns.client_ip),
-         {:ok, user} <- Accounts.register_user(user_params) do
+         {:ok, user} <-
+           Accounts.register_user(user_params, referral_code: socket.assigns.referral_code) do
       {:ok, _} = Accounts.deliver_login_instructions(user, &url(~p"/auth/log-in/#{&1}"))
 
       # Submit the same email + password to the session controller, which

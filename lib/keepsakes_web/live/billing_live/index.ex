@@ -14,7 +14,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
   use KeepsakesWeb, :live_view
 
   alias Keepsakes.{Albums, Billing, Entitlements, Format}
-  alias Keepsakes.Billing.{Features, PaymentMethod, Price, Quote}
+  alias Keepsakes.Billing.{Discounts, Features, PaymentMethod, Price, Quote}
   alias KeepsakesWeb.OwnerShell
 
   # Rows in the plan comparison: the features that are live today
@@ -113,6 +113,50 @@ defmodule KeepsakesWeb.BillingLive.Index do
           </p>
         </section>
 
+        <section
+          id="referrals"
+          aria-label="Invite friends"
+          class="grid gap-5 rounded-2xl border border-base-300 bg-base-100 p-7 md:grid-cols-[minmax(0,1fr)_auto]"
+        >
+          <div class="flex flex-col gap-2">
+            <h2 class="text-xl font-bold">Invite friends, get a free month</h2>
+            <p class="text-sm leading-relaxed text-ks-muted">
+              Share your link. When someone joins with it and chooses a plan, you get a month free.
+            </p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <input
+                id="referral-link"
+                type="text"
+                readonly
+                value={url(~p"/auth/register?ref=#{@referrals.code}")}
+                class="input h-11 min-w-0 flex-1 border-ks-field bg-base-200 font-mono text-sm"
+              />
+              <.button
+                id="copy-referral"
+                type="button"
+                variant="secondary"
+                phx-click={JS.dispatch("ks:copy", detail: %{from: "#referral-link"})}
+              >
+                <span data-copy-label>Copy link</span>
+              </.button>
+            </div>
+          </div>
+          <dl id="referral-stats" class="grid grid-cols-3 gap-4 self-center text-center md:w-72">
+            <div class="flex flex-col gap-1">
+              <dt class="text-xs text-ks-muted">Joined</dt>
+              <dd class="text-2xl font-bold tabular-nums">{@referrals.joined}</dd>
+            </div>
+            <div class="flex flex-col gap-1">
+              <dt class="text-xs text-ks-muted">Months earned</dt>
+              <dd class="text-2xl font-bold tabular-nums">{@referrals.paid}</dd>
+            </div>
+            <div class="flex flex-col gap-1">
+              <dt class="text-xs text-ks-muted">Waiting</dt>
+              <dd class="text-2xl font-bold tabular-nums">{@referrals.banked}</dd>
+            </div>
+          </dl>
+        </section>
+
         <section :if={@invoices != []} id="invoices" aria-label="Invoices" class="flex flex-col gap-4">
           <h2 class="text-2xl font-bold">Invoices</h2>
           <div class="overflow-x-auto rounded-2xl border border-base-300 bg-base-100">
@@ -167,6 +211,29 @@ defmodule KeepsakesWeb.BillingLive.Index do
         on_cancel={JS.push("close_quote")}
       >
         <.quote_summary quote={@quote} subscription={@subscription} />
+        <form
+          :if={@quote.mode == :checkout or @code_error}
+          id="discount-form"
+          phx-submit="apply_code"
+          class="flex flex-col gap-1.5"
+        >
+          <label for="discount-code" class="text-sm font-medium">Have a code?</label>
+          <div class="flex gap-2">
+            <input
+              id="discount-code"
+              name="code"
+              type="text"
+              value={@code}
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              placeholder="e.g. LAUNCH20"
+              class="input h-11 flex-1 border-ks-field bg-base-100 font-mono uppercase"
+            />
+            <.button id="apply-code" type="submit" size="sm" class="h-11">Apply</.button>
+          </div>
+          <p :if={@code_error} id="code-error" class="text-sm text-error">{@code_error}</p>
+        </form>
         <div class="flex justify-end gap-2.5 pt-1">
           <.button type="button" phx-click={JS.push("close_quote")}>Not now</.button>
           <.button
@@ -209,6 +276,14 @@ defmodule KeepsakesWeb.BillingLive.Index do
       <div :if={@payment_method} id="card-on-file" class="flex justify-between gap-3">
         <span class="text-ks-muted">Card</span>
         <span class="font-medium">{PaymentMethod.label(@payment_method)}</span>
+      </div>
+      <div
+        :if={active_discount(@subscription)}
+        id="active-discount"
+        class="flex justify-between gap-3"
+      >
+        <span class="text-ks-muted">Discount</span>
+        <span class="text-right font-medium">{active_discount(@subscription)}</span>
       </div>
 
       <p
@@ -291,6 +366,10 @@ defmodule KeepsakesWeb.BillingLive.Index do
         <span class="text-ks-muted">{@quote.price.plan.name}, {interval_name(@quote.price.interval)}</span>
         <span>{Price.format(@quote.price.currency, @quote.subtotal_minor)}</span>
       </div>
+      <div :if={@quote.discount_minor > 0} id="quote-discount" class="flex justify-between gap-3">
+        <span class="text-ks-muted">{@quote.discount_label}</span>
+        <span>−{Price.format(@quote.price.currency, @quote.discount_minor)}</span>
+      </div>
       <div :if={@quote.credit_minor > 0} id="quote-credit" class="flex justify-between gap-3">
         <span class="text-ks-muted">Credit for unused days of your current plan</span>
         <span>−{Price.format(@quote.price.currency, @quote.credit_minor)}</span>
@@ -299,14 +378,8 @@ defmodule KeepsakesWeb.BillingLive.Index do
         <span>Due today</span>
         <span id="quote-amount">{Price.format(@quote.price.currency, @quote.amount_minor)}</span>
       </div>
-      <p class="text-sm leading-relaxed text-ks-muted">
-        {@quote.price.plan.name} starts now and runs until {date(@quote.period_end)}{if trial_left?(
-                                                                                          @subscription
-                                                                                        ),
-                                                                                        do:
-                                                                                          " (your remaining trial days are included)"}, then renews at {Price.format(
-          @quote.price
-        )} a {@quote.price.interval} until you cancel. You'll pay securely on Flutterwave's card page.
+      <p id="quote-terms" class="text-sm leading-relaxed text-ks-muted">
+        {terms(@quote, @subscription)}
       </p>
     </div>
     """
@@ -472,10 +545,64 @@ defmodule KeepsakesWeb.BillingLive.Index do
   defp paid?(%{plan: %{kind: "paid"}}), do: true
   defp paid?(_subscription), do: false
 
-  defp trial_left?(%{status: "trialing", trial_ends_at: %DateTime{} = ends}),
+  defp trial_left?(%{trial_ends_at: %DateTime{} = ends}),
     do: DateTime.after?(ends, DateTime.utc_now())
 
   defp trial_left?(_subscription), do: false
+
+  defp terms(quote, subscription) do
+    "#{quote.price.plan.name} starts now and runs until #{date(quote.period_end)}" <>
+      "#{extras_note(quote, subscription)}, then renews at #{renewal_price(quote)} a " <>
+      "#{quote.price.interval} until you cancel. You'll pay securely on Flutterwave's card page."
+  end
+
+  defp active_discount(%{discount_redemption: %{ended_at: nil} = r}) do
+    code = r.discount_code.code
+
+    case r do
+      %{duration: "forever"} -> "#{code} · #{r.percent_off}% off, ongoing"
+      %{ends_at: %DateTime{} = ends} -> "#{code} · #{r.percent_off}% off until #{date(ends)}"
+      _ -> "#{code} · #{r.percent_off}% off"
+    end
+  end
+
+  defp active_discount(_subscription), do: nil
+
+  # What makes the first period longer than one interval
+  defp extras_note(quote, subscription) do
+    parts =
+      Enum.filter(
+        [
+          trial_left?(subscription) && "your remaining trial days",
+          quote.free_months == 1 && "1 free month from referrals",
+          quote.free_months > 1 && "#{quote.free_months} free months from referrals"
+        ],
+        & &1
+      )
+
+    case parts do
+      [] -> ""
+      parts -> " (including #{Enum.join(parts, " and ")})"
+    end
+  end
+
+  # Renewals keep a discount that lasts beyond the first payment
+  defp renewal_price(%Quote{discount_code: %{duration: "once"}} = quote),
+    do: Price.format(quote.price)
+
+  defp renewal_price(%Quote{discount_minor: discount} = quote) when discount > 0 do
+    discounted = Price.format(quote.price.currency, quote.subtotal_minor - discount)
+
+    case quote.discount_code do
+      %{duration: "repeating"} ->
+        "#{discounted} while your discount lasts, then #{Price.format(quote.price)}"
+
+      _ ->
+        "#{discounted} (with your discount)"
+    end
+  end
+
+  defp renewal_price(quote), do: Price.format(quote.price)
 
   defp feature_text(%{key: :max_albums}, :unlimited), do: "Unlimited albums"
   defp feature_text(%{key: :max_albums}, 1), do: "1 album"
@@ -526,6 +653,8 @@ defmodule KeepsakesWeb.BillingLive.Index do
        currency: "NGN",
        interval: "month",
        quote: nil,
+       code: "",
+       code_error: nil,
        compared: Enum.filter(Features.all(), &(&1.key in @compared))
      )
      |> load_account()}
@@ -542,6 +671,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
       plan: Billing.current_plan(scope),
       payment_method: Billing.payment_method(scope),
       invoices: Billing.list_invoices(scope),
+      referrals: Billing.referrals(scope),
       limits: Entitlements.all(scope),
       usage: %{
         storage_bytes: socket.assigns.owner.storage_used,
@@ -573,17 +703,38 @@ defmodule KeepsakesWeb.BillingLive.Index do
       Enum.find_value(socket.assigns.plans, &Enum.find(&1.prices, fn p -> p.id == price_id end))
 
     case price && Billing.quote_price(socket.assigns.current_scope, price) do
-      {:ok, quote} -> {:noreply, assign(socket, quote: quote)}
+      {:ok, quote} -> {:noreply, assign(socket, quote: quote, code: "", code_error: nil)}
       _ -> {:noreply, put_flash(socket, :error, "That plan can't be chosen right now.")}
     end
   end
 
   def handle_event("close_quote", _params, socket), do: {:noreply, assign(socket, quote: nil)}
 
+  def handle_event(
+        "apply_code",
+        %{"code" => typed},
+        %{assigns: %{quote: %Quote{} = quote}} = socket
+      ) do
+    scope = socket.assigns.current_scope
+
+    case Billing.quote_price(scope, quote.price, code: typed) do
+      {:ok, new_quote} ->
+        {:noreply, assign(socket, quote: new_quote, code: String.trim(typed), code_error: nil)}
+
+      {:error, {:code, problem}} ->
+        {:noreply, assign(socket, code: typed, code_error: Discounts.message(problem))}
+
+      {:error, _} ->
+        {:noreply, assign(socket, code: typed, code_error: Discounts.message(:not_found))}
+    end
+  end
+
   def handle_event("confirm_plan", _params, %{assigns: %{quote: %Quote{} = quote}} = socket) do
     %{current_scope: scope} = socket.assigns
+    # Only a code that was accepted for this quote goes along
+    code = if quote.discount_code, do: socket.assigns.code
 
-    case Billing.start_checkout(scope, quote.price, url(~p"/app/billing/return")) do
+    case Billing.start_checkout(scope, quote.price, url(~p"/app/billing/return"), code: code) do
       {:ok, {:redirect, link}} ->
         {:noreply, redirect(socket, external: link)}
 
@@ -596,6 +747,10 @@ defmodule KeepsakesWeb.BillingLive.Index do
            :info,
            "Done. You'll move to #{quote.price.plan.name} on #{date(quote.starts_at)}."
          )}
+
+      # The code stopped working between applying it and paying
+      {:error, {:code, problem}} ->
+        {:noreply, assign(socket, code_error: Discounts.message(problem))}
 
       {:error, :gateway_unavailable} ->
         {:noreply,
