@@ -21,6 +21,9 @@ defmodule Keepsakes.Billing.Invoice do
     field :period_start, :utc_datetime
     field :period_end, :utc_datetime
     field :paid_at, :utc_datetime
+    # Who it was for, kept after the account is deleted (user_id goes nil)
+    field :billing_name, :string
+    field :billing_email, :string
 
     belongs_to :user, Keepsakes.Accounts.User
     belongs_to :subscription, Keepsakes.Billing.Subscription
@@ -28,6 +31,7 @@ defmodule Keepsakes.Billing.Invoice do
     belongs_to :price, Keepsakes.Billing.Price
     belongs_to :discount_code, Keepsakes.Billing.DiscountCode
     has_many :payments, Keepsakes.Billing.Payment
+    has_many :refunds, Keepsakes.Billing.Refund
 
     timestamps()
   end

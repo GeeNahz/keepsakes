@@ -45,15 +45,20 @@ defmodule KeepsakesWeb.AdminComponents do
   end
 
   @doc """
-  Daily counts as bars, with a hover title on each day and the same
-  numbers in a table underneath (for screen readers and exact values).
+  Daily (or monthly) values as bars, with a hover title on each bar and
+  the same numbers in a table underneath (for screen readers and exact
+  values). `format` turns a value into text (e.g. money); negative values
+  draw as no bar but show in the table.
 
       <.bar_chart id="signups-chart" title="Sign-ups per day" points={[{~D[2026-10-01], 4}, ...]} unit="sign-ups" />
+      <.bar_chart id="revenue-ngn" title="NGN revenue" points={months} unit="revenue" period="month" format={&money/1} />
   """
   attr :id, :string, required: true
   attr :title, :string, required: true
-  attr :points, :list, required: true, doc: "`[{Date.t(), count}]`, oldest first"
+  attr :points, :list, required: true, doc: "`[{Date.t(), value}]`, oldest first"
   attr :unit, :string, required: true
+  attr :period, :string, values: ~w(day month), default: "day"
+  attr :format, :any, default: &Integer.to_string/1, doc: "value -> text"
 
   @width 600
   @height 180
@@ -64,7 +69,7 @@ defmodule KeepsakesWeb.AdminComponents do
 
   def bar_chart(assigns) do
     points = assigns.points
-    max = points |> Enum.map(&elem(&1, 1)) |> Enum.max(fn -> 0 end)
+    max = points |> Enum.map(&max(elem(&1, 1), 0)) |> Enum.max(fn -> 0 end)
     scale_max = nice_max(max)
     plot_h = @height - @top - @bottom
     slot = (@width - @left) / max(length(points), 1)
@@ -73,7 +78,7 @@ defmodule KeepsakesWeb.AdminComponents do
       points
       |> Enum.with_index()
       |> Enum.map(fn {{date, count}, i} ->
-        h = if scale_max == 0, do: 0, else: count / scale_max * plot_h
+        h = if scale_max == 0, do: 0, else: max(count, 0) / scale_max * plot_h
         x = @left + i * slot
 
         %{
@@ -100,6 +105,7 @@ defmodule KeepsakesWeb.AdminComponents do
         scale_max: scale_max,
         total: Enum.sum(Enum.map(points, &elem(&1, 1))),
         ticks: Enum.map(ticks, &Enum.at(bars, &1)),
+        span: if(assigns.period == "month", do: "12 months", else: "30 days"),
         width: @width,
         height: @height,
         top: @top,
@@ -111,13 +117,13 @@ defmodule KeepsakesWeb.AdminComponents do
     <figure id={@id} class="flex flex-col gap-3 rounded-box border border-base-300 bg-base-100 p-5">
       <figcaption class="flex items-baseline justify-between gap-3">
         <span class="font-bold">{@title}</span>
-        <span class="text-sm text-ks-muted tabular-nums">{@total} in 30 days</span>
+        <span class="text-sm text-ks-muted tabular-nums">{@format.(@total)} in {@span}</span>
       </figcaption>
       <svg
         viewBox={"0 0 #{@width} #{@height}"}
         class="h-auto w-full overflow-visible"
         role="img"
-        aria-label={"#{@title}: #{@total} #{@unit} in the last 30 days"}
+        aria-label={"#{@title}: #{@format.(@total)} #{@unit} in the last #{@span}"}
       >
         <%!-- Recessive grid: the top of the scale and the baseline --%>
         <line
@@ -135,16 +141,16 @@ defmodule KeepsakesWeb.AdminComponents do
           text-anchor="end"
           class="fill-ks-muted text-[11px]"
         >
-          {@scale_max}
+          {@format.(@scale_max)}
         </text>
         <text
-          :if={@total == 0}
+          :if={@scale_max == 0}
           x={(@left + @width) / 2}
           y={(@top + @baseline) / 2}
           text-anchor="middle"
           class="fill-ks-muted text-[13px]"
         >
-          None in the last 30 days
+          None in the last {@span}
         </text>
         <text x={@left - 6} y={@baseline + 4} text-anchor="end" class="fill-ks-muted text-[11px]">
           0
@@ -153,7 +159,7 @@ defmodule KeepsakesWeb.AdminComponents do
         <g :for={bar <- @bars} class="group">
           <%!-- The whole day column is the hover target, not just the bar --%>
           <rect x={bar.x} y={@top} width={bar.slot} height={@baseline - @top} class="fill-transparent">
-            <title>{Calendar.strftime(bar.date, "%a %d %b")}: {bar.count} {@unit}</title>
+            <title>{label(bar.date, @period)}: {@format.(bar.count)} {@unit}</title>
           </rect>
           <path
             :if={bar.count > 0}
@@ -170,7 +176,7 @@ defmodule KeepsakesWeb.AdminComponents do
           text-anchor="middle"
           class="fill-ks-muted text-[11px]"
         >
-          {Calendar.strftime(bar.date, "%d %b")}
+          {tick(bar.date, @period)}
         </text>
       </svg>
       <details>
@@ -178,13 +184,14 @@ defmodule KeepsakesWeb.AdminComponents do
         <table class="table table-xs mt-2">
           <thead>
             <tr>
-              <th>Day</th><th class="text-right">{String.capitalize(@unit)}</th>
+              <th>{if @period == "month", do: "Month", else: "Day"}</th>
+              <th class="text-right">{String.capitalize(@unit)}</th>
             </tr>
           </thead>
           <tbody>
             <tr :for={bar <- Enum.reverse(@bars)}>
-              <td>{Calendar.strftime(bar.date, "%a %d %b")}</td>
-              <td class="text-right tabular-nums">{bar.count}</td>
+              <td>{label(bar.date, @period)}</td>
+              <td class="text-right tabular-nums">{@format.(bar.count)}</td>
             </tr>
           </tbody>
         </table>
@@ -192,6 +199,12 @@ defmodule KeepsakesWeb.AdminComponents do
     </figure>
     """
   end
+
+  defp label(date, "month"), do: Calendar.strftime(date, "%B %Y")
+  defp label(date, _day), do: Calendar.strftime(date, "%a %d %b")
+
+  defp tick(date, "month"), do: Calendar.strftime(date, "%b %y")
+  defp tick(date, _day), do: Calendar.strftime(date, "%d %b")
 
   # Rounded top corners (4px), square at the baseline
   defp bar_path(x, y, w, h) do

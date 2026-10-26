@@ -68,6 +68,43 @@ defmodule KeepsakesWeb.Router do
       live "/customers/:id", CustomerLive.Show, :show
     end
 
+    live_session :staff_plans,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "plans.manage"}}
+      ] do
+      live "/plans", PlanLive.Index, :index
+      live "/plans/new", PlanLive.Form, :new
+      live "/plans/:id", PlanLive.Form, :edit
+    end
+
+    live_session :staff_discounts,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "discounts.manage"}}
+      ] do
+      live "/discounts", DiscountLive.Index, :index
+      live "/discounts/new", DiscountLive.Form, :new
+      live "/discounts/:id", DiscountLive.Form, :edit
+    end
+
+    live_session :staff_finance,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "finance.view"}}
+      ] do
+      live "/finance", FinanceLive.Index, :index
+      live "/finance/payments", FinanceLive.Payments, :index
+      live "/finance/invoices/:id", FinanceLive.Invoice, :show
+    end
+
+    # CSV downloads; Keepsakes.Finance checks finance.export (403 without)
+    get "/finance/export/payments.csv", FinanceExportController, :payments
+    get "/finance/export/refunds.csv", FinanceExportController, :refunds
+
     live_session :staff_roles,
       root_layout: {KeepsakesWeb.Layouts, :admin_root},
       on_mount: [

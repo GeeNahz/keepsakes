@@ -121,6 +121,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Suspend / Unsuspend**, with a reason.
 - `Keepsakes.Customers` context behind those pages, and `users.suspended_at`, `users.suspension_reason` and `subscriptions.complimentary` columns.
 - Emails: "Your Keepsake trial now runs until …" and "You've been given Keepsake <plan>".
+- Admin Plans editor at `/plans`, `/plans/new`, `/plans/:id` (`plans.manage`):
+  - **List:** plans with their subscriber counts and current prices.
+  - **Create:** new paid plans.
+  - **Edit:** name, description, order on the pricing page and "Show to new buyers" (hide instead of delete); features from the catalogue (limits with an Unlimited box, storage in GB, switches for the rest); NGN/USD monthly and yearly prices. Free and Trial plans take name, description and features only.
+  - Each change is audited (`plan.created`, `plan.updated`, `price.changed`).
+- Admin Discount codes at `/discounts` (`discounts.manage`):
+  - **List:** each code's terms, uses / most uses, expiry, plans, and how much it took off paid invoices per currency.
+  - **Form:** create and edit codes, with an end date and plan limits. Turn a code off instead of deleting it.
+  - What a code gives is locked once someone has used it.
+  - Audited.
+- Admin Finance section (`finance.view`):
+  - **Overview (`/finance`):** money in this month and last per currency after refunds, 12-month revenue charts per currency, revenue by plan, refunds this month and failed payments in 30 days.
+  - **Payments (`/finance/payments`):** filter by status (including refunded), currency, dates and email / invoice / reference, 50 at a time.
+  - **Invoice (`/finance/invoices/:id`):** amounts, period, customer, payments and refunds.
+- Refunds from the invoice page (`finance.refund`):
+  - Full or partial, through Flutterwave, with a reason.
+  - A choice to end the plan now (move to Free) or keep it until the period ends with no renewal.
+  - The customer is emailed and the refund is audited (`payment.refunded`).
+  - New `refunds` table.
+- CSV exports of payments and refunds for a date range (`finance.export`, `/finance/export/payments.csv` and `/finance/export/refunds.csv`), audited as `finance.exported`.
+- Sidebar entries for Finance, Plans and Discount codes. The dashboard MRR tiles link to Finance, and customer invoices link to their invoice page.
 
 ### Changed
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
@@ -152,6 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The owner header sticks to the top, and the album sidebar stays in view at viewport height while the page scrolls; a long album list scrolls inside the sidebar so New album and the storage meter stay visible.
 - `Scope` no longer carries unused `subscription`/`entitlements` fields; `Keepsakes.Format.bytes/1` is shared by pages and messages.
 - A suspended account can't log in by password or emailed link ("This account is suspended…"), its sessions are ended, its shared links stop opening, and its renewals and retries are skipped until it's unsuspended.
+- Invoices and payments are kept when a deleted account is purged: `invoices.user_id` and `payments.user_id` are set to nil instead of the rows being deleted. Invoices now keep `billing_name` and `billing_email` (backfilled for existing ones).
+- Changing a price adds a new price row and retires the old one (one active price per plan, currency and interval), so subscribers renew at the price they signed up for. They can still "Pay now" on that price after a failed renewal; new buyers only see the new one.
 - A plan given by staff ends on its date and moves the customer to Free without a charge. Plans & billing describes it as a gift and has no "Keep my plan" button for it. Paying for any plan replaces it.
 
 ### Fixed

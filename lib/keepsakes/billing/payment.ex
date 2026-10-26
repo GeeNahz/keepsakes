@@ -20,6 +20,7 @@ defmodule Keepsakes.Billing.Payment do
 
     belongs_to :invoice, Keepsakes.Billing.Invoice
     belongs_to :user, Keepsakes.Accounts.User
+    has_many :refunds, Keepsakes.Billing.Refund
 
     timestamps()
   end
