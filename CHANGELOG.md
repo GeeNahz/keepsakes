@@ -94,6 +94,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Referrals tab with the invite link and counts (moved from Plans & billing); Domains tab placeholder ("Coming soon").
 - Data & privacy tab: "Export everything" builds a zip of every album's photos (2400 px) and an `album.json` of their details in the background, emails a link valid for 7 days (`/app/settings/privacy/exports/:id`) and updates the page when ready (`data_exports` table). "Delete account" (type your email to confirm) signs out everywhere, stops shared links and renewals, emails the deletion date, and deletes everything for good after 14 days unless restored at login.
 - Daily `HousekeepingWorker` cron: guest activity emails, removing expired exports, deleting accounts past their 14-day pause.
+- Support tickets: `tickets` (numbers like `KS-T-1001`, category, priority, status, assignee, first-response/resolved/closed times, 1–5 rating), `ticket_messages` (customer, guest, staff or system; staff-only notes never shown to customers; microsecond timestamps keep order) and `ticket_attachments` (photos and PDFs stored under the owner's prefix).
+- Help & support at `/app/help` (in the account menu): contact support with a category, subject, message and up to 3 photos or PDFs (10 MB each), and a list of your tickets with their status.
+- Ticket page `/app/help/:number`: the conversation updates live, replies with files, Mark as solved and Reopen (writing on a solved ticket reopens it), and a rating once solved. Solved tickets close after 7 quiet days (daily housekeeping).
+- "Report this album" on the guest timeline opens `/a/:slug/report` (works without the code): a reason, optional details and an optional email; creates a high-priority abuse ticket linked to the album (5 reports per hour per address).
+- Support emails: "we've got your message" on a new ticket, a copy of each support reply, a thank-you to guests who leave an email, and alerts for new tickets and customer replies to `SUPPORT_INBOX` (new, optional) until the admin portal's inbox exists.
 - `Keepsakes.Storage.list/1` (S3 ListObjectsV2 with pagination, local disk) and `mix keepsakes.storage.clear`, which empties the configured bucket for a fresh start (asks first, never in prod, refuses buckets not named staging/dev/test without `--any-bucket`).
 
 ### Changed

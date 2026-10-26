@@ -234,6 +234,16 @@ defmodule KeepsakesWeb.Templates.Trail do
         <% end %>
       </div>
 
+      <div :if={!@preview?} class="flex justify-center pb-10">
+        <.link
+          id="report-album"
+          navigate={@base_path <> "/report"}
+          class="text-[13px] text-ks-guest-text no-underline hover:text-ks-guest-ink hover:underline"
+        >
+          Report this album
+        </.link>
+      </div>
+
       <.autoscroll_bar start={@auto?} />
       <script :type={Phoenix.LiveView.ColocatedHook} name=".AutoScroll">
         export default {

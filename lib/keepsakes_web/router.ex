@@ -91,6 +91,8 @@ defmodule KeepsakesWeb.Router do
       live "/:slug", GuestLive.Access, :access
       live "/:slug/timeline", GuestLive.Timeline, :timeline
       live "/:slug/slideshow", GuestLive.Slideshow, :slideshow
+      # Anyone with the link, code or not, can report the album
+      live "/:slug/report", GuestLive.Report, :report
     end
   end
 
@@ -128,6 +130,9 @@ defmodule KeepsakesWeb.Router do
       live "/settings/referrals", SettingsLive.Referrals, :referrals
       live "/settings/domains", SettingsLive.Domains, :domains
       live "/settings/privacy", SettingsLive.Privacy, :privacy
+
+      live "/help", SupportLive.Index, :index
+      live "/help/:number", SupportLive.Show, :show
     end
 
     # Flutterwave's card page sends the owner back here
