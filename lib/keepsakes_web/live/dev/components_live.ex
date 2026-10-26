@@ -8,7 +8,43 @@ defmodule KeepsakesWeb.Dev.ComponentsLive do
   @impl true
   def mount(_params, _session, socket) do
     form = to_form(%{"name" => "", "email" => "", "month" => "", "caption" => ""}, as: :demo)
-    {:ok, assign(socket, page_title: "Components", form: form)}
+    # A fixed sample month for the admin bar chart
+    counts = [
+      3,
+      5,
+      2,
+      0,
+      8,
+      6,
+      4,
+      1,
+      0,
+      7,
+      9,
+      12,
+      5,
+      3,
+      2,
+      6,
+      8,
+      4,
+      0,
+      1,
+      3,
+      10,
+      14,
+      9,
+      6,
+      4,
+      7,
+      5,
+      2,
+      11
+    ]
+
+    chart_points = Enum.with_index(counts, fn n, i -> {Date.add(~D[2026-09-27], i), n} end)
+
+    {:ok, assign(socket, page_title: "Components", form: form, chart_points: chart_points)}
   end
 
   @impl true
@@ -49,6 +85,22 @@ defmodule KeepsakesWeb.Dev.ComponentsLive do
         <section id="gallery-meter" class="flex max-w-60 flex-col gap-3">
           <h2 class="text-xl font-bold">Meter</h2>
           <.meter id="gallery-storage" label="Storage" value={38} max={1024} text="38 MB of 1 GB" />
+        </section>
+
+        <section id="gallery-admin" class="flex max-w-2xl flex-col gap-3">
+          <h2 class="text-xl font-bold">Admin stat and bar chart</h2>
+          <KeepsakesWeb.AdminComponents.stat
+            id="gallery-stat"
+            label="Customers"
+            value="1,204"
+            note="+38 in 7 days"
+          />
+          <KeepsakesWeb.AdminComponents.bar_chart
+            id="gallery-chart"
+            title="Sign-ups per day"
+            points={@chart_points}
+            unit="sign-ups"
+          />
         </section>
 
         <section id="gallery-form" class="flex max-w-md flex-col gap-3">

@@ -16,6 +16,10 @@ defmodule Keepsakes.Application do
       Keepsakes.Settings.Cache,
       {Keepsakes.RateLimit, clean_period: :timer.minutes(10)},
       {Oban, Application.fetch_env!(:keepsakes, Oban)},
+      # Grants SUPER_ADMIN_EMAIL Super Admin once the database is up (one-off)
+      Supervisor.child_spec({Task, &Keepsakes.Staff.ensure_configured_super_admin/0},
+        id: :super_admin_bootstrap
+      ),
       # Start to serve requests, typically the last entry
       KeepsakesWeb.Endpoint
     ]

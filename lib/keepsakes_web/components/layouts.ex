@@ -26,6 +26,10 @@ defmodule KeepsakesWeb.Layouts do
     * `:plain` - just the logo bar, for dev pages and simple public pages.
     * `:guest` - nothing but the flash messages, for the guest access,
       timeline and slideshow pages (used with the `guest_root` layout).
+    * `:admin` - the staff portal on the admin host: header and a sidebar
+      listing only the sections the staff member may open (pass
+      `staff_scope={@staff_scope}` and `active={:section}`). Signed out,
+      a centred card for the sign-in steps.
 
   ## Examples
 
@@ -43,13 +47,140 @@ defmodule KeepsakesWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
-  attr :shell, :atom, values: [:owner, :auth, :plain, :guest], default: :owner
+  attr :shell, :atom, values: [:owner, :auth, :plain, :guest, :admin], default: :owner
 
   attr :owner, :map,
     default: nil,
     doc: "sidebar data from `KeepsakesWeb.OwnerShell` (albums, storage, dialog form)"
 
+  attr :staff_scope, :map, default: nil, doc: "the `Keepsakes.Staff.Scope` (admin shell)"
+  attr :active, :atom, default: nil, doc: "the admin section to highlight"
+
   slot :inner_block, required: true
+
+  def app(%{shell: :admin, staff_scope: %Keepsakes.Staff.Scope{}} = assigns) do
+    assigns = assign(assigns, :nav, admin_nav(assigns.staff_scope))
+
+    ~H"""
+    <div class="flex min-h-screen flex-col bg-base-200">
+      <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-base-300 bg-base-100 px-4 sm:px-8">
+        <.link navigate={~p"/"} class="flex items-center gap-3 text-base-content no-underline">
+          <.logo />
+          <span class="badge badge-sm border-0 bg-ks-amber-soft font-bold text-ks-amber-deep">
+            Admin
+          </span>
+        </.link>
+        <div id="staff-menu" class="dropdown dropdown-end">
+          <div
+            id="staff-menu-button"
+            tabindex="0"
+            role="button"
+            aria-label="Staff menu"
+            class="cursor-pointer rounded-full transition hover:ring-4 hover:ring-ks-teal-soft focus-visible:ring-4 focus-visible:ring-ks-teal-soft"
+          >
+            <.avatar
+              name={Keepsakes.Accounts.User.full_name(@staff_scope.user)}
+              src={Keepsakes.Accounts.avatar_url(@staff_scope.user)}
+            />
+          </div>
+          <div
+            tabindex="0"
+            class="dropdown-content z-20 mt-3 w-64 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
+          >
+            <div class="px-3 py-2">
+              <p class="truncate font-bold">{Keepsakes.Accounts.User.full_name(@staff_scope.user)}</p>
+              <p class="truncate text-sm text-ks-muted">{@staff_scope.user.email}</p>
+            </div>
+            <ul class="menu w-full p-0">
+              <li>
+                <.link id="staff-log-out" href={~p"/log-out"} method="delete">
+                  <.icon name="hero-arrow-right-start-on-rectangle" /> Sign out
+                </.link>
+              </li>
+            </ul>
+            <div class="flex items-center justify-between border-t border-base-300 px-3 pb-1 pt-3">
+              <span class="text-sm text-ks-muted">Theme</span>
+              <.theme_toggle />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="grid flex-1 md:grid-cols-[minmax(200px,232px)_minmax(0,1fr)]">
+        <aside
+          id="admin-sidebar"
+          class="sticky top-16 hidden h-[calc(100dvh-4rem)] flex-col gap-1 self-start overflow-y-auto border-r border-base-300 bg-base-100 px-4 py-6 md:flex"
+        >
+          <nav aria-label="Admin sections" class="flex flex-col gap-1">
+            <.link
+              :for={item <- @nav}
+              id={"admin-nav-#{item.key}"}
+              navigate={item.path}
+              aria-current={item.key == @active && "page"}
+              class={[
+                "flex items-center gap-2.5 rounded-field px-3 py-2.5 text-[15px] text-base-content no-underline transition-colors",
+                if(item.key == @active,
+                  do: "bg-ks-teal-soft font-bold",
+                  else: "hover:bg-base-200"
+                )
+              ]}
+            >
+              <.icon
+                name={item.icon}
+                class={[
+                  "size-[18px]",
+                  if(item.key == @active, do: "text-primary", else: "text-ks-muted")
+                ]}
+              />
+              {item.label}
+            </.link>
+          </nav>
+        </aside>
+
+        <main class="flex min-w-0 flex-col">
+          <nav
+            id="admin-mobile-nav"
+            aria-label="Admin sections"
+            class="flex gap-2 overflow-x-auto border-b border-base-300 bg-base-100 px-4 py-3 md:hidden"
+          >
+            <.link
+              :for={item <- @nav}
+              navigate={item.path}
+              class={[
+                "shrink-0 rounded-full px-3.5 py-1.5 text-sm text-base-content no-underline",
+                if(item.key == @active, do: "bg-ks-teal-soft font-bold", else: "bg-base-200")
+              ]}
+            >
+              {item.label}
+            </.link>
+          </nav>
+          <div class="flex flex-1 flex-col px-4 py-8 sm:px-10">
+            {render_slot(@inner_block)}
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  # Signed out (or mid sign-in): a centred card
+  def app(%{shell: :admin} = assigns) do
+    ~H"""
+    <div class="flex min-h-screen flex-col items-center justify-center gap-8 bg-base-200 px-4 py-14">
+      <div class="flex items-center gap-3">
+        <.logo size={32} wordmark_class="text-[22px]" />
+        <span class="badge border-0 bg-ks-amber-soft font-bold text-ks-amber-deep">Admin</span>
+      </div>
+      <main class="w-full max-w-[440px] rounded-box border border-base-300 bg-base-100 p-6 shadow-sm sm:p-8">
+        {render_slot(@inner_block)}
+      </main>
+    </div>
+
+    <.flash_group flash={@flash} />
+    """
+  end
 
   def app(%{shell: :owner, current_scope: %{user: %{}}} = assigns) do
     assigns = assign(assigns, :owner, assigns.owner || empty_owner())
@@ -248,6 +379,33 @@ defmodule KeepsakesWeb.Layouts do
 
     <.flash_group flash={@flash} />
     """
+  end
+
+  # Admin sections, each shown only with the permission its pages require
+  @admin_nav [
+    %{key: :dashboard, label: "Dashboard", icon: "hero-chart-bar", path: "/", permission: nil},
+    %{
+      key: :staff,
+      label: "Staff",
+      icon: "hero-user-group",
+      path: "/staff",
+      permission: "roles.manage"
+    },
+    %{key: :roles, label: "Roles", icon: "hero-key", path: "/roles", permission: "roles.manage"},
+    %{
+      key: :audit,
+      label: "Audit log",
+      icon: "hero-clipboard-document-list",
+      path: "/audit",
+      permission: "audit.view"
+    }
+  ]
+
+  defp admin_nav(staff_scope) do
+    Enum.filter(
+      @admin_nav,
+      &(is_nil(&1.permission) or Keepsakes.Staff.Scope.can?(staff_scope, &1.permission))
+    )
   end
 
   attr :user, :map, required: true

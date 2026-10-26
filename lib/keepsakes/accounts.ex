@@ -96,8 +96,15 @@ defmodule Keepsakes.Accounts do
     |> Keepsakes.Billing.start_trial(:user)
     |> Repo.transaction()
     |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:ok, %{user: user}} ->
+        # SUPER_ADMIN_EMAIL becomes staff as soon as it signs up
+        if user.email == Application.get_env(:keepsakes, :super_admin_email),
+          do: Keepsakes.Staff.ensure_super_admin(user.email)
+
+        {:ok, user}
+
+      {:error, :user, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -371,6 +378,23 @@ defmodule Keepsakes.Accounts do
   end
 
   ## Session
+
+  @doc "Starts an admin portal session (12 hours); returns its token."
+  def generate_staff_session_token(user, device \\ %{}) do
+    {token, user_token} = UserToken.build_staff_session_token(user, device)
+    Repo.insert!(user_token)
+    token
+  end
+
+  @doc "The user behind a live admin portal session token, or nil."
+  def get_user_by_staff_session_token(token),
+    do: token |> UserToken.verify_staff_session_token_query() |> Repo.one()
+
+  @doc "Ends an admin portal session."
+  def delete_staff_session_token(token) do
+    Repo.delete_all(from(UserToken, where: [token: ^token, context: "staff_session"]))
+    :ok
+  end
 
   @doc """
   Generates a session token.

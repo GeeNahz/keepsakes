@@ -61,6 +61,23 @@ defmodule Keepsakes.Accounts.UserToken do
      }}
   end
 
+  # Admin portal sessions are separate and short: a working day, then sign in again
+  @staff_session_validity_in_hours 12
+
+  @doc "A token for an admin portal session (context `staff_session`, 12 hours)."
+  def build_staff_session_token(user, device \\ %{}) do
+    {token, user_token} = build_session_token(user, device)
+    {token, %{user_token | context: "staff_session"}}
+  end
+
+  @doc "Lookup query for a live admin portal session token."
+  def verify_staff_session_token_query(token) do
+    from token in by_token_and_context_query(token, "staff_session"),
+      join: user in assoc(token, :user),
+      where: token.inserted_at > ago(@staff_session_validity_in_hours, "hour"),
+      select: user
+  end
+
   @doc """
   Checks if the token is valid and returns its underlying lookup query.
 
