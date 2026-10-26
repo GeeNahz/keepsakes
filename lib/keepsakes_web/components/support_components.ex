@@ -7,8 +7,17 @@ defmodule KeepsakesWeb.SupportComponents do
 
   @accept ~w(.jpg .jpeg .png .heic .heif .webp .pdf)
 
-  @doc "Upload options for ticket attachments (`allow_upload(socket, :files, ...)`)."
-  def upload_options, do: [accept: @accept, max_entries: 3, max_file_size: 10_000_000]
+  @doc """
+  Upload options for ticket attachments (`allow_upload(socket, :files, ...)`).
+  Files start uploading as soon as they're picked, so progress shows
+  straight away; photos are shrunk after upload, so 10 MB is only the
+  limit on what's sent (PDFs are checked against 5 MB).
+  """
+  def upload_options,
+    do: [accept: @accept, max_entries: 3, max_file_size: 10_000_000, auto_upload: true]
+
+  @doc "Whether any picked file is still uploading (Send waits for them)."
+  def uploading?(upload), do: Enum.any?(upload.entries, &(not &1.done?))
 
   @doc """
   Copies finished uploads somewhere they outlive the upload callback and
@@ -62,24 +71,40 @@ defmodule KeepsakesWeb.SupportComponents do
           <.icon name="hero-paper-clip" class="size-4" /> Add photos or PDFs
         </label>
         <.live_file_input upload={@upload} class="sr-only" />
-        <span class="text-[13px] text-ks-muted">Up to 3 files, 10 MB each</span>
+        <span class="text-[13px] text-ks-muted">
+          Up to 3 · photos are resized to save space · PDFs up to 5 MB
+        </span>
       </div>
       <ul :if={@upload.entries != []} class="flex flex-wrap gap-2">
         <li
           :for={entry <- @upload.entries}
-          class="flex items-center gap-2 rounded-field bg-base-200 py-1 pl-3 pr-1 text-sm"
+          id={"file-#{entry.ref}"}
+          class="flex min-w-48 flex-col gap-1 rounded-field bg-base-200 py-1.5 pl-3 pr-1 text-sm"
         >
-          <span class="max-w-48 truncate">{entry.client_name}</span>
-          <span :for={err <- upload_errors(@upload, entry)} class="text-error">{error_text(err)}</span>
-          <button
-            type="button"
-            phx-click="cancel_file"
-            phx-value-ref={entry.ref}
-            aria-label={"Remove #{entry.client_name}"}
-            class="flex size-7 cursor-pointer items-center justify-center rounded-full hover:bg-base-300"
-          >
-            <.icon name="hero-x-mark" class="size-4" />
-          </button>
+          <div class="flex items-center gap-2">
+            <span class="max-w-48 flex-1 truncate">{entry.client_name}</span>
+            <span :for={err <- upload_errors(@upload, entry)} class="text-error">{error_text(err)}</span>
+            <span :if={entry.valid? and not entry.done?} class="text-xs tabular-nums text-ks-muted">
+              {entry.progress}%
+            </span>
+            <.icon :if={entry.done?} name="hero-check-circle" class="size-4 text-primary" />
+            <button
+              type="button"
+              phx-click="cancel_file"
+              phx-value-ref={entry.ref}
+              aria-label={"Remove #{entry.client_name}"}
+              class="flex size-7 cursor-pointer items-center justify-center rounded-full hover:bg-base-300"
+            >
+              <.icon name="hero-x-mark" class="size-4" />
+            </button>
+          </div>
+          <progress
+            :if={entry.valid? and not entry.done?}
+            class="progress progress-primary h-1 w-full pr-2"
+            value={entry.progress}
+            max="100"
+            aria-label={"Uploading #{entry.client_name}"}
+          ></progress>
         </li>
       </ul>
       <p :for={err <- upload_errors(@upload)} class="text-sm text-error">{error_text(err)}</p>

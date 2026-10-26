@@ -48,6 +48,20 @@ defmodule Keepsakes.Media do
     end
   end
 
+  @doc """
+  One small WebP of the image at `path`: rotated upright, longest side at
+  most `long_edge` (never upscaled), metadata stripped. Used for support
+  attachments so screenshots and phone photos don't fill storage.
+  """
+  @spec shrink(Path.t(), pos_integer(), pos_integer()) :: {:ok, binary()} | {:error, term()}
+  def shrink(path, long_edge \\ 1600, quality \\ 80) do
+    with {:ok, image} <- Image.open(path),
+         {:ok, {upright, _flags}} <- Image.autorotate(image),
+         {:ok, resized} <- Image.thumbnail(upright, long_edge, resize: :down) do
+      Image.write(resized, :memory, suffix: ".webp", quality: quality, strip_metadata: true)
+    end
+  end
+
   defp build_variants(image, largest, long_edge, quality) do
     Enum.reduce_while(Memory.variants(), {:ok, %{}}, fn width, {:ok, acc} ->
       length = if width == largest, do: long_edge, else: min(width, long_edge)

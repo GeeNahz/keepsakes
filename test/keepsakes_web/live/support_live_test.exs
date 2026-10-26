@@ -16,10 +16,15 @@ defmodule KeepsakesWeb.SupportLiveTest do
 
       file =
         file_input(lv, "#ticket-form", :files, [
-          %{name: "screen.png", content: "png-bytes", type: "image/png"}
+          %{name: "screen.jpg", content: jpeg(), type: "image/jpeg"}
         ])
 
-      render_upload(file, "screen.png")
+      render_upload(file, "screen.jpg", 50)
+      # Send waits while a file is still uploading
+      assert has_element?(lv, "#file-#{hd(file.entries)["ref"]} progress")
+      assert has_element?(lv, "#send-ticket[disabled]", "Uploading…")
+      render_upload(file, "screen.jpg", 50)
+      refute has_element?(lv, "#send-ticket[disabled]")
 
       assert {:error, {:live_redirect, %{to: "/app/help/" <> number}}} =
                lv
@@ -29,7 +34,7 @@ defmodule KeepsakesWeb.SupportLiveTest do
                |> render_submit()
 
       ticket = Support.get_ticket!(scope, number)
-      assert [%{attachments: [%{filename: "screen.png"}]}] = ticket.messages
+      assert [%{attachments: [%{filename: "screen.webp"}]}] = ticket.messages
 
       {:ok, lv, _html} = live(conn, ~p"/app/help")
       assert has_element?(lv, "#ticket-#{number}", "Charged twice")

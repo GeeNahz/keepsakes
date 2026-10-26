@@ -64,11 +64,12 @@ defmodule Keepsakes.Support do
   alert.
   """
   @spec create_ticket(Scope.t(), map(), [map()]) ::
-          {:ok, Ticket.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, Ticket.t()} | {:error, Ecto.Changeset.t() | {:file, String.t(), atom()}}
   def create_ticket(%Scope{user: user}, attrs, files \\ []) do
     changeset = Ticket.changeset(%Ticket{}, attrs)
 
-    with {:ok, data} <- Ecto.Changeset.apply_action(changeset, :insert) do
+    with {:ok, data} <- Ecto.Changeset.apply_action(changeset, :insert),
+         {:ok, files} <- prepare_files(files) do
       now = DateTime.utc_now(:second)
 
       Multi.new()
@@ -102,7 +103,7 @@ defmodule Keepsakes.Support do
   tickets take no more replies.
   """
   @spec reply(Scope.t(), Ticket.t(), String.t(), [map()]) ::
-          {:ok, Message.t()} | {:error, :closed | :empty}
+          {:ok, Message.t()} | {:error, :closed | :empty | {:file, String.t(), atom()}}
   def reply(
         %Scope{user: %{id: user_id} = user},
         %Ticket{user_id: user_id} = ticket,
@@ -119,26 +120,32 @@ defmodule Keepsakes.Support do
         {:error, :empty}
 
       true ->
-        result =
-          Repo.transaction(fn ->
-            {:ok, message} = insert_message(ticket, "user", user_id, body, files)
-
-            ticket
-            |> Ecto.Changeset.change(
-              status: "awaiting_staff",
-              resolved_at: nil,
-              last_activity_at: DateTime.utc_now(:second)
-            )
-            |> Repo.update!()
-
-            message
-          end)
-
-        with {:ok, message} <- result do
-          Notifier.alert_staff(ticket, message, user.email)
-          broadcast(ticket)
-          {:ok, message}
+        with {:ok, files} <- prepare_files(files) do
+          save_reply(ticket, user, body, files)
         end
+    end
+  end
+
+  defp save_reply(ticket, %User{id: user_id} = user, body, files) do
+    result =
+      Repo.transaction(fn ->
+        {:ok, message} = insert_message(ticket, "user", user_id, body, files)
+
+        ticket
+        |> Ecto.Changeset.change(
+          status: "awaiting_staff",
+          resolved_at: nil,
+          last_activity_at: DateTime.utc_now(:second)
+        )
+        |> Repo.update!()
+
+        message
+      end)
+
+    with {:ok, message} <- result do
+      Notifier.alert_staff(ticket, message, user.email)
+      broadcast(ticket)
+      {:ok, message}
     end
   end
 
@@ -342,27 +349,79 @@ defmodule Keepsakes.Support do
     owner = ticket.user_id || "guests"
 
     Enum.each(files, fn file ->
-      # Storage keys allow only plain characters; keep a short, clean extension
-      ext =
-        file.filename
-        |> Path.extname()
-        |> String.replace(~r/[^A-Za-z0-9.]/, "")
-        |> String.slice(0, 6)
-
+      ext = if file.content_type == "image/webp", do: ".webp", else: ".pdf"
       key = "users/#{owner}/tickets/#{ticket.id}/#{Ecto.UUID.generate()}#{ext}"
-      :ok = Storage.put(key, {:file, file.path}, content_type: file.content_type)
+      :ok = Storage.put(key, file.data, content_type: file.content_type)
 
       Repo.insert!(%Attachment{
         message_id: message.id,
         storage_key: key,
-        filename: file.filename |> Path.basename() |> String.slice(0, 200),
+        filename: file.filename,
         content_type: file.content_type,
-        bytes: file.bytes
+        bytes: byte_size(file.data)
       })
     end)
 
     {:ok, message}
   end
+
+  @image_exts ~w(.jpg .jpeg .png .heic .heif .webp)
+  @max_pdf_bytes 5_000_000
+  @attachment_long_edge 1600
+
+  @doc "Largest PDF attachment, in bytes (photos are shrunk instead)."
+  def max_pdf_bytes, do: @max_pdf_bytes
+
+  # Before anything is stored: photos become one small WebP (longest side
+  # #{@attachment_long_edge} px, metadata stripped) so screenshots and phone
+  # photos don't fill storage; PDFs must really be PDFs, at most 5 MB.
+  defp prepare_files(files) do
+    Enum.reduce_while(files, {:ok, []}, fn file, {:ok, acc} ->
+      case prepare_file(file) do
+        {:ok, prepared} -> {:cont, {:ok, acc ++ [prepared]}}
+        {:error, reason} -> {:halt, {:error, {:file, file.filename, reason}}}
+      end
+    end)
+  end
+
+  defp prepare_file(%{path: path, filename: filename}) do
+    ext = filename |> Path.extname() |> String.downcase()
+    base = filename |> Path.basename() |> Path.rootname() |> String.slice(0, 150)
+
+    cond do
+      ext in @image_exts ->
+        case Keepsakes.Media.shrink(path, @attachment_long_edge) do
+          {:ok, data} ->
+            {:ok, %{data: data, filename: base <> ".webp", content_type: "image/webp"}}
+
+          {:error, _} ->
+            {:error, :unreadable}
+        end
+
+      ext == ".pdf" ->
+        %{size: size} = File.stat!(path)
+
+        cond do
+          size > @max_pdf_bytes ->
+            {:error, :too_large}
+
+          File.open!(path, [:read], &IO.binread(&1, 5)) != "%PDF-" ->
+            {:error, :unreadable}
+
+          true ->
+            {:ok,
+             %{data: File.read!(path), filename: base <> ".pdf", content_type: "application/pdf"}}
+        end
+
+      true ->
+        {:error, :not_accepted}
+    end
+  end
+
+  @doc "Friendly text for a file that couldn't be attached."
+  def file_error(filename, :too_large), do: "#{filename} is over 5 MB. PDFs can be up to 5 MB."
+  def file_error(filename, :unreadable), do: "#{filename} couldn't be read. Try another file."
+  def file_error(filename, :not_accepted), do: "#{filename} isn't a photo or PDF."
 
   defp next_number do
     %{rows: [[n]]} = Repo.query!("SELECT nextval('ticket_number_seq')")

@@ -55,8 +55,13 @@ defmodule KeepsakesWeb.SupportLive.Index do
             />
             <.file_picker upload={@uploads.files} />
             <div class="pt-3">
-              <.button id="send-ticket" variant="primary" phx-disable-with="Sending…">
-                Send to support
+              <.button
+                id="send-ticket"
+                variant="primary"
+                phx-disable-with="Sending…"
+                disabled={uploading?(@uploads.files)}
+              >
+                {if uploading?(@uploads.files), do: "Uploading…", else: "Send to support"}
               </.button>
             </div>
           </.form>
@@ -125,6 +130,9 @@ defmodule KeepsakesWeb.SupportLive.Index do
            socket
            |> put_flash(:info, "Thanks, we've got it. We'll reply by email and here.")
            |> push_navigate(to: ~p"/app/help/#{ticket.number}")}
+
+        {:error, {:file, filename, reason}} ->
+          {:noreply, put_flash(socket, :error, Support.file_error(filename, reason))}
 
         {:error, changeset} ->
           {:noreply, assign(socket, form: to_form(changeset, as: :ticket))}

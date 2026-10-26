@@ -99,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ticket page `/app/help/:number`: the conversation updates live, replies with files, Mark as solved and Reopen (writing on a solved ticket reopens it), and a rating once solved. Solved tickets close after 7 quiet days (daily housekeeping).
 - "Report this album" on the guest timeline opens `/a/:slug/report` (works without the code): a reason, optional details and an optional email; creates a high-priority abuse ticket linked to the album (5 reports per hour per address).
 - Support emails: "we've got your message" on a new ticket, a copy of each support reply, a thank-you to guests who leave an email, and alerts for new tickets and customer replies to `SUPPORT_INBOX` (new, optional) until the admin portal's inbox exists.
+- Upload progress bars for support attachments (files upload as soon as they're picked; Send shows "Uploading…" until they finish) and for the profile photo.
 - `Keepsakes.Storage.list/1` (S3 ListObjectsV2 with pagination, local disk) and `mix keepsakes.storage.clear`, which empties the configured bucket for a fresh start (asks first, never in prod, refuses buckets not named staging/dev/test without `--any-bucket`).
 
 ### Changed
@@ -122,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Daylight is a premium template. Premium templates need Plus or Pro to choose (the picker offers "Upgrade to use", the settings list marks them), and albums or defaults set to one fall back to the system default when the plan no longer includes them.
 - Guest downloads need a plan with guest downloads: the Share page switch is disabled with a link to plans, and downloads stop if the plan drops them.
 - "Made with Keepsake" on the guest timeline is hidden on plans with remove branding.
+- Support attachments no longer bloat storage: photos (JPG, PNG, HEIC, WebP up to 10 MB sent) are stored as one WebP with the longest side at most 1600 px and metadata stripped; PDFs are checked to be real PDFs and limited to 5 MB. A file that can't be used is explained and nothing is saved.
 - Account settings moved into tabs: email and password at `/app/settings/account` (email confirmation links now `/app/settings/account/confirm-email/:token`, password form posts to `/app/settings/account/update-password`), the template for new albums at `/app/settings/templates`, and Plans & billing at `/app/settings/billing` (receipts at `/app/settings/billing/invoices/:id`); `/app/billing` redirects there and emails link to the new paths.
 - Changing your password no longer asks for a two-step code again, since you're already signed in.
 - The owner portal moved under `/app`: `/app/albums/...`, `/app/billing/...` (including the Flutterwave return page `/app/billing/return`), `/app/settings` (was `/users/settings`), `/app/settings/update-password` and `/app/confirm-email/resend`; `/app` on its own opens the album list.
