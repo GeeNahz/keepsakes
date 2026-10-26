@@ -113,6 +113,12 @@ config :keepsakes, :mail_from, {
   env!("MAIL_FROM_ADDRESS", :string?, nil) || "hello@example.com"
 }
 
+# New support tickets and customer replies are emailed here (until the
+# admin portal's inbox exists). Empty: no emails.
+if config_env() != :test do
+  config :keepsakes, :support_inbox, env!("SUPPORT_INBOX", :string?, nil)
+end
+
 mail_delivery =
   env!("MAIL_DELIVERY", :string?, nil) || if(config_env() == :prod, do: "resend", else: "local")
 

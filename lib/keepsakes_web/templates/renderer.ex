@@ -18,7 +18,8 @@ defmodule KeepsakesWeb.Templates.Renderer do
     * `unavailable/1` - unknown or expired links (`@access` is
       `:missing` or `:expired`)
     * `timeline/1` - `@memories`, `@streams.entries`, `@last_side`,
-      `@auto?`, `@downloads?`
+      `@auto?`, `@downloads?`; should link to `@base_path <> "/report"`
+      (Report this album) outside the owner's preview
     * `slideshow/1` - `@memories`
   """
 

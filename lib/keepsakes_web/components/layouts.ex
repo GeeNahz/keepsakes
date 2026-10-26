@@ -287,6 +287,11 @@ defmodule KeepsakesWeb.Layouts do
             </.link>
           </li>
           <li>
+            <.link id="user-menu-help" navigate={~p"/app/help"}>
+              <.icon name="hero-lifebuoy" /> Help &amp; support
+            </.link>
+          </li>
+          <li>
             <.link id="user-menu-settings" navigate={~p"/app/settings/profile"}>
               <.icon name="hero-cog-6-tooth" /> Settings
             </.link>
