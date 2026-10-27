@@ -7,6 +7,8 @@ defmodule KeepsakesWeb.GuestAccessController do
       album's default view
     * `GET /a/:slug/photos/:id/download` - the full-size photo, when the
       owner allows downloads
+
+  The same actions answer `/:album/...` on a customer's own domain.
   """
   use KeepsakesWeb, :controller
 
@@ -18,9 +20,8 @@ defmodule KeepsakesWeb.GuestAccessController do
   @window :timer.minutes(15)
   @tries 5
 
-  def create(conn, %{"slug" => slug} = params) do
-    link = Sharing.get_link_by_slug(slug)
-    base = "/a/" <> slug
+  def create(conn, params) do
+    {link, base} = link_and_base(conn, params)
 
     with :ok <- check_available(link, conn),
          :ok <-
@@ -49,9 +50,9 @@ defmodule KeepsakesWeb.GuestAccessController do
     end
   end
 
-  def download(conn, %{"slug" => slug, "id" => id}) do
-    link = Sharing.get_link_by_slug(slug)
-    access = GuestAccess.access(link, get_session(conn), conn.assigns.current_scope)
+  def download(conn, %{"id" => id} = params) do
+    {link, _base} = link_and_base(conn, params)
+    access = GuestAccess.access(link, get_session(conn), conn.assigns[:current_scope])
 
     with true <- access == :owner or (access == :guest and Sharing.downloads_allowed?(link)),
          %Memory{} = memory <- Sharing.guest_memory(link.album, id),
@@ -64,6 +65,16 @@ defmodule KeepsakesWeb.GuestAccessController do
       _ -> send_resp(conn, :not_found, "Not found")
     end
   end
+
+  # `/a/:slug` on the main site, or `/:album` on a customer's own domain
+  # (KeepsakesWeb.SiteRouter puts the domain in conn.assigns.site)
+  defp link_and_base(%{assigns: %{site: site}}, %{"album" => album}) do
+    owner = Keepsakes.Repo.get!(Keepsakes.Accounts.User, site.user_id)
+    {Keepsakes.Domains.site_link(owner, album), "/" <> album}
+  end
+
+  defp link_and_base(_conn, %{"slug" => slug}),
+    do: {Sharing.get_link_by_slug(slug), "/a/" <> slug}
 
   defp check_available(nil, _conn), do: {:error, :unavailable}
 

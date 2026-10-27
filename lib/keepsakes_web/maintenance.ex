@@ -5,7 +5,8 @@ defmodule KeepsakesWeb.Maintenance do
 
   While it's on, every main-site request gets the 503 maintenance page
   (`Settings.maintenance_message`, `Retry-After`), except payment webhooks,
-  media links and dev tools. The admin portal is never affected.
+  media links, dev tools and internal calls (OpenResty's certificate
+  check). The admin portal is never affected; customers' own domains are.
 
   Staff can still look at the site: the admin portal links them to
   `/maintenance/bypass?token=…` (`bypass_url/1`), a token signed for them
@@ -23,7 +24,7 @@ defmodule KeepsakesWeb.Maintenance do
   @cookie "_keepsakes_maintenance_bypass"
   @salt "maintenance bypass"
   @max_age 12 * 60 * 60
-  @always_open ["webhooks", "media", "dev"]
+  @always_open ["webhooks", "media", "dev", "internal"]
 
   @doc "A link that lets this staff member see the main site during maintenance."
   def bypass_url(%Accounts.User{id: id}) do

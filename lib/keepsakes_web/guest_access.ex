@@ -12,6 +12,9 @@ defmodule KeepsakesWeb.GuestAccess do
     * `:link` - `/a/:slug`: assigns `@link`, `@album`, `@access`
       (`:owner | :guest | :none | :expired | :missing`), `@base_path` and
       the album's template (`KeepsakesWeb.Templates.assigns/1`)
+    * `:site` - a customer's own domain (`KeepsakesWeb.SiteRouter`):
+      `@site`/`@site_owner`, plus the same as `:link` on `/:album` pages
+      with `@base_path` = `/<album>`
     * `:preview` - `/a/preview/:album_slug`: the owner previews an album
       that may not be shared yet (requires login);
       `/a/preview/:album_slug/:template` previews it in another template
@@ -72,21 +75,31 @@ defmodule KeepsakesWeb.GuestAccess do
   ## LiveView hooks
 
   def on_mount(:link, %{"slug" => slug}, session, socket) do
-    link = Sharing.get_link_by_slug(slug)
-    template = if link, do: Templates.for_album(link.album), else: Templates.system_default()
+    {:cont, assign_link(socket, Sharing.get_link_by_slug(slug), session, "/a/" <> slug)}
+  end
 
-    {:cont,
-     socket
-     |> assign(
-       link: link,
-       album: link && link.album,
-       owner_name: link && link.user.first_name,
-       access: access(link, session, socket.assigns.current_scope),
-       base_path: "/a/" <> slug,
-       preview?: false,
-       branding?: link == nil or Sharing.branding?(link.user_id)
-     )
-     |> assign(KeepsakesWeb.Templates.assigns(template))}
+  # A customer's own domain (KeepsakesWeb.SiteRouter): the domain comes from
+  # the LiveView session (`site_session/1`); albums are found by slug among
+  # the owner's albums
+  def on_mount(:site, params, session, socket) do
+    case session["site_domain_id"] &&
+           Keepsakes.Repo.get(Keepsakes.Domains.Domain, session["site_domain_id"]) do
+      %{status: "verified"} = domain ->
+        owner = Keepsakes.Repo.get!(Keepsakes.Accounts.User, domain.user_id)
+        socket = assign(socket, site: domain, site_owner: owner)
+
+        case params do
+          %{"album" => album} ->
+            {:cont,
+             assign_link(socket, Keepsakes.Domains.site_link(owner, album), session, "/" <> album)}
+
+          _ ->
+            {:cont, socket}
+        end
+
+      _ ->
+        {:halt, redirect(socket, to: "/")}
+    end
   end
 
   def on_mount(:preview, %{"album_slug" => album_slug} = params, _session, socket) do
@@ -137,5 +150,24 @@ defmodule KeepsakesWeb.GuestAccess do
     if socket.assigns.access in [:owner, :guest],
       do: {:cont, socket},
       else: {:halt, redirect(socket, to: socket.assigns.base_path)}
+  end
+
+  @doc "LiveView session for a customer's domain: which domain it is."
+  def site_session(conn), do: %{"site_domain_id" => conn.assigns[:site] && conn.assigns.site.id}
+
+  defp assign_link(socket, link, session, base_path) do
+    template = if link, do: Templates.for_album(link.album), else: Templates.system_default()
+
+    socket
+    |> assign(
+      link: link,
+      album: link && link.album,
+      owner_name: link && link.user.first_name,
+      access: access(link, session, socket.assigns.current_scope),
+      base_path: base_path,
+      preview?: false,
+      branding?: link == nil or Sharing.branding?(link.user_id)
+    )
+    |> assign(KeepsakesWeb.Templates.assigns(template))
   end
 end

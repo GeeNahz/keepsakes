@@ -427,6 +427,13 @@ defmodule KeepsakesWeb.Layouts do
       permission: "templates.manage"
     },
     %{
+      key: :domains,
+      label: "Domains",
+      icon: "hero-globe-alt",
+      path: "/domains",
+      permission: "domains.manage"
+    },
+    %{
       key: :settings,
       label: "Settings",
       icon: "hero-adjustments-horizontal",

@@ -53,5 +53,6 @@ defmodule KeepsakesWeb.Endpoint do
   # 503 page while maintenance mode is on (main site only; staff can bypass)
   plug KeepsakesWeb.Maintenance
   plug Plug.Session, @session_options
-  plug KeepsakesWeb.Router
+  # Customers' own domains go to KeepsakesWeb.SiteRouter, the rest to Router
+  plug KeepsakesWeb.HostRouter
 end

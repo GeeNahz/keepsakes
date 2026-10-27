@@ -128,6 +128,15 @@ defmodule KeepsakesWeb.Router do
       live "/templates/:id", TemplateLive.Form, :edit
     end
 
+    live_session :staff_domains,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "domains.manage"}}
+      ] do
+      live "/domains", DomainLive, :index
+    end
+
     live_session :staff_settings,
       root_layout: {KeepsakesWeb.Layouts, :admin_root},
       on_mount: [
@@ -178,6 +187,11 @@ defmodule KeepsakesWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+  end
+
+  # OpenResty asks before issuing a certificate (private network only)
+  scope "/internal", KeepsakesWeb do
+    get "/tls/ask", TlsAskController, :show
   end
 
   # Payment provider callbacks: no session or CSRF; each provider signs its own

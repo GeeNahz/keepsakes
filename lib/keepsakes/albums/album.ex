@@ -12,6 +12,8 @@ defmodule Keepsakes.Albums.Album do
     field :description, :string
     # Published memories, filled in by list queries
     field :memories_count, :integer, virtual: true, default: 0
+    # Listed on the owner's public site, on their own domain (Keepsakes.Domains)
+    field :show_on_site, :boolean, default: false
 
     belongs_to :user, Keepsakes.Accounts.User
     belongs_to :cover_memory, Memory
