@@ -73,3 +73,8 @@ config :phoenix,
 # test's flags never leak into another through the shared ETS cache
 config :fun_with_flags, :cache, enabled: false
 config :fun_with_flags, :cache_bust_notifications, enabled: false
+
+# Domain checks look up DNS in a stub (test/support/dns_stub.ex)
+config :keepsakes, :dns_resolver, Keepsakes.DnsStub
+config :keepsakes, :edge_host, "edge.keepsake.test"
+config :keepsakes, :edge_ips, ["203.0.113.10"]

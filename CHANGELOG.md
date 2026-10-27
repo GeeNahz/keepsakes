@@ -167,6 +167,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Each flag is off, on for chosen customers (added by email), or on for everyone. Changes are audited.
   - Flags are declared in `Keepsakes.Flags`, which `enabled?/2` checks. They start off and will gate custom domains, guest uploads, slideshow music, and reactions & guestbook as those are built.
 - The dashboard's open-tickets tile links to the inbox, and customer profiles link their tickets to it.
+- Custom domains, in Settings › Domains (`/app/settings/domains`):
+  - Customers add their own domain and see the two DNS records to create (TXT `_keepsake.<domain>` with a token, plus a CNAME to the edge host, or A records for a root domain), with copy buttons.
+  - Each domain shows its status and why it isn't connected yet, with "Check now" and remove.
+  - A switch per album chooses which shared albums appear on their site.
+  - Needs the `custom_domains` feature flag and a plan with custom domains (Pro); shows "Coming soon" or an upgrade prompt otherwise. A domain someone already has stays manageable.
+- New tables: `domains` (with `pending` / `verified` / `failed` / `blocked`), `blocked_hostnames`, and `albums.show_on_site`. `Keepsakes.Domains` checks DNS through a swappable resolver (`:inet_res`).
+- DNS polling (`Keepsakes.Domains.CheckWorker`, every 10 minutes):
+  - New domains are checked every 10 minutes for a day, then hourly for a week, then marked not connected.
+  - Connected domains are re-checked daily and fail after three bad checks in a row.
+  - Customers are emailed when a domain connects and when it fails.
+- A customer's verified domain serves their public site:
+  - `/` lists their chosen albums; `/<album>` opens the usual access, timeline, slideshow and report pages, with access codes still required.
+  - Served by a new `KeepsakesWeb.SiteRouter`, picked per request by `KeepsakesWeb.HostRouter`.
+  - Unconnected or blocked domains get a 404, and so do domains of suspended or deleting owners.
+- `GET /internal/tls/ask?domain=` for OpenResty's on-demand certificates (Stage 8b): 200 only for our hosts and verified domains, answered only on loopback or private networks, plus an optional `TLS_ASK_TOKEN` header.
+- Admin Domains at `/domains` (`domains.manage`):
+  - Every domain with owner, status, last check and error.
+  - Check now, block with a reason (the site stops at once) and unblock.
+  - A blocked-names list; adding `*.example.com` also blocks matching domains. Audited.
+- `EDGE_HOST`, `EDGE_IPS` and `TLS_ASK_TOKEN` settings, documented in `.env.example` and the production checklist; a section on the second router in `docs/learning/admin-subdomain.md`.
 
 ### Changed
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
@@ -200,6 +220,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A suspended account can't log in by password or emailed link ("This account is suspended…"), its sessions are ended, its shared links stop opening, and its renewals and retries are skipped until it's unsuspended.
 - Invoices and payments are kept when a deleted account is purged: `invoices.user_id` and `payments.user_id` are set to nil instead of the rows being deleted. Invoices now keep `billing_name` and `billing_email` (backfilled for existing ones).
 - Changing a price adds a new price row and retires the old one (one active price per plan, currency and interval), so subscribers renew at the price they signed up for. They can still "Pay now" on that price after a failed renewal; new buyers only see the new one.
+- The guest access form posts to its page's own path (`<base>/access`), and `GuestAccessController` serves both `/a/:slug` and a customer domain's `/:album`. LiveView `check_origin` in production is now `KeepsakesWeb.Origin.allowed?/1`, and maintenance mode leaves `/internal` open.
 - Staff internal notes and new tickets now broadcast too, so every open page sees them; `Support.set_status/4` is shared by owners and staff.
 - Tests read feature flags straight from the database (FunWithFlags cache off in test), so flag state can't leak between tests.
 - A plan given by staff ends on its date and moves the customer to Free without a charge. Plans & billing describes it as a gift and has no "Keep my plan" button for it. Paying for any plan replaces it.

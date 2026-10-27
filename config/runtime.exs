@@ -190,10 +190,23 @@ if config_env() == :prod do
 
   config :keepsakes, :admin_host, admin_host
 
+  # Customers' domains point here (see docs/learning/openresty/)
+  config :keepsakes, :edge_host, System.get_env("EDGE_HOST") || "edge." <> host
+
+  config :keepsakes,
+         :edge_ips,
+         (System.get_env("EDGE_IPS") || "")
+         |> String.split(",", trim: true)
+         |> Enum.map(&String.trim/1)
+
+  # Optional shared secret OpenResty sends to /internal/tls/ask
+  config :keepsakes, :tls_ask_token, System.get_env("TLS_ASK_TOKEN")
+
   config :keepsakes, KeepsakesWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
-    # LiveView sockets may come from the main site or the admin portal
-    check_origin: ["//#{host}", "//#{admin_host}"],
+    # LiveView sockets may come from the main site, the admin portal or a
+    # customer's verified domain (KeepsakesWeb.Origin)
+    check_origin: {KeepsakesWeb.Origin, :allowed?, []},
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.

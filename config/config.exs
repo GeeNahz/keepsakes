@@ -42,7 +42,8 @@ config :keepsakes, Oban,
     {Oban.Plugins.Cron,
      crontab: [
        {"7 * * * *", Keepsakes.Billing.LifecycleWorker},
-       {"15 6 * * *", Keepsakes.HousekeepingWorker}
+       {"15 6 * * *", Keepsakes.HousekeepingWorker},
+       {"*/10 * * * *", Keepsakes.Domains.CheckWorker}
      ]}
   ]
 
@@ -66,6 +67,11 @@ config :error_tracker,
 # The staff portal's host (prod derives it from PHX_HOST in runtime.exs).
 # *.localhost resolves to this machine, so dev needs no hosts-file edits.
 config :keepsakes, :admin_host, "admin.localhost"
+
+# Where customers point their own domains (CNAME to the host, or A records
+# to the IPs for a root domain); EDGE_HOST / EDGE_IPS in production
+config :keepsakes, :edge_host, "edge.localhost"
+config :keepsakes, :edge_ips, []
 
 # Whether staff must have two-step login to open the admin portal
 # (REQUIRE_STAFF_TWO_STEP). Off for now; turn on for production.

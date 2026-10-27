@@ -70,7 +70,7 @@ defmodule KeepsakesWeb.Templates.Trail do
           <.form
             for={%{}}
             id="access-form"
-            action={~p"/a/#{@link.slug}/access"}
+            action={@base_path <> "/access"}
             class="flex w-full flex-col items-center gap-5"
           >
             <fieldset

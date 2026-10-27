@@ -102,6 +102,26 @@ themselves. Hiding a button is never the only check.
 Every change made in the portal is written to `audit_events` in the same
 transaction as the change, along with who made it and from which IP.
 
+## 6b. Customers' own domains use a second router
+
+The admin portal can share the main router because every admin host
+starts with `admin.`. Customers' domains (Stage 8) can be anything, like
+`photos.adaobi.com`, and their `/` has to be *their* site, not our landing
+page. A router can't match "any verified domain", so the endpoint picks
+the router per request (`KeepsakesWeb.HostRouter`):
+
+- **Main host or admin host:** `KeepsakesWeb.Router`, as before.
+- **A customer's verified domain:** `KeepsakesWeb.SiteRouter`, a small
+  router with just the public site and the guest pages. The domain sits in
+  `conn.assigns.site` and in the LiveView session.
+- **A customer's domain that isn't connected:** a plain 404.
+- **Anything else** (internal calls by IP or container name): the main
+  router.
+
+LiveView remembers which router rendered a page, so live navigation works
+on both. `check_origin` becomes an MFA (`KeepsakesWeb.Origin`), so sockets
+from verified domains are accepted.
+
 ## 7. LiveView sockets on both hosts
 
 A LiveView page opens a WebSocket back to its own host. In production
