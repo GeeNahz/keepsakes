@@ -8,7 +8,7 @@ defmodule KeepsakesWeb.Admin.CustomerLive.Show do
   """
   use KeepsakesWeb, :live_view
 
-  import KeepsakesWeb.SupportComponents, only: [status_badge: 1]
+  import KeepsakesWeb.Admin.SupportLive.Index, only: [staff_status_badge: 1]
 
   alias Keepsakes.Accounts.User
   alias Keepsakes.Billing
@@ -201,10 +201,17 @@ defmodule KeepsakesWeb.Admin.CustomerLive.Show do
           <ul :if={@profile.tickets != []} class="flex flex-col divide-y divide-base-300">
             <li :for={t <- @profile.tickets} class="flex items-center justify-between gap-3 py-2">
               <span class="min-w-0">
-                <span class="block truncate font-medium">{t.subject}</span>
+                <.link
+                  :if={@support?}
+                  navigate={~p"/support/#{t.number}"}
+                  class="block truncate font-medium text-primary"
+                >
+                  {t.subject}
+                </.link>
+                <span :if={!@support?} class="block truncate font-medium">{t.subject}</span>
                 <span class="font-mono text-xs text-ks-muted">{t.number} · {date(t.inserted_at)}</span>
               </span>
-              <.status_badge status={t.status} />
+              <.staff_status_badge status={t.status} />
             </li>
           </ul>
         </.card>
@@ -355,6 +362,7 @@ defmodule KeepsakesWeb.Admin.CustomerLive.Show do
      |> assign(
        page_title: User.full_name(customer),
        manage?: StaffScope.can?(socket.assigns.staff_scope, "users.manage"),
+       support?: StaffScope.can?(socket.assigns.staff_scope, "support.view"),
        action: nil,
        form: nil,
        error: nil

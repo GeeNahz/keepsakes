@@ -158,7 +158,8 @@ defmodule KeepsakesWeb.SupportComponents do
 
   attr :attachment, Attachment, required: true
 
-  defp attachment(assigns) do
+  @doc "A link to an attachment (a thumbnail for photos)."
+  def attachment(assigns) do
     ~H"""
     <a
       href={Support.attachment_url(@attachment)}

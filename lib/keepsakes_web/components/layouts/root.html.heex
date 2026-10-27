@@ -39,6 +39,7 @@
     </script>
   </head>
   <body>
+    <.maintenance_banner :if={assigns[:maintenance_bypass]} />
     {@inner_content}
   </body>
 </html>

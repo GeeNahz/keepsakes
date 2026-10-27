@@ -392,6 +392,13 @@ defmodule KeepsakesWeb.Layouts do
       permission: "users.view"
     },
     %{
+      key: :support,
+      label: "Support",
+      icon: "hero-lifebuoy",
+      path: "/support",
+      permission: "support.view"
+    },
+    %{
       key: :finance,
       label: "Finance",
       icon: "hero-banknotes",
@@ -411,6 +418,27 @@ defmodule KeepsakesWeb.Layouts do
       icon: "hero-ticket",
       path: "/discounts",
       permission: "discounts.manage"
+    },
+    %{
+      key: :templates,
+      label: "Templates",
+      icon: "hero-swatch",
+      path: "/templates",
+      permission: "templates.manage"
+    },
+    %{
+      key: :settings,
+      label: "Settings",
+      icon: "hero-adjustments-horizontal",
+      path: "/settings",
+      permission: "config.manage"
+    },
+    %{
+      key: :flags,
+      label: "Feature flags",
+      icon: "hero-flag",
+      path: "/flags",
+      permission: "flags.manage"
     },
     %{
       key: :staff,
@@ -671,6 +699,22 @@ defmodule KeepsakesWeb.Layouts do
         </div>
       </.form>
     </.modal>
+    """
+  end
+
+  @doc """
+  Shown on main-site pages to staff who bypassed maintenance mode
+  (`KeepsakesWeb.Maintenance`).
+  """
+  def maintenance_banner(assigns) do
+    ~H"""
+    <div
+      id="maintenance-banner"
+      class="sticky top-0 z-50 flex items-center justify-center gap-2 bg-ks-amber-soft px-4 py-2 text-sm font-medium text-ks-amber-deep"
+    >
+      <.icon name="hero-wrench-screwdriver" class="size-4" />
+      Maintenance mode is on. Only staff can see the site right now.
+    </div>
     """
   end
 

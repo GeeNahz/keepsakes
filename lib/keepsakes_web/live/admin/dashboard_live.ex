@@ -71,7 +71,12 @@ defmodule KeepsakesWeb.Admin.DashboardLive do
           label="Photo storage"
           value={Keepsakes.Format.bytes(@metrics.storage_bytes)}
         />
-        <.stat id="stat-tickets" label="Open tickets" value={count(@metrics.open_tickets)} />
+        <.stat
+          id="stat-tickets"
+          label="Open tickets"
+          value={count(@metrics.open_tickets)}
+          navigate={if(@support?, do: ~p"/support?view=all")}
+        />
       </div>
 
       <div class="mt-6 grid gap-4 xl:grid-cols-2">
@@ -105,7 +110,8 @@ defmodule KeepsakesWeb.Admin.DashboardLive do
        metrics: metrics,
        # Tiles link to the customer list for staff who can open it
        customers?: StaffScope.can?(scope, "users.view"),
-       finance?: StaffScope.can?(scope, "finance.view")
+       finance?: StaffScope.can?(scope, "finance.view"),
+       support?: StaffScope.can?(scope, "support.view")
      )}
   end
 

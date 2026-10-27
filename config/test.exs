@@ -68,3 +68,8 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Feature flags read straight from the (sandboxed) database in tests, so one
+# test's flags never leak into another through the shared ETS cache
+config :fun_with_flags, :cache, enabled: false
+config :fun_with_flags, :cache_bust_notifications, enabled: false

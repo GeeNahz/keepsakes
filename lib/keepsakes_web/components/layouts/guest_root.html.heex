@@ -16,6 +16,7 @@
     </script>
   </head>
   <body class="bg-ks-guest text-ks-guest-ink antialiased">
+    <.maintenance_banner :if={assigns[:maintenance_bypass]} />
     {@inner_content}
   </body>
 </html>

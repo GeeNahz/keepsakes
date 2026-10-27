@@ -30,7 +30,21 @@ defmodule Keepsakes.Settings do
     maintenance_message:
       {:string, "We're making Keepsake better. Back shortly.",
        "Message shown on the maintenance page"},
-    default_template: {:string, "trail", "Template slug attached to new albums"}
+    default_template: {:string, "trail", "Template slug attached to new albums"},
+    sla_urgent_hours: {:integer, 4, "Hours to the first staff reply on an urgent ticket"},
+    sla_high_hours: {:integer, 8, "Hours to the first staff reply on a high-priority ticket"},
+    sla_normal_hours: {:integer, 24, "Hours to the first staff reply on a normal ticket"},
+    sla_low_hours: {:integer, 72, "Hours to the first staff reply on a low-priority ticket"}
+  ]
+
+  # How the admin portal's settings page groups them
+  @groups [
+    {"Trial & billing", [:trial_days, :grace_days]},
+    {"Uploads", [:image_long_edge, :image_quality, :max_upload_mb]},
+    {"Sign-ups", [:signups_open]},
+    {"Templates", [:default_template]},
+    {"Support targets", [:sla_urgent_hours, :sla_high_hours, :sla_normal_hours, :sla_low_hours]},
+    {"Maintenance", [:maintenance_mode, :maintenance_message]}
   ]
 
   @keys Keyword.keys(@definitions)
@@ -39,6 +53,13 @@ defmodule Keepsakes.Settings do
 
   @doc "All setting definitions as `{key, {type, default, description}}`."
   def definitions, do: @definitions
+
+  @doc "Settings grouped for the admin portal, as `[{title, [key]}]`."
+  def groups, do: @groups
+
+  @doc "Whether `key` has a stored value (otherwise its default applies)."
+  def overridden?(key) when key in @keys,
+    do: Repo.exists?(from s in Setting, where: s.key == ^Atom.to_string(key))
 
   @doc "Current value of `key` (stored override or default)."
   @spec get(key) :: term()
