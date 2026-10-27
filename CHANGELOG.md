@@ -142,6 +142,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `refunds` table.
 - CSV exports of payments and refunds for a date range (`finance.export`, `/finance/export/payments.csv` and `/finance/export/refunds.csv`), audited as `finance.exported`.
 - Sidebar entries for Finance, Plans and Discount codes. The dashboard MRR tiles link to Finance, and customer invoices link to their invoice page.
+- Admin Support inbox at `/support` (`support.view`):
+  - Shows tickets needing a reply by default, plus filters for status, priority, category, assignee and search (number, subject, email). The filters are kept in the URL.
+  - Unanswered tickets are sorted by when their first reply is due, with an SLA badge: Overdue, Due soon, On track or Replied.
+  - Updates live as tickets arrive or change (new `support:inbox` topic).
+- Ticket page `/support/:number`:
+  - The full thread, with internal notes highlighted, plus the customer card, the reported album and the rating.
+  - Reply or add an internal note, with a canned-reply picker (`support.reply`).
+  - Mark solved, reopen or close (`support.reply`); assign and change priority (`support.assign`).
+  - Every staff action is audited; message text isn't copied into the log.
+- Canned replies at `/support/replies` (new `canned_replies` table).
+- First-reply targets as system settings: `sla_urgent_hours` 4, `sla_high_hours` 8, `sla_normal_hours` 24, `sla_low_hours` 72.
+- Admin Templates at `/templates` (`templates.manage`):
+  - **List:** each template with how many albums use it and which is the default.
+  - **Form:** name, renderer, premium, visible, order, and theme colours (`#RRGGBB`, empty uses the renderer's), fonts and light/dark, with a live preview.
+  - The default template can't be hidden. Changes are audited.
+- Admin System settings at `/settings` (`config.manage`):
+  - Every setting, grouped (trial & billing, uploads, sign-ups, templates, support targets, maintenance) and edited by type.
+  - "Reset to default" for changed ones. Each change is audited.
+- Maintenance mode is now enforced:
+  - While it's on, the main site answers with a 503 maintenance page (`maintenance_message`, `Retry-After`). Payment webhooks, media links and the admin portal keep working.
+  - Staff can use "View the site anyway": a signed 12-hour bypass link that sets a host-only cookie, and pages then show a "only staff can see this" banner.
+- Feature flags at `/flags` (`flags.manage`):
+  - Each flag is off, on for chosen customers (added by email), or on for everyone. Changes are audited.
+  - Flags are declared in `Keepsakes.Flags`, which `enabled?/2` checks. They start off and will gate custom domains, guest uploads, slideshow music, and reactions & guestbook as those are built.
+- The dashboard's open-tickets tile links to the inbox, and customer profiles link their tickets to it.
 
 ### Changed
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
@@ -175,6 +200,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A suspended account can't log in by password or emailed link ("This account is suspended…"), its sessions are ended, its shared links stop opening, and its renewals and retries are skipped until it's unsuspended.
 - Invoices and payments are kept when a deleted account is purged: `invoices.user_id` and `payments.user_id` are set to nil instead of the rows being deleted. Invoices now keep `billing_name` and `billing_email` (backfilled for existing ones).
 - Changing a price adds a new price row and retires the old one (one active price per plan, currency and interval), so subscribers renew at the price they signed up for. They can still "Pay now" on that price after a failed renewal; new buyers only see the new one.
+- Staff internal notes and new tickets now broadcast too, so every open page sees them; `Support.set_status/4` is shared by owners and staff.
+- Tests read feature flags straight from the database (FunWithFlags cache off in test), so flag state can't leak between tests.
 - A plan given by staff ends on its date and moves the customer to Free without a charge. Plans & billing describes it as a gift and has no "Keep my plan" button for it. Paying for any plan replaces it.
 
 ### Fixed

@@ -50,6 +50,8 @@ defmodule KeepsakesWeb.Endpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
+  # 503 page while maintenance mode is on (main site only; staff can bypass)
+  plug KeepsakesWeb.Maintenance
   plug Plug.Session, @session_options
   plug KeepsakesWeb.Router
 end

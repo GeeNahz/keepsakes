@@ -3,10 +3,10 @@ defmodule Keepsakes.Support do
   Help and support tickets.
 
   Owners open tickets from Help (`create_ticket/3`) and write back
-  (`reply/4`); guests can report an album (`report_album/2`). Staff replies
-  (`staff_reply/4`) come from the admin inbox in Stage 7. Until then new
-  tickets and customer replies are emailed to the `SUPPORT_INBOX` address
-  when one is set.
+  (`reply/4`); guests can report an album (`report_album/2`). Staff answer
+  from the admin portal's inbox (`Keepsakes.Support.Admin`, which calls
+  `staff_reply/4`). New tickets and customer replies are also emailed to
+  the `SUPPORT_INBOX` address when one is set.
 
   Status follows who wrote last: the customer → `awaiting_staff`, support
   → `awaiting_user`. A `resolved` ticket reopens when the customer writes
@@ -90,6 +90,7 @@ defmodule Keepsakes.Support do
         {:ok, %{ticket: ticket, message: message}} ->
           Notifier.deliver_ticket_received(user, ticket)
           Notifier.alert_staff(ticket, message, user.email)
+          broadcast(ticket)
           {:ok, ticket}
 
         {:error, _step, reason, _} ->
@@ -230,6 +231,7 @@ defmodule Keepsakes.Support do
         {:ok, %{ticket: ticket, message: message}} ->
           Notifier.alert_staff(ticket, message, email)
           if email, do: Notifier.deliver_report_received(email, ticket)
+          broadcast(ticket)
           {:ok, ticket}
 
         {:error, _, _, _} ->
@@ -283,9 +285,10 @@ defmodule Keepsakes.Support do
     unless internal do
       ticket = Repo.preload(ticket, :user)
       if ticket.user, do: Notifier.deliver_staff_replied(ticket.user, ticket, message)
-      broadcast(ticket)
     end
 
+    # Notes too, so other staff on the ticket see them
+    broadcast(ticket)
     {:ok, message}
   end
 
@@ -311,12 +314,23 @@ defmodule Keepsakes.Support do
   @doc "Subscribes to `{:ticket_updated, ticket_id}` for one ticket."
   def subscribe(%Ticket{id: id}), do: Phoenix.PubSub.subscribe(Keepsakes.PubSub, "ticket:#{id}")
 
-  defp broadcast(%Ticket{id: id}),
-    do: Phoenix.PubSub.broadcast(Keepsakes.PubSub, "ticket:#{id}", {:ticket_updated, id})
+  @doc "Subscribes to `{:ticket_updated, ticket_id}` for every ticket (the staff inbox)."
+  def subscribe_inbox, do: Phoenix.PubSub.subscribe(Keepsakes.PubSub, "support:inbox")
+
+  @doc "Tells open pages (the ticket's and the staff inbox) that it changed."
+  def broadcast(%Ticket{id: id}) do
+    Phoenix.PubSub.broadcast(Keepsakes.PubSub, "ticket:#{id}", {:ticket_updated, id})
+    Phoenix.PubSub.broadcast(Keepsakes.PubSub, "support:inbox", {:ticket_updated, id})
+  end
 
   ## Helpers
 
-  defp set_status(ticket, status, note, changes) do
+  @doc """
+  Moves the ticket to `status` with `changes`, adding `note` to the thread
+  as a system line (e.g. "Marked as solved"). Used by owners here and by
+  staff through `Keepsakes.Support.Admin`.
+  """
+  def set_status(ticket, status, note, changes \\ []) do
     now = DateTime.utc_now(:second)
 
     result =

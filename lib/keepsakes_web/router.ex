@@ -105,6 +105,47 @@ defmodule KeepsakesWeb.Router do
     get "/finance/export/payments.csv", FinanceExportController, :payments
     get "/finance/export/refunds.csv", FinanceExportController, :refunds
 
+    live_session :staff_support,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "support.view"}}
+      ] do
+      live "/support", SupportLive.Index, :index
+      # Before /support/:number, which would otherwise match it
+      live "/support/replies", SupportLive.Replies, :index
+      live "/support/:number", SupportLive.Show, :show
+    end
+
+    live_session :staff_templates,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "templates.manage"}}
+      ] do
+      live "/templates", TemplateLive.Index, :index
+      live "/templates/new", TemplateLive.Form, :new
+      live "/templates/:id", TemplateLive.Form, :edit
+    end
+
+    live_session :staff_settings,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "config.manage"}}
+      ] do
+      live "/settings", SettingsLive, :index
+    end
+
+    live_session :staff_flags,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "flags.manage"}}
+      ] do
+      live "/flags", FlagsLive, :index
+    end
+
     live_session :staff_roles,
       root_layout: {KeepsakesWeb.Layouts, :admin_root},
       on_mount: [
