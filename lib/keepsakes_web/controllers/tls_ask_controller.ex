@@ -38,16 +38,10 @@ defmodule KeepsakesWeb.TlsAskController do
           token
         )
 
-    if private?(conn.remote_ip) and token_ok?,
+    # remote_ip is already the visitor's real address (KeepsakesWeb.ClientIP),
+    # so someone on the internet reaching this through the proxy is refused
+    if KeepsakesWeb.ClientIP.private?(conn.remote_ip) and token_ok?,
       do: conn,
       else: conn |> send_resp(403, "") |> halt()
   end
-
-  defp private?({127, _, _, _}), do: true
-  defp private?({10, _, _, _}), do: true
-  defp private?({172, b, _, _}) when b in 16..31, do: true
-  defp private?({192, 168, _, _}), do: true
-  defp private?({0, 0, 0, 0, 0, 0, 0, 1}), do: true
-  defp private?({a, _, _, _, _, _, _, _}) when a in 0xFC00..0xFDFF, do: true
-  defp private?(_ip), do: false
 end

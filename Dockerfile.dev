@@ -1,0 +1,48 @@
+# Development image for `docker compose up` (compose.yaml): the source is
+# mounted from your machine and `mix phx.server` runs with code reloading.
+# Production uses the release Dockerfile (Stage 11) instead.
+#
+# Same versions as .tool-versions: Erlang 29.0, and the Elixir 1.19.5 build
+# compiled on OTP 26 that asdf installs locally.
+FROM hexpm/erlang:29.0-debian-trixie-20260610-slim
+
+ARG ELIXIR_VERSION=1.19.5
+ARG ELIXIR_OTP=26
+# Your user and group ids, so files written into the mounted source stay yours
+ARG UID=1000
+ARG GID=1000
+
+# build-essential + git for deps with native code; inotify-tools for live reload
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential git inotify-tools curl unzip ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL -o /tmp/elixir.zip \
+      "https://github.com/elixir-lang/elixir/releases/download/v${ELIXIR_VERSION}/elixir-otp-${ELIXIR_OTP}.zip" \
+ && unzip -q /tmp/elixir.zip -d /usr/local/elixir \
+ && rm /tmp/elixir.zip
+
+COPY deploy/dev/entrypoint.sh /usr/local/bin/dev-entrypoint
+RUN chmod +x /usr/local/bin/dev-entrypoint
+
+# A user matching yours. The directories compose mounts volumes on are created
+# here with that owner, so the volumes start out writable by it.
+RUN groupadd --gid ${GID} dev \
+ && useradd --uid ${UID} --gid ${GID} --create-home dev \
+ && mkdir -p /app/deps /app/_build /home/dev/.mix /home/dev/.hex \
+ && chown -R dev:dev /app /home/dev
+
+USER dev
+
+ENV PATH="/usr/local/elixir/bin:${PATH}" \
+    LANG=C.UTF-8 \
+    MIX_HOME=/home/dev/.mix \
+    HEX_HOME=/home/dev/.hex
+
+RUN mix local.hex --force && mix local.rebar --force
+
+WORKDIR /app
+
+EXPOSE 4100
+ENTRYPOINT ["dev-entrypoint"]
+CMD ["mix", "phx.server"]

@@ -120,7 +120,7 @@ defmodule KeepsakesWeb.UserLive.Login do
        page_title: "Log in",
        form: form,
        trigger_submit: false,
-       client_ip: AuthThrottle.client_ip(get_connect_info(socket, :peer_data))
+       client_ip: AuthThrottle.client_ip(socket)
      )}
   end
 

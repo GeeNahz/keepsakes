@@ -107,7 +107,7 @@ defmodule KeepsakesWeb.UserLive.Registration do
         # From an invite link: /auth/register?ref=CODE
         referral_code: params["ref"],
         signups_open: Settings.get(:signups_open),
-        client_ip: AuthThrottle.client_ip(get_connect_info(socket, :peer_data)),
+        client_ip: AuthThrottle.client_ip(socket),
         trigger_submit: false
       )
       |> assign_form(Accounts.change_user_registration(%User{}))

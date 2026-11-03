@@ -140,4 +140,25 @@ else
     {:ok, link} = Sharing.create_link(scope, album, "manual", "482917")
     IO.puts("Shared sample album: #{Sharing.url(link)} (code 482917)")
   end
+
+  # A customer domain for the local Docker stack (compose.yaml), marked
+  # verified without DNS: its test DNS sends every name to OpenResty, so
+  # https://photos.adaobi.test:8443 gets a certificate from Pebble on the
+  # first visit. The daily DNS re-check fails it after three days (there's
+  # no real DNS); running the seeds again puts it back.
+  alias Keepsakes.Domains
+  alias Keepsakes.Domains.Domain
+
+  hostname = "photos.adaobi.test"
+  now = DateTime.utc_now(:second)
+
+  (Repo.get_by(Domain, hostname: hostname) ||
+     %Domain{user_id: user.id, hostname: hostname, verification_token: "dev-seed"})
+  |> Ecto.Changeset.change(status: "verified", verified_at: now, checks: 0, last_error: nil)
+  |> Repo.insert_or_update!()
+
+  if album = Enum.find(Albums.list_albums(scope), &(&1.slug == "our-little-one")),
+    do: {:ok, _} = Domains.show_on_site(scope, album, true)
+
+  IO.puts("Dev customer domain: #{hostname} (through the Docker stack)")
 end

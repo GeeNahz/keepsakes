@@ -11,9 +11,10 @@ defmodule KeepsakesWeb.Endpoint do
     same_site: "Lax"
   ]
 
+  # :x_headers carries the edge proxy's X-Forwarded-For (KeepsakesWeb.ClientIP)
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [:peer_data, session: @session_options]],
-    longpoll: [connect_info: [:peer_data, session: @session_options]]
+    websocket: [connect_info: [:peer_data, :x_headers, session: @session_options]],
+    longpoll: [connect_info: [:peer_data, :x_headers, session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -41,6 +42,8 @@ defmodule KeepsakesWeb.Endpoint do
     cookie_key: "request_logger"
 
   plug Plug.RequestId
+  # Behind the edge proxy: the visitor's real address and scheme
+  plug KeepsakesWeb.ClientIP
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
   plug Plug.Parsers,

@@ -106,7 +106,7 @@ defmodule KeepsakesWeb.GuestLive.Report do
        page_title: "Report an album",
        sent: false,
        error: nil,
-       client_ip: AuthThrottle.client_ip(get_connect_info(socket, :peer_data))
+       client_ip: AuthThrottle.client_ip(socket)
      )}
   end
 

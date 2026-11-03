@@ -2,11 +2,39 @@ defmodule Keepsakes.Release do
   @moduledoc """
   Tasks run inside a release, where Mix isn't available:
 
+      bin/migrate                      # what bin/server runs before starting
       bin/keepsakes eval "Keepsakes.Release.storage_check()"
       bin/keepsakes eval 'Keepsakes.Release.grant_staff("you@example.com", "super_admin")'
   """
 
   @app :keepsakes
+
+  @doc """
+  Runs every pending migration, without starting the app (the release's
+  `bin/migrate`, run on each boot by `bin/server`).
+  """
+  def migrate do
+    Application.ensure_all_started(:ssl)
+    Application.load(@app)
+
+    for repo <- Application.fetch_env!(@app, :ecto_repos) do
+      {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
+    end
+
+    :ok
+  end
+
+  @doc """
+  Rolls `repo` back to migration `version`:
+
+      bin/keepsakes eval 'Keepsakes.Release.rollback(Keepsakes.Repo, 20261027000000)'
+  """
+  def rollback(repo, version) do
+    Application.ensure_all_started(:ssl)
+    Application.load(@app)
+    {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
+    :ok
+  end
 
   @doc """
   Gives an existing account staff access with the role `role_key` (keeping
