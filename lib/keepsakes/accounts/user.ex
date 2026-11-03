@@ -48,6 +48,12 @@ defmodule Keepsakes.Accounts.User do
     field :suspended_at, :utc_datetime
     field :suspension_reason, :string
 
+    # Terms of use (Keepsakes.Accounts.terms_version/0); `terms` is the
+    # sign-up checkbox
+    field :terms_accepted_at, :utc_datetime
+    field :terms_version, :string
+    field :terms, :boolean, virtual: true
+
     timestamps()
   end
 
@@ -67,10 +73,26 @@ defmodule Keepsakes.Accounts.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:first_name, :last_name, :email, :password])
+    |> cast(attrs, [:first_name, :last_name, :email, :password, :terms])
     |> validate_name()
     |> validate_email(opts)
     |> validate_password(opts)
+    |> validate_acceptance(:terms, message: "please agree to the Terms of use")
+    |> put_terms_acceptance()
+  end
+
+  defp put_terms_acceptance(changeset) do
+    if get_change(changeset, :terms) == true,
+      do: terms_changeset(changeset),
+      else: changeset
+  end
+
+  @doc "Records agreement to the current Terms of use."
+  def terms_changeset(user_or_changeset) do
+    change(user_or_changeset,
+      terms_accepted_at: DateTime.utc_now(:second),
+      terms_version: Keepsakes.Accounts.terms_version()
+    )
   end
 
   @doc """

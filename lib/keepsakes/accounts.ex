@@ -121,6 +121,23 @@ defmodule Keepsakes.Accounts do
   defp referrer(_code), do: nil
 
   @doc """
+  The current version of the Terms of use (`/terms`). Bump it when the
+  terms change materially: accounts on an older version are asked again
+  where agreement matters (uploading music).
+  """
+  def terms_version, do: "2026-11"
+
+  @doc "Whether the account agreed to the current Terms of use."
+  def terms_accepted?(%User{terms_version: version}), do: version == terms_version()
+
+  @doc "Records that the account agreed to the current Terms of use."
+  def accept_terms(%User{} = user) do
+    if terms_accepted?(user),
+      do: {:ok, user},
+      else: user |> User.terms_changeset() |> Repo.update()
+  end
+
+  @doc """
   Returns a changeset for live validation of the registration form.
 
   Uniqueness is not checked and the password is not hashed.

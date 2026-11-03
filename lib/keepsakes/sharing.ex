@@ -180,7 +180,8 @@ defmodule Keepsakes.Sharing do
 
       if user.notify_guest_activity do
         visits = Enum.map(user_links, &{&1.album.name, &1.opens_since_digest})
-        Notifier.deliver_guest_digest(user, visits)
+        waiting = Keepsakes.Sharing.Engagement.waiting_for_owner(user.id)
+        Notifier.deliver_guest_digest(user, visits, waiting)
         true
       else
         false
@@ -203,10 +204,48 @@ defmodule Keepsakes.Sharing do
     |> Repo.all()
   end
 
-  @doc "One of the guest's memories by id, or `nil` (used for downloads)."
+  @doc """
+  What a guest page may send: `guest_memories/1` with every memory still
+  sealed by the time capsule stripped to its place on the timeline (no
+  photo, title, caption, place or people), so nothing leaks into the HTML.
+  """
+  @spec guest_view(Album.t(), DateTime.t()) :: [Memory.t()]
+  def guest_view(%Album{} = album, now \\ DateTime.utc_now()) do
+    for memory <- guest_memories(album) do
+      if Memory.sealed?(memory, now), do: sealed_stub(memory), else: memory
+    end
+  end
+
+  defp sealed_stub(%Memory{} = memory) do
+    %Memory{
+      id: memory.id,
+      album_id: memory.album_id,
+      month: memory.month,
+      year: memory.year,
+      position: memory.position,
+      reveal_at: memory.reveal_at,
+      status: memory.status,
+      processing: memory.processing
+    }
+  end
+
+  @doc "Whether the whole album is still sealed for guests at `now`."
+  @spec album_sealed?(Album.t(), DateTime.t()) :: boolean()
+  def album_sealed?(%Album{reveal_at: nil}, _now), do: false
+  def album_sealed?(%Album{reveal_at: at}, now), do: DateTime.compare(at, now) == :gt
+
+  @doc """
+  One of the guest's memories by id, or `nil` (downloads, hearts). Sealed
+  memories, and everything in a sealed album, aren't available.
+  """
   def guest_memory(%Album{} = album, id) do
-    with {:ok, uuid} <- Ecto.UUID.cast(id) do
-      album |> guest_memories() |> Enum.find(&(&1.id == uuid))
+    now = DateTime.utc_now()
+
+    with false <- album_sealed?(album, now),
+         {:ok, uuid} <- Ecto.UUID.cast(id) do
+      album
+      |> guest_memories()
+      |> Enum.find(&(&1.id == uuid and not Memory.sealed?(&1, now)))
     else
       _ -> nil
     end

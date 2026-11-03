@@ -17,7 +17,8 @@ defmodule Keepsakes.AccountsFixtures do
       first_name: "Ada",
       last_name: "Lovelace",
       email: unique_user_email(),
-      password: valid_user_password()
+      password: valid_user_password(),
+      terms: true
     })
   end
 

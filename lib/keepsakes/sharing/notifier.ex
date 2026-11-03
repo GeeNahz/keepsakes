@@ -3,14 +3,19 @@ defmodule Keepsakes.Sharing.Notifier do
   alias Keepsakes.Accounts.User
   alias Keepsakes.Mailer
 
-  @doc "The daily guest-activity email: `visits` is `[{album_name, opens}]`."
-  def deliver_guest_digest(%User{} = user, visits) do
+  @doc """
+  The daily guest-activity email: `visits` is `[{album_name, opens}]`;
+  `waiting` counts guest photos and guestbook notes waiting for approval.
+  """
+  def deliver_guest_digest(%User{} = user, visits, waiting \\ %{photos: 0, notes: 0}) do
     total = visits |> Enum.map(&elem(&1, 1)) |> Enum.sum()
 
     lines =
       for {album, opens} <- Enum.sort_by(visits, &(-elem(&1, 1))) do
         "#{album}: opened #{times(opens)}"
       end
+
+    lines = lines ++ waiting_line(waiting)
 
     email =
       Mailer.build(
@@ -33,6 +38,20 @@ defmodule Keepsakes.Sharing.Notifier do
 
   defp summary_subject(visits, total),
     do: "Your #{length(visits)} albums were opened #{times(total)} in the last day"
+
+  defp waiting_line(%{photos: 0, notes: 0}), do: []
+
+  defp waiting_line(%{photos: photos, notes: notes}) do
+    parts =
+      [
+        photos > 0 && "#{photos} guest #{if photos == 1, do: "photo", else: "photos"}",
+        notes > 0 && "#{notes} guestbook #{if notes == 1, do: "note", else: "notes"}"
+      ]
+      |> Enum.filter(& &1)
+      |> Enum.join(" and ")
+
+    ["Waiting for your approval: #{parts}."]
+  end
 
   defp times(1), do: "once"
   defp times(2), do: "twice"

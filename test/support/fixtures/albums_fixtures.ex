@@ -40,7 +40,7 @@ defmodule Keepsakes.AlbumsFixtures do
     memory = draft_fixture(scope, album)
     {:ok, memory} = Albums.update_memory(scope, memory, Enum.into(attrs, %{}))
     {:ok, _} = Albums.publish_drafts(scope, album)
-    Albums.get_memory!(scope, memory.id)
+    Albums.get_memory!(scope, album, memory.id)
   end
 
   @doc """

@@ -167,7 +167,21 @@ defmodule KeepsakesWeb.Templates.Trail do
         <header class="mx-auto flex max-w-[1000px] flex-col gap-10 pb-10 pt-6 md:gap-14 md:pb-16 md:pt-7">
           <div class="flex items-center justify-between gap-4">
             <.logo size={26} wordmark_class="text-lg" />
-            <div class="flex gap-2.5">
+            <div class="flex flex-wrap justify-end gap-2.5">
+              <.guest_nav_link
+                :if={@uploads?}
+                id="add-photos-link"
+                navigate={@base_path <> "/add"}
+                icon="hero-camera"
+                label="Add photos"
+              />
+              <.guest_nav_link
+                :if={@reactions?}
+                id="guestbook-link"
+                navigate={@base_path <> "/guestbook"}
+                icon="hero-book-open"
+                label="Guestbook"
+              />
               <button
                 id="autoscroll-toggle"
                 type="button"
@@ -223,7 +237,12 @@ defmodule KeepsakesWeb.Templates.Trail do
               <.memory_row
                 entry={entry}
                 show_details={@link.show_details}
-                download_path={@downloads? && "#{@base_path}/photos/#{entry.id}/download"}
+                download_path={
+                  @downloads? && !Memory.sealed?(entry.memory, @now) &&
+                    "#{@base_path}/photos/#{entry.id}/download"
+                }
+                reactions?={@reactions? && @visitor_key != nil}
+                now={@now}
               />
             </div>
           </div>
@@ -425,8 +444,46 @@ defmodule KeepsakesWeb.Templates.Trail do
   attr :entry, :map, required: true
   attr :show_details, :boolean, required: true
   attr :download_path, :any, default: false
+  attr :reactions?, :boolean, default: false
+  attr :now, :any, required: true
 
+  # Time capsule: a sealed polaroid in the memory's place, with nothing of
+  # the memory itself (Keepsakes.Sharing.guest_view/2 already stripped it)
   defp memory_row(assigns) do
+    if Memory.sealed?(assigns.entry.memory, assigns.now),
+      do: sealed_row(assigns),
+      else: open_row(assigns)
+  end
+
+  defp sealed_row(assigns) do
+    ~H"""
+    <div class={[
+      "relative z-[1] md:flex md:items-center md:gap-14 md:px-[8%]",
+      @entry.side == :right && "md:justify-end"
+    ]}>
+      <article
+        id={"sealed-#{@entry.id}"}
+        class={[
+          "relative w-[69%] rounded bg-ks-guest-paper p-2.5 pb-4 text-ks-ink shadow-[0_18px_36px_var(--color-ks-guest-shadow)] md:w-[39%] md:shrink-0 md:p-3.5 md:pb-5",
+          if(@entry.side == :left, do: "ml-[6%] md:ml-0", else: "ml-[25%] md:ml-0"),
+          tilt_class(@entry.index)
+        ]}
+      >
+        <div class="flex aspect-[25/18] flex-col items-center justify-center gap-2 bg-ks-tint-sand">
+          <.icon name="hero-lock-closed" class="size-9 text-ks-ink/50" />
+          <span class="font-mono text-xs text-ks-stamp">Sealed</span>
+        </div>
+        <div class="flex flex-col gap-1 px-1 pt-2.5 md:px-1.5 md:pt-3">
+          <h2 class="font-hand text-[26px] font-semibold leading-[1.1] md:text-[30px]">
+            Opens on {Calendar.strftime(@entry.memory.reveal_at, "%-d %B %Y")}
+          </h2>
+        </div>
+      </article>
+    </div>
+    """
+  end
+
+  defp open_row(assigns) do
     ~H"""
     <div class={[
       "relative z-[1] md:flex md:items-center md:gap-14 md:px-[8%]",
@@ -471,6 +528,16 @@ defmodule KeepsakesWeb.Templates.Trail do
           >
             {@entry.memory.caption}
           </p>
+          <span :if={@entry.memory.source == "guest"} class="text-xs text-ks-stamp">
+            Added by {@entry.memory.guest_name}
+          </span>
+          <.heart_button
+            :if={@reactions?}
+            id={"heart-#{@entry.id}"}
+            memory_id={@entry.id}
+            count={Map.get(@entry, :hearts, 0)}
+            hearted?={Map.get(@entry, :hearted?, false)}
+          />
         </div>
       </article>
 
@@ -594,14 +661,59 @@ defmodule KeepsakesWeb.Templates.Trail do
               Memory 1 of {length(@memories)}
             </span>
           </div>
-          <.link
-            id="exit-slideshow"
-            navigate={@base_path <> "/timeline"}
-            class="flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-ks-guest-edge px-4 font-medium text-ks-guest-ink no-underline transition-colors hover:border-ks-guest-ink"
-          >
-            <.icon name="hero-x-mark" class="size-4" /> Exit slideshow
-          </.link>
+          <div class="flex shrink-0 gap-2.5">
+            <div
+              :if={@music_url}
+              id="slideshow-music"
+              phx-hook=".Music"
+              phx-update="ignore"
+              class="flex"
+            >
+              <audio data-audio src={@music_url} loop preload="none"></audio>
+              <button
+                type="button"
+                data-music-toggle
+                aria-pressed="false"
+                class="flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-ks-guest-edge px-4 font-medium text-ks-guest-ink transition-colors hover:border-ks-guest-ink"
+              >
+                <.icon name="hero-musical-note" class="size-4" />
+                <span data-music-label>Play with music</span>
+              </button>
+            </div>
+            <.link
+              id="exit-slideshow"
+              navigate={@base_path <> "/timeline"}
+              class="flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-ks-guest-edge px-4 font-medium text-ks-guest-ink no-underline transition-colors hover:border-ks-guest-ink"
+            >
+              <.icon name="hero-x-mark" class="size-4" />
+              <span class="hidden md:inline">Exit slideshow</span>
+            </.link>
+          </div>
         </header>
+        <script :type={Phoenix.LiveView.ColocatedHook} name=".Music">
+          // Browsers only play sound after a tap, so music starts from the button
+          export default {
+            mounted() {
+              const audio = this.el.querySelector("[data-audio]")
+              const button = this.el.querySelector("[data-music-toggle]")
+              const label = this.el.querySelector("[data-music-label]")
+              const render = () => {
+                const playing = !audio.paused
+                button.setAttribute("aria-pressed", String(playing))
+                label.textContent = playing ? "Mute music" : "Play with music"
+              }
+              button.addEventListener("click", () => {
+                if (audio.paused) { audio.play().catch(() => {}) } else { audio.pause() }
+              })
+              audio.addEventListener("play", render)
+              audio.addEventListener("pause", render)
+            },
+            destroyed() {
+              const audio = this.el.querySelector("[data-audio]")
+              if (audio) audio.pause()
+            }
+          }
+        </script>
 
         <%= if @memories == [] do %>
           <div
@@ -863,6 +975,256 @@ defmodule KeepsakesWeb.Templates.Trail do
             strip.scrollTo({left: stop.offsetLeft - (strip.clientWidth - stop.offsetWidth) / 2, behavior: "smooth"})
             this.progress()
           }
+        }
+      </script>
+    </Layouts.app>
+    """
+  end
+
+  ## Guest participation
+
+  @impl true
+  def add(assigns) do
+    ~H"""
+    <Layouts.app flash={@flash} shell={:guest}>
+      <main class="mx-auto flex w-full max-w-[640px] flex-col gap-7 px-4 py-10">
+        <.link
+          id="add-back"
+          navigate={@base_path <> "/timeline"}
+          class="w-fit text-sm font-medium text-ks-guest-text no-underline hover:text-ks-guest-ink"
+        >
+          ← {@album.name}
+        </.link>
+        <div class="flex flex-col gap-2">
+          <h1 class="text-[36px] font-bold leading-tight">Add your photos</h1>
+          <p class="text-[17px] text-ks-guest-text">
+            Share your photos of {@album.name} with {@owner_name}. They'll appear on the timeline once {@owner_name} approves them.
+          </p>
+        </div>
+
+        <div
+          :if={@added > 0}
+          id="add-done"
+          class="rounded-box border border-primary/40 bg-primary/10 px-5 py-4 text-[15px]"
+        >
+          {ngettext(
+            "Thank you! Your photo was sent for approval.",
+            "Thank you! Your %{count} photos were sent for approval.",
+            @added
+          )}
+        </div>
+
+        <.form
+          for={@form}
+          id="add-form"
+          phx-change="validate"
+          phx-submit="send"
+          class="flex flex-col gap-5"
+        >
+          <label
+            for={@uploads.photos.ref}
+            phx-drop-target={@uploads.photos.ref}
+            class="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-ks-guest-edge px-6 py-10 text-center transition-colors hover:border-primary [&.phx-drop-target-active]:border-primary"
+          >
+            <.icon name="hero-camera" class="size-9 text-primary" />
+            <span class="text-[17px] font-bold">Choose photos</span>
+            <span class="text-sm text-ks-guest-text">
+              Up to {@max_entries} at a time · JPG, PNG, HEIC or WebP · max {@max_upload_mb} MB each
+            </span>
+            <.live_file_input upload={@uploads.photos} class="sr-only" />
+          </label>
+
+          <ul :if={@uploads.photos.entries != []} id="add-queue" class="flex flex-col gap-2">
+            <li
+              :for={entry <- @uploads.photos.entries}
+              id={"add-entry-#{entry.ref}"}
+              class="flex items-center justify-between gap-3 rounded-field bg-ks-guest-card px-4 py-2.5 text-sm"
+            >
+              <span class="truncate">{entry.client_name}</span>
+              <span :for={err <- upload_errors(@uploads.photos, entry)} class="text-error">
+                {add_error_text(err)}
+              </span>
+              <button
+                type="button"
+                phx-click="cancel_entry"
+                phx-value-ref={entry.ref}
+                aria-label={"Remove #{entry.client_name}"}
+                class="cursor-pointer text-ks-guest-text hover:text-ks-guest-ink"
+              >
+                <.icon name="hero-x-mark" class="size-4" />
+              </button>
+            </li>
+          </ul>
+          <p :for={err <- upload_errors(@uploads.photos)} class="text-sm text-error">
+            {add_error_text(err)}
+          </p>
+
+          <.input field={@form[:guest_name]} label="Your name" maxlength="60" required />
+          <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_110px_110px]">
+            <.input field={@form[:title]} label="What's happening? (optional)" maxlength="80" />
+            <.input
+              field={@form[:month]}
+              type="select"
+              label="Month"
+              prompt="—"
+              options={Enum.map(1..12, &{Calendar.strftime(Date.new!(2000, &1, 1), "%b"), &1})}
+            />
+            <.input
+              field={@form[:year]}
+              type="number"
+              label="Year"
+              min="1900"
+              max={Date.utc_today().year}
+            />
+          </div>
+          <.input field={@form[:caption]} type="textarea" label="A note (optional)" maxlength="280" />
+          <p class="-mt-2 text-sm text-ks-guest-text">
+            The details apply to every photo you send now.
+          </p>
+          <.input
+            field={@form[:rights]}
+            type="checkbox"
+            label="I took these photos, or have permission to share them"
+          />
+          <p :if={@error} id="add-error" class="text-sm text-error">{@error}</p>
+          <.button
+            id="add-send"
+            variant="primary"
+            size="lg"
+            phx-disable-with="Sending…"
+            disabled={@uploads.photos.entries == []}
+          >
+            Send for approval
+          </.button>
+          <p class="text-center text-xs text-ks-guest-text">
+            By sending photos you agree to the <.link
+              href={~p"/terms"}
+              target="_blank"
+              class="underline"
+            >Terms of use</.link>.
+          </p>
+        </.form>
+      </main>
+    </Layouts.app>
+    """
+  end
+
+  defp add_error_text(:too_large), do: "Too large"
+  defp add_error_text(:not_accepted), do: "Not a supported photo"
+  defp add_error_text(:too_many_files), do: "Too many photos at once"
+  defp add_error_text(_), do: "Couldn't add"
+
+  @impl true
+  def guestbook(assigns) do
+    ~H"""
+    <Layouts.app flash={@flash} shell={:guest}>
+      <main class="mx-auto flex w-full max-w-[640px] flex-col gap-7 px-4 py-10">
+        <.link
+          id="guestbook-back"
+          navigate={@base_path <> "/timeline"}
+          class="w-fit text-sm font-medium text-ks-guest-text no-underline hover:text-ks-guest-ink"
+        >
+          ← {@album.name}
+        </.link>
+        <div class="flex flex-col gap-2">
+          <h1 class="font-hand text-[52px] leading-none">Guestbook</h1>
+          <p class="text-[17px] text-ks-guest-text">
+            Leave a few words for {@owner_name}. Notes appear here once {@owner_name} approves them.
+          </p>
+        </div>
+
+        <.form
+          for={@form}
+          id="guestbook-form"
+          phx-change="validate"
+          phx-submit="sign"
+          class="flex flex-col gap-4 rounded-box bg-ks-guest-card p-5"
+        >
+          <.input field={@form[:name]} label="Your name" maxlength="60" required />
+          <.input field={@form[:message]} type="textarea" label="Your note" maxlength="500" required />
+          <.button id="guestbook-sign" variant="primary" phx-disable-with="Sending…">
+            Sign the guestbook
+          </.button>
+        </.form>
+
+        <div id="guestbook-notes" class="flex flex-col gap-4">
+          <p :if={@notes == []} id="guestbook-empty" class="text-center text-ks-guest-text">
+            No notes yet. Be the first.
+          </p>
+          <article
+            :for={note <- @notes}
+            id={"guestbook-note-#{note.id}"}
+            class={[
+              "flex flex-col gap-2 rounded bg-ks-guest-paper p-5 text-ks-ink shadow-[0_12px_28px_var(--color-ks-guest-shadow)]",
+              tilt_class(:erlang.phash2(note.id, 6))
+            ]}
+          >
+            <p class="whitespace-pre-line text-[15px] leading-relaxed">{note.message}</p>
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-hand text-2xl">— {note.name}</span>
+              <span
+                :if={note.status == "pending"}
+                class="rounded-full bg-ks-amber-soft px-2.5 py-0.5 text-xs font-bold text-ks-amber-deep"
+              >
+                Waiting for approval
+              </span>
+            </div>
+          </article>
+        </div>
+      </main>
+    </Layouts.app>
+    """
+  end
+
+  @impl true
+  def sealed(assigns) do
+    ~H"""
+    <Layouts.app flash={@flash} shell={:guest}>
+      <main id="album-sealed" class="flex min-h-screen items-center justify-center px-4 py-12">
+        <div class="flex w-full max-w-[520px] flex-col items-center gap-6 text-center">
+          <div class="flex h-[150px] w-[130px] -rotate-2 flex-col rounded bg-ks-guest-paper px-2 pb-7.5 pt-2 shadow-[0_16px_36px_var(--color-ks-guest-shadow)]">
+            <div class="flex flex-1 items-center justify-center bg-ks-tint-sand">
+              <.icon name="hero-lock-closed" class="size-8 text-ks-ink/50" />
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <span class="text-[15px] text-ks-guest-text">{@owner_name} made a time capsule</span>
+            <h1 class="text-[40px] font-bold leading-[1.1]">{@album.name}</h1>
+            <p class="text-[17px] text-ks-guest-text">
+              Opens on
+              <time datetime={DateTime.to_iso8601(@album.reveal_at)}>
+                {Calendar.strftime(@album.reveal_at, "%-d %B %Y")}
+              </time>
+            </p>
+          </div>
+          <div
+            id="sealed-countdown"
+            phx-hook=".Countdown"
+            phx-update="ignore"
+            data-reveal={DateTime.to_iso8601(@album.reveal_at)}
+            class="font-mono text-2xl tracking-[0.08em] text-primary"
+          >
+          </div>
+        </div>
+      </main>
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".Countdown">
+        // Counts down in the guest's own time; reloads the page when it opens
+        export default {
+          mounted() {
+            const reveal = new Date(this.el.dataset.reveal)
+            const pad = (n) => String(n).padStart(2, "0")
+            const tick = () => {
+              const left = Math.max(0, reveal - new Date())
+              if (left === 0) { clearInterval(this.timer); window.location.reload(); return }
+              const s = Math.floor(left / 1000)
+              const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600)
+              const m = Math.floor(s % 3600 / 60)
+              this.el.textContent = `${d}d ${pad(h)}h ${pad(m)}m ${pad(s % 60)}s`
+            }
+            tick()
+            this.timer = setInterval(tick, 1000)
+          },
+          destroyed() { clearInterval(this.timer) }
         }
       </script>
     </Layouts.app>

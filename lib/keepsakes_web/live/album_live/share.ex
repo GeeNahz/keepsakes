@@ -6,12 +6,16 @@ defmodule KeepsakesWeb.AlbumLive.Share do
   and create the link. Shared: copy the link, the code and an invite
   message, change the code (which locks out old guests), adjust guest
   settings, see activity, or turn sharing off.
+
+  "For your guests": guest uploads, hearts + guestbook and slideshow
+  music switches (`Keepsakes.Sharing.Engagement`), the music track
+  (`Keepsakes.Music`), the album's time capsule and the printable QR card.
   """
   use KeepsakesWeb, :live_view
 
-  alias Keepsakes.{Albums, Entitlements, Sharing}
-  alias Keepsakes.Sharing.ShareLink
-  alias KeepsakesWeb.OwnerShell
+  alias Keepsakes.{Albums, Entitlements, Music, Sharing}
+  alias Keepsakes.Sharing.{Engagement, ShareLink}
+  alias KeepsakesWeb.{OwnerShell, TimeCapsule}
 
   @impl true
   def render(assigns) do
@@ -40,9 +44,187 @@ defmodule KeepsakesWeb.AlbumLive.Share do
           <% end %>
 
           <.settings_card link={@link} form={@settings_form} downloads?={@downloads?} />
+
+          <.engagement_card
+            link={@link}
+            album={@album}
+            form={@features_form}
+            available={@available}
+            track={@track}
+            terms_needed?={@terms_needed?}
+            uploads={@uploads}
+            music_error={@music_error}
+          />
         </div>
       </div>
     </Layouts.app>
+    """
+  end
+
+  attr :link, ShareLink, default: nil
+  attr :album, :map, required: true
+  attr :form, Phoenix.HTML.Form, required: true
+  attr :available, :map, required: true
+  attr :track, :any, default: nil
+  attr :terms_needed?, :boolean, required: true
+  attr :uploads, :map, required: true
+  attr :music_error, :string, default: nil
+
+  # Guest uploads, hearts + guestbook, music, time capsule and the QR card.
+  # Features behind a flag that's off for this owner don't show at all;
+  # features the plan lacks show disabled with a link to the plans.
+  defp engagement_card(assigns) do
+    ~H"""
+    <section
+      id="share-engagement"
+      aria-label="Guests"
+      class="flex flex-col gap-5 rounded-2xl border border-base-300 bg-base-100 p-7"
+    >
+      <h2 class="text-xl font-bold">For your guests</h2>
+
+      <%= if @link do %>
+        <.form
+          for={@form}
+          id="share-features-form"
+          phx-change="save_features"
+          class="flex flex-col gap-4"
+        >
+          <.feature_toggle
+            :if={@available.guest_uploads != :flag_off}
+            field={@form[:guest_uploads]}
+            label="Let guests add photos"
+            hint="Guests with the code can send photos. Nothing appears until you approve it."
+            state={@available.guest_uploads}
+          />
+          <.feature_toggle
+            :if={@available.reactions_guestbook != :flag_off}
+            field={@form[:reactions_guestbook]}
+            label="Hearts and guestbook"
+            hint="Guests can heart photos and sign a guestbook. You approve each note."
+            state={@available.reactions_guestbook}
+          />
+          <.feature_toggle
+            :if={@available.slideshow_music != :flag_off}
+            field={@form[:slideshow_music]}
+            label="Music in the slideshow"
+            hint="Plays your track when guests tap “Play with music”."
+            state={@available.slideshow_music}
+          />
+        </.form>
+
+        <.button
+          id="print-qr-card"
+          size="sm"
+          class="self-start"
+          navigate={~p"/app/albums/#{@album.slug}/share/card"}
+        >
+          <.icon name="hero-qr-code" class="size-4" /> Print a QR card
+        </.button>
+      <% else %>
+        <p class="text-sm text-ks-muted">
+          Guest photos, hearts, the guestbook and music can be turned on once the link exists.
+        </p>
+      <% end %>
+
+      <div
+        :if={@available.slideshow_music == :ok}
+        id="share-music"
+        class="flex flex-col gap-3 border-t border-base-300 pt-4"
+      >
+        <span class="text-sm font-bold">Slideshow music</span>
+        <div :if={@track} id="music-current" class="flex items-center justify-between gap-3 text-sm">
+          <span class="flex min-w-0 items-center gap-2">
+            <.icon name="hero-musical-note" class="size-4 shrink-0 text-primary" />
+            <span class="truncate">{Keepsakes.Music.Track.label(@track)}</span>
+          </span>
+          <button
+            id="music-remove"
+            type="button"
+            phx-click="remove_music"
+            data-confirm="Remove this music from the album?"
+            class="cursor-pointer text-ks-muted underline hover:text-error"
+          >
+            Remove
+          </button>
+        </div>
+        <form
+          id="music-form"
+          phx-change="validate_music"
+          phx-submit="upload_music"
+          class="flex flex-col gap-2.5"
+        >
+          <.live_file_input upload={@uploads.music} class="file-input file-input-sm w-full" />
+          <span class="text-[13px] text-ks-muted">
+            MP3 or M4A, up to {div(Keepsakes.Music.max_bytes(), 1_000_000)} MB. It counts toward your storage.
+          </span>
+          <label :if={@terms_needed?} class="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="terms" value="true" class="checkbox checkbox-sm mt-0.5" />
+            <span>
+              I own this music or have permission to use it, as the
+              <.link href={~p"/terms"} target="_blank" class="underline">Terms of use</.link>
+              require.
+            </span>
+          </label>
+          <p :if={@music_error} id="music-error" class="text-sm text-error">{@music_error}</p>
+          <.button
+            id="music-upload"
+            size="sm"
+            variant="primary"
+            class="self-start"
+            disabled={@uploads.music.entries == []}
+            phx-disable-with="Uploading…"
+          >
+            {if @track, do: "Replace music", else: "Add music"}
+          </.button>
+        </form>
+      </div>
+
+      <div
+        :if={@available.time_capsule != :flag_off}
+        id="share-time-capsule"
+        class="flex flex-col gap-2 border-t border-base-300 pt-4"
+      >
+        <span class="text-sm font-bold">Time capsule</span>
+        <%= if @available.time_capsule == :ok do %>
+          <KeepsakesWeb.TimeCapsule.reveal_form
+            id="album-reveal-form"
+            event="seal_album"
+            reveal_at={@album.reveal_at}
+            hint="Guests see a countdown instead of the album until then. You can also seal single photos from the photo editor."
+          />
+        <% else %>
+          <.link
+            id="time-capsule-upgrade"
+            navigate={~p"/app/settings/billing"}
+            class="text-[13px] text-ks-muted no-underline hover:text-primary"
+          >
+            Time capsules come with Plus and Pro.
+            <span class="font-bold text-primary">See plans</span>
+          </.link>
+        <% end %>
+      </div>
+    </section>
+    """
+  end
+
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, required: true
+  attr :hint, :string, required: true
+  attr :state, :atom, required: true
+
+  defp feature_toggle(assigns) do
+    ~H"""
+    <div class="flex flex-col gap-1">
+      <.toggle field={@field} label={@label} disabled={@state != :ok} />
+      <span class="text-[13px] text-ks-muted">{@hint}</span>
+      <.link
+        :if={@state == :not_in_plan}
+        navigate={~p"/app/settings/billing"}
+        class="text-[13px] text-ks-muted no-underline hover:text-primary"
+      >
+        Comes with Plus and Pro. <span class="font-bold text-primary">See plans</span>
+      </.link>
+    </div>
     """
   end
 
@@ -352,19 +534,6 @@ defmodule KeepsakesWeb.AlbumLive.Share do
         </p>
       <% end %>
 
-      <label class="flex items-center justify-between gap-3 text-[15px] text-ks-muted">
-        <span>
-          Background music in the slideshow
-          <.badge variant="muted" class="ml-1">Coming soon</.badge>
-        </span>
-        <input
-          type="checkbox"
-          disabled
-          class="toggle toggle-sm"
-          aria-label="Background music (coming soon)"
-        />
-      </label>
-
       <%= if @link do %>
         <div id="share-activity" class="flex flex-col gap-1 border-t border-base-300 pt-4">
           <span class="text-sm font-bold">Activity</span>
@@ -436,7 +605,16 @@ defmodule KeepsakesWeb.AlbumLive.Share do
        mode: scope.user.share_code_mode || "auto",
        editing: false,
        code_error: nil,
-       downloads?: Entitlements.can?(scope, :guest_downloads)
+       downloads?: Entitlements.can?(scope, :guest_downloads),
+       available: Engagement.available(scope),
+       track: Music.get_track(album),
+       terms_needed?: not Keepsakes.Accounts.terms_accepted?(scope.user),
+       music_error: nil
+     )
+     |> allow_upload(:music,
+       accept: Music.accept(),
+       max_entries: 1,
+       max_file_size: Music.max_bytes()
      )
      |> assign_link(link)}
   end
@@ -481,6 +659,72 @@ defmodule KeepsakesWeb.AlbumLive.Share do
     end
   end
 
+  def handle_event("save_features", %{"share_link" => params}, socket) do
+    case Engagement.update_features(socket.assigns.current_scope, socket.assigns.link, params) do
+      {:ok, link} -> {:noreply, assign_link(socket, link)}
+      {:error, _changeset} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("validate_music", _params, socket),
+    do: {:noreply, assign(socket, music_error: nil)}
+
+  def handle_event("upload_music", params, socket) do
+    %{current_scope: scope, album: album} = socket.assigns
+    terms? = params["terms"] == "true"
+
+    result =
+      consume_uploaded_entries(socket, :music, fn %{path: path}, entry ->
+        upload = %{path: path, filename: entry.client_name, bytes: entry.client_size}
+        {:ok, Music.upload(scope, album, upload, terms?)}
+      end)
+
+    case result do
+      [{:ok, track}] ->
+        {:noreply,
+         socket
+         |> assign(
+           track: track,
+           album: %{album | music_track_id: track.id},
+           music_error: nil,
+           terms_needed?: false
+         )
+         |> put_flash(:info, "Music added to the slideshow.")}
+
+      [{:error, reason}] ->
+        {:noreply, assign(socket, music_error: Music.error_message(reason))}
+
+      [] ->
+        {:noreply, assign(socket, music_error: music_upload_error(socket))}
+    end
+  end
+
+  def handle_event("remove_music", _params, socket) do
+    {:ok, album} = Music.remove(socket.assigns.current_scope, socket.assigns.album)
+
+    {:noreply, socket |> assign(album: album, track: nil) |> put_flash(:info, "Music removed.")}
+  end
+
+  def handle_event("seal_album", params, socket) do
+    %{current_scope: scope, album: album} = socket.assigns
+
+    with {:ok, reveal_at} <- params |> TimeCapsule.params() |> TimeCapsule.parse(),
+         {:ok, album} <- Albums.set_reveal(scope, album, reveal_at) do
+      message =
+        if reveal_at,
+          do: "Sealed until #{TimeCapsule.label(reveal_at)}.",
+          else: "The album is open to guests again."
+
+      {:noreply, socket |> assign(album: album) |> put_flash(:info, message)}
+    else
+      {:error, :not_in_plan} ->
+        {:noreply, put_flash(socket, :error, "Time capsules aren't included in your plan.")}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("unshare", _params, socket) do
     {:ok, _} = Sharing.delete_link(socket.assigns.current_scope, socket.assigns.link)
 
@@ -505,13 +749,35 @@ defmodule KeepsakesWeb.AlbumLive.Share do
     end
   end
 
+  defp music_upload_error(socket) do
+    case upload_errors(socket.assigns.uploads.music) ++
+           Enum.flat_map(
+             socket.assigns.uploads.music.entries,
+             &upload_errors(socket.assigns.uploads.music, &1)
+           ) do
+      [:too_large | _] -> Music.error_message(:too_large)
+      [:not_accepted | _] -> Music.error_message(:not_audio)
+      _ -> "Choose a music file first."
+    end
+  end
+
   defp assign_link(socket, nil),
-    do: assign(socket, link: nil, settings_form: to_form(%{}, as: :share_link))
+    do:
+      assign(socket,
+        link: nil,
+        settings_form: to_form(%{}, as: :share_link),
+        features_form: to_form(%{}, as: :share_link)
+      )
 
   # The form shows the stored expiry date, not the "in N days" just picked
   defp assign_link(socket, link) do
     link = %{link | expires_in: nil}
-    assign(socket, link: link, settings_form: to_form(Sharing.change_settings(link)))
+
+    assign(socket,
+      link: link,
+      settings_form: to_form(Sharing.change_settings(link)),
+      features_form: to_form(ShareLink.features_changeset(link, %{}))
+    )
   end
 
   # "Never/7/30 days", plus the current date when an expiry is set

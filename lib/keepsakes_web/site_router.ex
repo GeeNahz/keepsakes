@@ -39,6 +39,8 @@ defmodule KeepsakesWeb.SiteRouter do
       live "/:album", GuestLive.Access, :access
       live "/:album/timeline", GuestLive.Timeline, :timeline
       live "/:album/slideshow", GuestLive.Slideshow, :slideshow
+      live "/:album/add", GuestLive.Add, :add
+      live "/:album/guestbook", GuestLive.Guestbook, :guestbook
       live "/:album/report", GuestLive.Report, :report
     end
   end

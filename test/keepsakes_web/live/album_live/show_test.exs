@@ -131,7 +131,7 @@ defmodule KeepsakesWeb.AlbumLive.ShowTest do
       lv |> form("#people-form") |> render_submit(%{person: "Ada"})
       lv |> form("#people-form") |> render_submit(%{person: "Mum"})
       lv |> element(~s(#memory-people button[aria-label="Remove Mum"])) |> render_click()
-      assert Albums.get_memory!(scope_of(conn), draft.id).people == ["Ada"]
+      assert Albums.get_memory!(scope_of(conn), album, draft.id).people == ["Ada"]
 
       lv |> element("#upload-save") |> render_click()
       assert_patch(lv, ~p"/app/albums/#{album.slug}")

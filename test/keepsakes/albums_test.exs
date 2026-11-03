@@ -6,7 +6,7 @@ defmodule Keepsakes.AlbumsTest do
   import Keepsakes.AlbumsFixtures
 
   alias Keepsakes.{Albums, Storage}
-  alias Keepsakes.Albums.{Album, Memory}
+  alias Keepsakes.Albums.{Album, Memory, NotAllowed}
   alias Keepsakes.Media.{ProcessMemory, Purge}
 
   setup do
@@ -81,7 +81,7 @@ defmodule Keepsakes.AlbumsTest do
 
       assert :ok = perform_job(ProcessMemory, %{memory_id: memory.id})
 
-      memory = Albums.get_memory!(scope, memory.id)
+      memory = Albums.get_memory!(scope, album, memory.id)
       assert memory.processing == "ready"
       assert {memory.month, memory.year} == {4, 2019}
       assert memory.taken_on == ~D[2019-04-12]
@@ -100,7 +100,7 @@ defmodule Keepsakes.AlbumsTest do
 
       :ok = perform_job(ProcessMemory, %{memory_id: memory.id})
 
-      memory = Albums.get_memory!(scope, memory.id)
+      memory = Albums.get_memory!(scope, album, memory.id)
       assert {memory.month, memory.year, memory.place} == {nil, 2020, "Home"}
     end
 
@@ -111,7 +111,7 @@ defmodule Keepsakes.AlbumsTest do
       assert {:cancel, _} = perform_job(ProcessMemory, %{memory_id: memory.id})
 
       assert %Memory{processing: "failed", processing_error: "We couldn't read" <> _} =
-               Albums.get_memory!(scope, memory.id)
+               Albums.get_memory!(scope, album, memory.id)
     end
 
     test "processing a deleted memory is a no-op", %{scope: scope} do
@@ -190,15 +190,13 @@ defmodule Keepsakes.AlbumsTest do
     end
 
     test "other owners can't edit or delete", %{scope: scope} do
-      memory = draft_fixture(scope, album_fixture(scope))
+      album = album_fixture(scope)
+      memory = draft_fixture(scope, album)
       intruder = user_scope_fixture()
 
-      assert_raise FunctionClauseError, fn ->
-        Albums.update_memory(intruder, memory, %{title: "x"})
-      end
-
-      assert_raise FunctionClauseError, fn -> Albums.delete_memory(intruder, memory) end
-      assert_raise Ecto.NoResultsError, fn -> Albums.get_memory!(intruder, memory.id) end
+      assert_raise NotAllowed, fn -> Albums.update_memory(intruder, memory, %{title: "x"}) end
+      assert_raise NotAllowed, fn -> Albums.delete_memory(intruder, memory) end
+      assert_raise NotAllowed, fn -> Albums.get_memory!(intruder, album, memory.id) end
     end
 
     test "set_cover/3 only accepts memories of the album", %{scope: scope} do
@@ -228,7 +226,7 @@ defmodule Keepsakes.AlbumsTest do
     assert Albums.storage_used(scope) == memory.original_bytes
 
     :ok = perform_job(ProcessMemory, %{memory_id: memory.id})
-    assert Albums.storage_used(scope) == Albums.get_memory!(scope, memory.id).stored_bytes
+    assert Albums.storage_used(scope) == Albums.get_memory!(scope, album, memory.id).stored_bytes
     assert Albums.storage_used(user_scope_fixture()) == 0
   end
 end

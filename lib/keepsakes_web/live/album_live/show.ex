@@ -18,6 +18,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
 
   alias Keepsakes.{Albums, Entitlements, Settings}
   alias Keepsakes.Albums.Memory
+  alias Keepsakes.Sharing.Engagement
   alias KeepsakesWeb.OwnerShell
 
   @accept ~w(.jpg .jpeg .png .heic .heif .webp)
@@ -43,7 +44,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         <div class="flex flex-col gap-1.5">
           <.link
             id="upload-back"
-            navigate={~p"/app/albums/#{@album.slug}"}
+            navigate={@base}
             class="w-fit text-sm font-medium no-underline"
           >
             ← {@album.name}
@@ -154,9 +155,16 @@ defmodule KeepsakesWeb.AlbumLive.Show do
           <div class="flex flex-col gap-1.5">
             <h1 id="album-title" class="text-4xl font-bold">{@album.name}</h1>
             <p id="album-subtitle" class="text-[15px] text-ks-muted">{subtitle(@stats)}</p>
+            <p :if={@role != :owner} id="album-shared-by" class="text-sm text-ks-muted">
+              Shared by {Keepsakes.Accounts.User.full_name(@album.user)} · you're
+              <.badge>{if @role == :editor, do: "an editor", else: "a viewer"}</.badge>
+            </p>
           </div>
-          <div class="flex flex-col items-end gap-1.5">
+          <div :if={@role == :owner} class="flex flex-col items-end gap-1.5">
             <div class="flex flex-wrap gap-2.5">
+              <.button id="album-people" navigate={~p"/app/albums/#{@album.slug}/people"}>
+                <.icon name="hero-user-group" class="size-[18px]" /> People
+              </.button>
               <.button id="album-template" navigate={~p"/app/albums/#{@album.slug}/template"}>
                 <.icon name="hero-swatch" class="size-[18px]" /> Template
               </.button>
@@ -181,14 +189,25 @@ defmodule KeepsakesWeb.AlbumLive.Show do
               Add at least one photo to share
             </span>
           </div>
+          <.button
+            :if={@role != :owner}
+            id="leave-album"
+            type="button"
+            phx-click="leave_album"
+            data-confirm="Leave this album? You'll need a new invitation to come back."
+          >
+            Leave album
+          </.button>
         </div>
 
         <.limit_notice notice={@limit_notice} />
 
+        <.review_queue submitted={@submitted} pending_notes={@pending_notes} />
+
         <.link
           :if={@drafts != []}
           id="resume-upload"
-          patch={~p"/app/albums/#{@album.slug}/upload"}
+          patch={@base <> "/upload"}
           class="flex items-center justify-between gap-3 rounded-box border border-ks-amber-soft bg-ks-amber-soft px-5 py-3.5 text-[15px] text-ks-amber-deep no-underline"
         >
           <span>
@@ -201,7 +220,10 @@ defmodule KeepsakesWeb.AlbumLive.Show do
           <span class="font-bold">Continue →</span>
         </.link>
 
-        <%= if @stats.count == 0 do %>
+        <%= if @stats.count == 0 and not @can_edit? do %>
+          <p id="album-empty-viewer" class="text-ks-muted">No photos in this album yet.</p>
+        <% end %>
+        <%= if @stats.count == 0 and @can_edit? do %>
           <.drop_zone upload={@uploads.photos} max_upload_mb={@max_upload_mb} long_edge={@long_edge} />
           <div class="flex flex-col gap-3.5">
             <span class="text-sm font-bold text-ks-muted">
@@ -216,8 +238,10 @@ defmodule KeepsakesWeb.AlbumLive.Show do
               </div>
             </div>
           </div>
-        <% else %>
+        <% end %>
+        <%= if @stats.count > 0 do %>
           <section
+            :if={@can_edit?}
             id="upload-bar"
             aria-label="Upload photos"
             phx-drop-target={@uploads.photos.ref}
@@ -250,10 +274,13 @@ defmodule KeepsakesWeb.AlbumLive.Show do
               id={dom_id}
               memory={memory}
               cover={@album.cover_memory_id == memory.id}
-              patch={~p"/app/albums/#{@album.slug}/memories/#{memory.id}"}
+              hearts={Map.get(@hearts, memory.id, 0)}
+              patch={if(@can_edit?, do: "#{@base}/memories/#{memory.id}")}
             />
           </div>
         <% end %>
+
+        <.guestbook_notes notes={@notes} can_edit?={@can_edit?} />
       </div>
 
       <.modal
@@ -261,7 +288,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         id="edit-memory-dialog"
         title="Edit memory"
         show
-        on_cancel={JS.patch(~p"/app/albums/#{@album.slug}")}
+        on_cancel={JS.patch(@base)}
         box_class="max-w-[860px]"
       >
         <.memory_form
@@ -271,6 +298,19 @@ defmodule KeepsakesWeb.AlbumLive.Show do
           long_edge={@long_edge}
           framed={false}
         />
+        <section
+          :if={@time_capsule?}
+          id="memory-time-capsule"
+          class="flex flex-col gap-1.5 rounded-box border border-base-300 p-4"
+        >
+          <h3 class="font-bold">Time capsule</h3>
+          <KeepsakesWeb.TimeCapsule.reveal_form
+            id="memory-reveal-form"
+            event="seal_memory"
+            reveal_at={@selected.reveal_at}
+            hint="Guests see a sealed photo until then. You and your collaborators always see it."
+          />
+        </section>
         <div class="flex flex-wrap justify-between gap-2.5">
           <.button
             id="delete-memory"
@@ -281,10 +321,157 @@ defmodule KeepsakesWeb.AlbumLive.Show do
           >
             <.icon name="hero-trash" class="size-4" /> Delete
           </.button>
-          <.button id="edit-done" variant="primary" patch={~p"/app/albums/#{@album.slug}"}>Done</.button>
+          <.button id="edit-done" variant="primary" patch={@base}>Done</.button>
         </div>
       </.modal>
     </Layouts.app>
+    """
+  end
+
+  attr :submitted, :list, required: true
+  attr :pending_notes, :list, required: true
+
+  # Guest photos and guestbook notes waiting for the owner or an editor
+  defp review_queue(assigns) do
+    ~H"""
+    <section
+      :if={@submitted != [] or @pending_notes != []}
+      id="review-queue"
+      aria-label="Waiting for approval"
+      class="flex flex-col gap-4 rounded-2xl border border-ks-amber-soft bg-ks-amber-soft/40 p-5"
+    >
+      <div :if={@submitted != []} id="review-photos" class="flex flex-col gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-lg font-bold">
+            {ngettext(
+              "1 guest photo is waiting for approval",
+              "%{count} guest photos are waiting for approval",
+              length(@submitted)
+            )}
+          </h2>
+          <.button
+            :if={length(@submitted) > 1}
+            id="approve-all-photos"
+            size="sm"
+            variant="primary"
+            phx-click="approve_all_photos"
+          >
+            Approve all
+          </.button>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <article
+            :for={memory <- @submitted}
+            id={"submitted-#{memory.id}"}
+            class="flex flex-col overflow-hidden rounded-box border border-base-300 bg-base-100"
+          >
+            <div class="h-[150px]">
+              <.photo memory={memory} width={480} alt={memory.title || ""} class="size-full" />
+            </div>
+            <div class="flex flex-col gap-1 p-3">
+              <span class="font-bold">{memory.title || "Untitled photo"}</span>
+              <span class="text-[13px] text-ks-muted">
+                From {memory.guest_name}{if Memory.date_label(memory),
+                  do: " · #{Memory.date_label(memory)}"}
+              </span>
+              <p :if={memory.caption} class="line-clamp-2 text-sm text-ks-muted">{memory.caption}</p>
+              <div class="mt-1.5 flex gap-2">
+                <.button
+                  id={"approve-photo-#{memory.id}"}
+                  size="sm"
+                  variant="primary"
+                  phx-click="approve_photo"
+                  phx-value-id={memory.id}
+                >
+                  Approve
+                </.button>
+                <.button
+                  id={"decline-photo-#{memory.id}"}
+                  size="sm"
+                  phx-click="decline_photo"
+                  phx-value-id={memory.id}
+                  data-confirm="Decline this photo? It's deleted for good."
+                >
+                  Decline
+                </.button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div :if={@pending_notes != []} id="review-notes" class="flex flex-col gap-3">
+        <h2 class="text-lg font-bold">
+          {ngettext(
+            "1 guestbook note is waiting for approval",
+            "%{count} guestbook notes are waiting for approval",
+            length(@pending_notes)
+          )}
+        </h2>
+        <article
+          :for={note <- @pending_notes}
+          id={"pending-note-#{note.id}"}
+          class="flex flex-col gap-2 rounded-box border border-base-300 bg-base-100 p-4"
+        >
+          <p class="whitespace-pre-line text-[15px]">{note.message}</p>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm text-ks-muted">— {note.name}</span>
+            <div class="flex gap-2">
+              <.button
+                id={"approve-note-#{note.id}"}
+                size="sm"
+                variant="primary"
+                phx-click="approve_note"
+                phx-value-id={note.id}
+              >
+                Approve
+              </.button>
+              <.button
+                id={"decline-note-#{note.id}"}
+                size="sm"
+                phx-click="delete_note"
+                phx-value-id={note.id}
+              >
+                Decline
+              </.button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+    """
+  end
+
+  attr :notes, :list, required: true
+  attr :can_edit?, :boolean, required: true
+
+  # Approved guestbook notes, as guests see them
+  defp guestbook_notes(assigns) do
+    ~H"""
+    <section :if={@notes != []} id="album-guestbook" class="flex flex-col gap-3">
+      <h2 class="text-lg font-bold">Guestbook</h2>
+      <article
+        :for={note <- @notes}
+        id={"note-#{note.id}"}
+        class="flex flex-col gap-1.5 rounded-box border border-base-300 bg-base-100 p-4"
+      >
+        <p class="whitespace-pre-line text-[15px]">{note.message}</p>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-sm text-ks-muted">— {note.name}</span>
+          <button
+            :if={@can_edit?}
+            id={"remove-note-#{note.id}"}
+            type="button"
+            phx-click="delete_note"
+            phx-value-id={note.id}
+            data-confirm="Remove this note from the guestbook?"
+            class="cursor-pointer text-sm text-ks-muted underline hover:text-error"
+          >
+            Remove
+          </button>
+        </div>
+      </article>
+    </section>
     """
   end
 
@@ -400,25 +587,41 @@ defmodule KeepsakesWeb.AlbumLive.Show do
   end
 
   @impl true
-  def mount(%{"slug" => slug}, _session, socket) do
+  def mount(params, _session, socket) do
     scope = socket.assigns.current_scope
-    album = Albums.get_album_by_slug!(scope, slug)
-    max_upload_mb = Entitlements.max_upload_mb(scope)
+    album = load_album(scope, params)
+    role = Albums.role(scope, album)
+    # Collaborators upload against the owner's plan
+    max_upload_mb = Entitlements.max_upload_mb(Albums.owner_scope(album))
+
+    if connected?(socket) do
+      # The owner gets memory events on their own topic (OwnerShell)
+      if role != :owner, do: Albums.subscribe_album(album)
+      # Hearts as guests leave them
+      Engagement.subscribe(album)
+    end
 
     socket =
       socket
       |> OwnerShell.put_current_album(album.id)
       |> assign(
         album: album,
+        role: role,
+        can_edit?: Albums.allows?(role, :edit),
+        base: base_path(role, album),
         page_title: album.name,
         long_edge: Settings.get(:image_long_edge),
         max_upload_mb: max_upload_mb,
+        time_capsule?: Entitlements.can?(album.user_id, :time_capsule),
         limit_notice: nil,
         selected: nil,
         form: nil
       )
       |> load_memories()
-      |> assign_drafts(Albums.list_drafts(scope, album))
+      |> load_review()
+      |> assign_drafts(
+        if Albums.allows?(role, :edit), do: Albums.list_drafts(scope, album), else: []
+      )
       |> allow_upload(:photos,
         accept: @accept,
         max_entries: @max_entries,
@@ -430,12 +633,30 @@ defmodule KeepsakesWeb.AlbumLive.Show do
     {:ok, socket}
   end
 
+  # /app/albums/:slug for the owner, /app/shared/:id for collaborators
+  defp load_album(scope, %{"slug" => slug}), do: Albums.get_album_by_slug!(scope, slug)
+  defp load_album(scope, %{"album_id" => id}), do: Albums.get_shared_album!(scope, id)
+
+  defp reload_album(%{assigns: %{current_scope: scope, album: album, role: :owner}}),
+    do: Albums.get_album_by_slug!(scope, album.slug)
+
+  defp reload_album(%{assigns: %{current_scope: scope, album: album}}),
+    do: Albums.get_shared_album!(scope, album.id)
+
+  defp base_path(:owner, album), do: ~p"/app/albums/#{album.slug}"
+  defp base_path(_role, album), do: ~p"/app/shared/#{album.id}"
+
   @impl true
   def handle_params(params, _uri, socket),
     do: {:noreply, apply_action(socket, socket.assigns.live_action, params)}
 
   defp apply_action(socket, :show, _params),
     do: assign(socket, page_title: socket.assigns.album.name, selected: nil, form: nil)
+
+  # Viewers only look
+  defp apply_action(%{assigns: %{can_edit?: false}}, action, _params)
+       when action in [:upload, :edit],
+       do: raise(Keepsakes.Albums.NotAllowed)
 
   defp apply_action(socket, :upload, _params) do
     %{drafts: drafts, selected: selected} = socket.assigns
@@ -450,11 +671,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
-    memory = Albums.get_memory!(socket.assigns.current_scope, id)
-
-    if memory.album_id != socket.assigns.album.id,
-      do: raise(Ecto.NoResultsError, queryable: Memory)
-
+    memory = Albums.get_memory!(socket.assigns.current_scope, socket.assigns.album, id)
     socket |> assign(page_title: memory.title || "Edit memory") |> select(memory)
   end
 
@@ -537,7 +754,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
 
     {:noreply,
      socket
-     |> assign(album: Albums.get_album_by_slug!(scope, album.slug))
+     |> assign(album: reload_album(socket))
      |> assign_drafts([])
      |> load_memories()
      |> put_flash(
@@ -548,7 +765,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
          count
        )
      )
-     |> push_patch(to: ~p"/app/albums/#{album.slug}")}
+     |> push_patch(to: socket.assigns.base)}
   end
 
   def handle_event("discard", _params, socket) do
@@ -565,21 +782,102 @@ defmodule KeepsakesWeb.AlbumLive.Show do
 
     {:noreply,
      socket
-     |> assign(album: Albums.get_album_by_slug!(scope, album.slug))
+     |> assign(album: reload_album(socket))
      |> assign_drafts([])
-     |> push_patch(to: ~p"/app/albums/#{album.slug}")}
+     |> push_patch(to: socket.assigns.base)}
   end
 
   def handle_event("delete_memory", _params, %{assigns: %{selected: %Memory{} = memory}} = socket) do
-    %{current_scope: scope, album: album} = socket.assigns
-    {:ok, _} = Albums.delete_memory(scope, memory)
+    {:ok, _} = Albums.delete_memory(socket.assigns.current_scope, memory)
 
     {:noreply,
      socket
-     |> assign(album: Albums.get_album_by_slug!(scope, album.slug))
+     |> assign(album: reload_album(socket))
      |> load_memories()
      |> put_flash(:info, "Memory deleted.")
-     |> push_patch(to: ~p"/app/albums/#{album.slug}")}
+     |> push_patch(to: socket.assigns.base)}
+  end
+
+  def handle_event("leave_album", _params, %{assigns: %{role: role}} = socket)
+      when role in [:editor, :viewer] do
+    :ok = Keepsakes.Albums.Members.leave(socket.assigns.current_scope, socket.assigns.album)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "You left #{socket.assigns.album.name}.")
+     |> push_navigate(to: ~p"/app/albums")}
+  end
+
+  ## Time capsule (memory editor)
+
+  def handle_event("seal_memory", params, %{assigns: %{selected: %Memory{} = memory}} = socket) do
+    case params |> KeepsakesWeb.TimeCapsule.params() |> KeepsakesWeb.TimeCapsule.parse() do
+      {:ok, reveal_at} ->
+        case Albums.set_memory_reveal(socket.assigns.current_scope, memory, reveal_at) do
+          {:ok, memory} ->
+            {:noreply,
+             socket
+             |> put_memory(memory)
+             |> select(memory)
+             |> put_flash(
+               :info,
+               if(reveal_at,
+                 do: "Sealed until #{KeepsakesWeb.TimeCapsule.label(reveal_at)}.",
+                 else: "Unsealed."
+               )
+             )}
+
+          {:error, :not_in_plan} ->
+            {:noreply, put_flash(socket, :error, "Time capsules aren't included in this plan.")}
+        end
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
+  ## Guest photos and guestbook notes waiting for approval
+
+  def handle_event("approve_photo", %{"id" => id}, socket) do
+    %{current_scope: scope, album: album} = socket.assigns
+    memory = Albums.get_memory!(scope, album, id)
+    {:ok, _} = Albums.approve_submitted(scope, album, [memory])
+
+    {:noreply,
+     socket
+     |> load_memories()
+     |> load_review()
+     |> put_flash(:info, "Photo added to the timeline.")}
+  end
+
+  def handle_event("approve_all_photos", _params, socket) do
+    %{current_scope: scope, album: album} = socket.assigns
+    {:ok, count} = Albums.approve_submitted(scope, album)
+
+    {:noreply,
+     socket
+     |> load_memories()
+     |> load_review()
+     |> put_flash(:info, ngettext("1 photo added.", "%{count} photos added.", count))}
+  end
+
+  def handle_event("decline_photo", %{"id" => id}, socket) do
+    %{current_scope: scope, album: album} = socket.assigns
+    memory = Albums.get_memory!(scope, album, id)
+    {:ok, _} = Albums.delete_memory(scope, memory)
+    {:noreply, socket |> load_review() |> put_flash(:info, "Photo declined.")}
+  end
+
+  def handle_event("approve_note", %{"id" => id}, socket) do
+    %{current_scope: scope, album: album} = socket.assigns
+    {:ok, _} = Engagement.approve_note(scope, album, id)
+    {:noreply, load_review(socket)}
+  end
+
+  def handle_event("delete_note", %{"id" => id}, socket) do
+    %{current_scope: scope, album: album} = socket.assigns
+    {:ok, _} = Engagement.delete_note(scope, album, id)
+    {:noreply, socket |> load_review() |> put_flash(:info, "Note removed.")}
   end
 
   defp handle_progress(:photos, entry, socket) do
@@ -626,7 +924,19 @@ defmodule KeepsakesWeb.AlbumLive.Show do
       else: {:noreply, socket}
   end
 
+  def handle_info({:guestbook_changed, album_id}, %{assigns: %{album: %{id: album_id}}} = socket),
+    do: {:noreply, load_review(socket)}
+
+  def handle_info({:hearts, memory_id, count}, socket) do
+    hearts = Map.put(socket.assigns.hearts, memory_id, count)
+    memory = Albums.get_memory!(socket.assigns.current_scope, socket.assigns.album, memory_id)
+    {:noreply, socket |> assign(hearts: hearts) |> stream_insert(:memories, memory)}
+  end
+
   def handle_info(_message, socket), do: {:noreply, socket}
+
+  # A guest's photo arriving or finishing processing updates the queue
+  defp apply_event(socket, _event, %Memory{status: "submitted"}), do: load_review(socket)
 
   defp apply_event(socket, :memory_updated, memory) do
     socket = put_memory(socket, memory)
@@ -640,6 +950,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
     socket
     |> assign_drafts(Enum.reject(socket.assigns.drafts, &(&1.id == memory.id)))
     |> stream_delete(:memories, memory)
+    |> assign(submitted: Enum.reject(socket.assigns.submitted, &(&1.id == memory.id)))
   end
 
   ## Helpers
@@ -649,7 +960,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
 
   defp open_upload_screen(socket) do
     if socket.assigns.uploads.photos.entries != [],
-      do: push_patch(socket, to: ~p"/app/albums/#{socket.assigns.album.slug}/upload"),
+      do: push_patch(socket, to: socket.assigns.base <> "/upload"),
       else: socket
   end
 
@@ -717,7 +1028,7 @@ defmodule KeepsakesWeb.AlbumLive.Show do
         # Re-render the published cards whose Cover badge changed
         [previous_id, album.cover_memory_id]
         |> Enum.reject(&(is_nil(&1) or &1 == memory.id))
-        |> Enum.map(&Albums.get_memory!(scope, &1))
+        |> Enum.map(&Albums.get_memory!(scope, album, &1))
         |> Enum.concat([memory])
         |> Enum.filter(&(&1.status == "published"))
         |> Enum.reduce(socket, &stream_insert(&2, :memories, &1))
@@ -728,8 +1039,21 @@ defmodule KeepsakesWeb.AlbumLive.Show do
     memories = Albums.list_memories(socket.assigns.current_scope, socket.assigns.album)
 
     socket
+    |> assign(hearts: Engagement.heart_counts(socket.assigns.album))
     |> stream(:memories, memories, reset: true)
     |> assign(stats: stats(memories))
+  end
+
+  # Guest photos and notes waiting for approval (owner and editors), and
+  # the approved guestbook (everyone with access)
+  defp load_review(
+         %{assigns: %{current_scope: scope, album: album, can_edit?: can_edit?}} = socket
+       ) do
+    assign(socket,
+      submitted: if(can_edit?, do: Albums.list_submitted(scope, album), else: []),
+      pending_notes: if(can_edit?, do: Engagement.pending_notes(scope, album), else: []),
+      notes: Engagement.approved_notes(scope, album)
+    )
   end
 
   defp assign_drafts(socket, drafts), do: assign(socket, drafts: drafts)

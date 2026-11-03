@@ -47,6 +47,8 @@ defmodule KeepsakesWeb.OwnerShell do
 
     %{
       albums: albums,
+      # Albums others invited the user to ([{album, role}])
+      shared: Albums.list_shared_albums(scope),
       storage_used: storage_used,
       storage_limit: limits.storage_bytes,
       plan_label: Billing.status_label(subscription),

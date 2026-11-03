@@ -23,7 +23,8 @@ else
             first_name: "Dev",
             last_name: "Owner",
             email: email,
-            password: password
+            password: password,
+            terms: true
           })
 
         user

@@ -10,6 +10,24 @@ defmodule KeepsakesWeb.AlbumLive.Index do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} owner={@owner}>
+      <section :if={@owner.shared != []} id="albums-shared" class="mb-10 flex flex-col gap-3">
+        <h2 class="text-lg font-bold">Shared with you</h2>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <.link
+            :for={{album, role} <- @owner.shared}
+            id={"shared-album-#{album.id}"}
+            navigate={~p"/app/shared/#{album.id}"}
+            class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-100 p-4 text-base-content no-underline transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <span class="font-bold">{album.name}</span>
+            <span class="text-sm text-ks-muted">
+              {Keepsakes.Accounts.User.full_name(album.user)} · {if role == :editor,
+                do: "Editor",
+                else: "Viewer"} · {ngettext("1 memory", "%{count} memories", album.memories_count)}
+            </span>
+          </.link>
+        </div>
+      </section>
       <div id="albums-empty" class="flex flex-1 items-center justify-center">
         <div class="flex w-full max-w-[520px] flex-col items-center gap-7 text-center">
           <div class="relative h-[190px] w-[260px]" aria-hidden="true">

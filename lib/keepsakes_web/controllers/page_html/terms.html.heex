@@ -1,0 +1,62 @@
+<%!-- [LEGAL REVIEW] Placeholder terms: Stage 10 finishes the legal pages.
+     The "What you upload" section is what sign-up, guest uploads and
+     music uploads ask people to agree to; keep its meaning when editing. --%>
+<Layouts.app flash={@flash} current_scope={@current_scope} shell={:plain}>
+  <article
+    id="terms"
+    class="mx-auto flex max-w-2xl flex-col gap-6 py-12 text-[15px] leading-relaxed"
+  >
+    <header class="flex flex-col gap-2">
+      <h1 class="text-4xl font-bold">Terms of use</h1>
+      <p class="text-ks-muted">Version {@version}</p>
+      <p
+        id="terms-review-note"
+        class="rounded-box border border-accent/40 bg-ks-amber-soft px-4 py-3 text-sm"
+      >
+        [LEGAL REVIEW] These terms are a working draft and will be reviewed before launch.
+      </p>
+    </header>
+
+    <section id="terms-service" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">The service</h2>
+      <p>
+        Keepsake lets you make photo albums and share them with the people you choose,
+        behind a link and a private code. By creating an account you agree to these terms.
+      </p>
+    </section>
+
+    <section id="terms-uploads" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">What you upload</h2>
+      <p>
+        You keep ownership of the photos, music and words you add. You must own them, or
+        have permission from whoever does, to upload and share them. That includes music
+        you add to a slideshow: you are responsible for having the rights to use it, and
+        for any claim that you didn't.
+      </p>
+      <p>
+        Guests who add photos to an album confirm the same for the photos they add.
+        The album's owner decides what is shown.
+      </p>
+      <p>
+        You give us permission to store, resize and show your content only to run the
+        service for you and the people you share with.
+      </p>
+    </section>
+
+    <section id="terms-removal" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">Content we may remove</h2>
+      <p>
+        We may remove content, or pause an account, when we receive a credible report that
+        it infringes someone's rights, breaks the law or harms others.
+      </p>
+    </section>
+
+    <section id="terms-account" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">Your account</h2>
+      <p>
+        Keep your password safe. You can export everything or delete your account at any
+        time from Settings.
+      </p>
+    </section>
+  </article>
+</Layouts.app>

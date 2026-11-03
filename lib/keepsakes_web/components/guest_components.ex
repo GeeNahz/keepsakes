@@ -114,4 +114,56 @@ defmodule KeepsakesWeb.GuestComponents do
     </div>
     """
   end
+
+  @doc "A pill link in a guest page header (Add photos, Guestbook)."
+  attr :id, :string, required: true
+  attr :navigate, :string, required: true
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+
+  def guest_nav_link(assigns) do
+    ~H"""
+    <.link
+      id={@id}
+      navigate={@navigate}
+      aria-label={@label}
+      class="flex min-h-11 items-center gap-2 rounded-full border border-ks-guest-edge px-3.5 font-medium text-ks-guest-ink no-underline transition-colors hover:border-ks-guest-ink md:px-4"
+    >
+      <.icon name={@icon} class="size-4" />
+      <span class="hidden md:inline">{@label}</span>
+    </.link>
+    """
+  end
+
+  @doc """
+  A guest's heart on a photo: sends `"heart"` with the memory id to the
+  guest LiveView, which toggles it (`Keepsakes.Sharing.Engagement`).
+  """
+  attr :id, :string, required: true
+  attr :memory_id, :string, required: true
+  attr :count, :integer, default: 0
+  attr :hearted?, :boolean, default: false
+
+  def heart_button(assigns) do
+    ~H"""
+    <button
+      id={@id}
+      type="button"
+      phx-click="heart"
+      phx-value-id={@memory_id}
+      aria-pressed={to_string(@hearted?)}
+      aria-label={if @hearted?, do: "Remove your heart", else: "Leave a heart"}
+      class={[
+        "mt-1 flex w-fit cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-bold transition active:scale-95",
+        if(@hearted?,
+          do: "bg-ks-tint-rose text-error",
+          else: "text-ks-ink-soft hover:bg-ks-tint-rose"
+        )
+      ]}
+    >
+      <.icon name={if @hearted?, do: "hero-heart-solid", else: "hero-heart"} class="size-4" />
+      <span :if={@count > 0}>{@count}</span>
+    </button>
+    """
+  end
 end

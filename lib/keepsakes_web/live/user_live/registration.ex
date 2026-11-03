@@ -60,6 +60,21 @@ defmodule KeepsakesWeb.UserLive.Registration do
             placeholder="At least 12 characters"
             required
           />
+          <div id="registration-terms" class="flex flex-col gap-1">
+            <.input
+              field={@form[:terms]}
+              type="checkbox"
+              label="I agree to the Terms of use, including that I own or have permission to use everything I upload (photos and music)"
+            />
+            <.link
+              id="registration-terms-link"
+              href={~p"/terms"}
+              target="_blank"
+              class="w-fit pl-8 text-sm font-medium"
+            >
+              Read the Terms of use
+            </.link>
+          </div>
           <.button
             id="registration-submit"
             variant="primary"

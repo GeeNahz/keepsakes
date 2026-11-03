@@ -61,44 +61,90 @@ defmodule KeepsakesWeb.MemoryComponents do
     """
   end
 
-  @doc "A memory in the album grid; opens the editor."
+  @doc """
+  A memory in the album grid. With `patch` it opens the editor; without
+  (a viewer) it's a plain card.
+  """
   attr :id, :string, required: true
   attr :memory, Memory, required: true
   attr :cover, :boolean, default: false
-  attr :patch, :string, required: true
+  attr :patch, :string, default: nil
+  attr :hearts, :integer, default: 0
+
+  def memory_card(%{patch: nil} = assigns) do
+    ~H"""
+    <div id={@id} class={card_class()}>
+      <.memory_card_body memory={@memory} cover={@cover} hearts={@hearts} />
+    </div>
+    """
+  end
 
   def memory_card(assigns) do
     ~H"""
     <.link
       id={@id}
       patch={@patch}
-      class="group flex flex-col overflow-hidden rounded-box border border-base-300 bg-base-100 text-base-content no-underline transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(27,30,39,0.10)] focus-visible:ring-4 focus-visible:ring-ks-teal-soft"
+      class={[card_class(), "hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(27,30,39,0.10)]"]}
     >
-      <div class="relative h-[190px] overflow-hidden">
-        <.photo
-          memory={@memory}
-          width={1200}
-          alt={@memory.title || ""}
-          class="size-full transition-transform duration-500 group-hover:scale-[1.03]"
-        />
-        <.badge :if={@cover} class="absolute left-2.5 top-2.5">Cover</.badge>
-      </div>
-      <div class="flex flex-col gap-1.5 p-4">
-        <div class="flex items-center justify-between gap-2">
-          <span class="font-mono text-[13px] text-ks-muted">
-            {Memory.date_label(@memory) || "No date yet"}
-          </span>
-          <.badge :if={Memory.missing(@memory)} variant="pending" class="shrink-0">
-            Needs {Memory.missing(@memory)}
-          </.badge>
-        </div>
-        <div class="text-[17px] font-bold">{@memory.title || "Untitled photo"}</div>
-        <p :if={@memory.caption} class="line-clamp-2 text-sm leading-[1.45] text-ks-muted">
-          {@memory.caption}
-        </p>
-        <p :if={place_people(@memory)} class="text-[13px] text-ks-muted">{place_people(@memory)}</p>
-      </div>
+      <.memory_card_body memory={@memory} cover={@cover} hearts={@hearts} />
     </.link>
+    """
+  end
+
+  defp card_class,
+    do:
+      "group flex flex-col overflow-hidden rounded-box border border-base-300 bg-base-100 text-base-content no-underline transition duration-200 focus-visible:ring-4 focus-visible:ring-ks-teal-soft"
+
+  attr :memory, Memory, required: true
+  attr :cover, :boolean, required: true
+  attr :hearts, :integer, required: true
+
+  defp memory_card_body(assigns) do
+    ~H"""
+    <div class="relative h-[190px] overflow-hidden">
+      <.photo
+        memory={@memory}
+        width={1200}
+        alt={@memory.title || ""}
+        class="size-full transition-transform duration-500 group-hover:scale-[1.03]"
+      />
+      <.badge :if={@cover} class="absolute left-2.5 top-2.5">Cover</.badge>
+      <.badge
+        :if={Memory.sealed?(@memory, DateTime.utc_now())}
+        variant="pending"
+        class="absolute right-2.5 top-2.5"
+      >
+        <.icon name="hero-lock-closed" class="size-3" />
+        Sealed until {Calendar.strftime(
+          @memory.reveal_at,
+          "%-d %b %Y"
+        )}
+      </.badge>
+      <span
+        :if={@hearts > 0}
+        class="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-full bg-base-100/90 px-2 py-0.5 text-xs font-bold"
+      >
+        <.icon name="hero-heart-solid" class="size-3.5 text-error" /> {@hearts}
+      </span>
+    </div>
+    <div class="flex flex-col gap-1.5 p-4">
+      <div class="flex items-center justify-between gap-2">
+        <span class="font-mono text-[13px] text-ks-muted">
+          {Memory.date_label(@memory) || "No date yet"}
+        </span>
+        <.badge :if={Memory.missing(@memory)} variant="pending" class="shrink-0">
+          Needs {Memory.missing(@memory)}
+        </.badge>
+      </div>
+      <div class="text-[17px] font-bold">{@memory.title || "Untitled photo"}</div>
+      <p :if={@memory.caption} class="line-clamp-2 text-sm leading-[1.45] text-ks-muted">
+        {@memory.caption}
+      </p>
+      <p :if={place_people(@memory)} class="text-[13px] text-ks-muted">{place_people(@memory)}</p>
+      <p :if={@memory.source == "guest"} class="text-[13px] text-ks-muted">
+        Added by {@memory.guest_name}
+      </p>
+    </div>
     """
   end
 

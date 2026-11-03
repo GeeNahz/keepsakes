@@ -23,6 +23,10 @@ defmodule Keepsakes.Sharing.ShareLink do
     field :show_details, :boolean, default: true
     field :allow_downloads, :boolean, default: false
     field :slideshow_music, :boolean, default: false
+    # Guests who unlocked the link may add photos (for approval)
+    field :guest_uploads, :boolean, default: false
+    # Hearts on photos and the guestbook
+    field :reactions_guestbook, :boolean, default: false
     field :open_count, :integer, default: 0
     field :last_opened_at, :utc_datetime
     # Visits since the last guest-activity email
@@ -44,6 +48,14 @@ defmodule Keepsakes.Sharing.ShareLink do
     |> validate_inclusion(:expires_in, @expiry_options)
     |> put_expiry(now)
   end
+
+  @doc """
+  The guest participation switches: guest uploads, hearts + guestbook and
+  slideshow music. `Keepsakes.Sharing.update_features/3` keeps each off
+  when the owner's plan or flags don't include it.
+  """
+  def features_changeset(link, attrs),
+    do: cast(link, attrs, [:guest_uploads, :reactions_guestbook, :slideshow_music])
 
   defp put_expiry(changeset, now) do
     case get_change(changeset, :expires_in) do
