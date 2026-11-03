@@ -33,6 +33,13 @@ defmodule KeepsakesWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # For crawlers, on every host (no session or pipeline): the main site is
+  # open to them; the admin portal says no (KeepsakesWeb.SeoController)
+  scope "/", KeepsakesWeb do
+    get "/robots.txt", SeoController, :robots
+    get "/sitemap.xml", SeoController, :sitemap
+  end
+
   ## Admin portal (matched by host first, so its "/" isn't the landing page)
 
   scope "/", KeepsakesWeb.Admin, host: "admin." do
@@ -186,8 +193,13 @@ defmodule KeepsakesWeb.Router do
   scope "/", KeepsakesWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    # The landing page (signed-in visitors go to their albums)
+    live_session :public, on_mount: [{KeepsakesWeb.UserAuth, :mount_current_scope}] do
+      live "/", HomeLive, :index
+    end
+
     get "/terms", PageController, :terms
+    get "/privacy", PageController, :privacy
     # Collaborator invitations (Keepsakes.Albums.Members)
     get "/invites/:token", InviteController, :show
     post "/invites/:token", InviteController, :accept

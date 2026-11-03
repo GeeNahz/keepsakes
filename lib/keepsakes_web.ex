@@ -18,7 +18,7 @@ defmodule KeepsakesWeb do
   """
 
   def static_paths,
-    do: ~w(assets fonts images favicon.ico robots.txt manifest.webmanifest sw.js offline.html)
+    do: ~w(assets fonts images favicon.ico manifest.webmanifest sw.js offline.html)
 
   def router do
     quote do

@@ -13,14 +13,11 @@ defmodule KeepsakesWeb.BillingLive.Index do
   use KeepsakesWeb, :live_view
 
   import KeepsakesWeb.SettingsComponents
+  import KeepsakesWeb.PlanComponents, only: [feature_list: 1, segmented: 1]
 
   alias Keepsakes.{Albums, Billing, Entitlements, Format}
-  alias Keepsakes.Billing.{Discounts, Features, PaymentMethod, Price, Quote}
-  alias KeepsakesWeb.OwnerShell
-
-  # Rows in the plan comparison: the features that are live today
-  @compared ~w(max_albums max_memories_per_album storage_bytes max_upload_mb
-               premium_templates guest_downloads remove_branding)a
+  alias Keepsakes.Billing.{Discounts, PaymentMethod, Price, Quote}
+  alias KeepsakesWeb.{OwnerShell, PlanComponents}
 
   @impl true
   def render(assigns) do
@@ -376,32 +373,6 @@ defmodule KeepsakesWeb.BillingLive.Index do
     """
   end
 
-  attr :id, :string, required: true
-  attr :event, :string, required: true
-  attr :value, :string, required: true
-  attr :options, :list, required: true
-
-  defp segmented(assigns) do
-    ~H"""
-    <div
-      id={@id}
-      role="group"
-      class="flex gap-0.5 rounded-full border border-base-300 bg-base-100 p-1"
-    >
-      <button
-        :for={{value, label} <- @options}
-        type="button"
-        phx-click={@event}
-        phx-value-to={value}
-        aria-pressed={to_string(value == @value)}
-        class="min-h-9 cursor-pointer rounded-full px-3.5 text-sm font-bold text-ks-muted transition-colors aria-pressed:bg-primary aria-pressed:text-primary-content"
-      >
-        {label}
-      </button>
-    </div>
-    """
-  end
-
   attr :plan, :map, required: true
   attr :price, :any, required: true
   attr :subscription, :any, required: true
@@ -410,14 +381,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
 
   defp plan_card(assigns) do
     assigns =
-      assign(assigns,
-        action: plan_action(assigns.subscription, assigns.plan, assigns.price),
-        rows:
-          for feature <- assigns.compared do
-            value = Features.value(assigns.plan.features, feature.key)
-            %{key: feature.key, text: feature_text(feature, value), on?: value not in [false, 0]}
-          end
-      )
+      assign(assigns, action: plan_action(assigns.subscription, assigns.plan, assigns.price))
 
     ~H"""
     <article
@@ -444,15 +408,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
         <% end %>
       </div>
 
-      <ul class="flex flex-col gap-2.5 text-sm">
-        <li :for={row <- @rows} id={"plan-#{@plan.slug}-#{row.key}"} class="flex items-start gap-2">
-          <.icon
-            name={if row.on?, do: "hero-check", else: "hero-minus"}
-            class={["mt-0.5 size-4 shrink-0", if(row.on?, do: "text-primary", else: "text-ks-field")]}
-          />
-          <span class={!row.on? && "text-ks-muted"}>{row.text}</span>
-        </li>
-      </ul>
+      <.feature_list plan={@plan} compared={@compared} />
 
       <div class="mt-auto">
         <%= case @action do %>
@@ -565,16 +521,6 @@ defmodule KeepsakesWeb.BillingLive.Index do
 
   defp renewal_price(quote), do: Price.format(quote.price)
 
-  defp feature_text(%{key: :max_albums}, :unlimited), do: "Unlimited albums"
-  defp feature_text(%{key: :max_albums}, 1), do: "1 album"
-  defp feature_text(%{key: :max_albums}, count), do: "#{count} albums"
-  defp feature_text(%{key: :max_memories_per_album}, :unlimited), do: "Unlimited photos per album"
-  defp feature_text(%{key: :max_memories_per_album}, count), do: "#{count} photos per album"
-  defp feature_text(%{key: :storage_bytes}, :unlimited), do: "Unlimited storage"
-  defp feature_text(%{key: :storage_bytes}, bytes), do: "#{Format.bytes(bytes)} of storage"
-  defp feature_text(%{key: :max_upload_mb}, mb), do: "Photos up to #{mb} MB each"
-  defp feature_text(%{name: name}, _value), do: name
-
   defp plan_note(%{status: "trialing", trial_ends_at: ends_at}),
     do:
       "Everything in Pro until #{date(ends_at)}. After that you get #{Keepsakes.Settings.get(:grace_days)} more days of full access, then the Free plan. Nothing you've added is ever deleted."
@@ -620,7 +566,7 @@ defmodule KeepsakesWeb.BillingLive.Index do
        quote: nil,
        code: "",
        code_error: nil,
-       compared: Enum.filter(Features.all(), &(&1.key in @compared))
+       compared: PlanComponents.compared()
      )
      |> load_account()}
   end

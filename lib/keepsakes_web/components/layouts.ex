@@ -47,7 +47,7 @@ defmodule KeepsakesWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
-  attr :shell, :atom, values: [:owner, :auth, :plain, :guest, :admin], default: :owner
+  attr :shell, :atom, values: [:owner, :auth, :plain, :guest, :admin, :marketing], default: :owner
 
   attr :owner, :map,
     default: nil,
@@ -390,6 +390,94 @@ defmodule KeepsakesWeb.Layouts do
     """
   end
 
+  # The public site: landing page, Terms and Privacy. Full width (pages
+  # lay out their own sections), with section links and a footer.
+  def app(%{shell: :marketing} = assigns) do
+    ~H"""
+    <div class="flex min-h-screen flex-col bg-base-200">
+      <header class="sticky top-0 z-30 border-b border-base-300 bg-base-100/90 backdrop-blur">
+        <div class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-8">
+          <.link navigate={~p"/"} class="text-base-content no-underline" aria-label="Keepsake home">
+            <.logo />
+          </.link>
+          <nav aria-label="Site" class="flex items-center gap-1 sm:gap-5">
+            <.link
+              href={~p"/#features"}
+              class="hidden text-[15px] font-medium text-base-content no-underline hover:text-primary sm:inline"
+            >
+              Features
+            </.link>
+            <.link
+              href={~p"/#pricing"}
+              class="hidden text-[15px] font-medium text-base-content no-underline hover:text-primary sm:inline"
+            >
+              Pricing
+            </.link>
+            <.link
+              href={~p"/#faq"}
+              class="hidden text-[15px] font-medium text-base-content no-underline hover:text-primary sm:inline"
+            >
+              FAQ
+            </.link>
+            <%= if @current_scope && @current_scope.user do %>
+              <.button id="nav-my-albums" size="sm" variant="primary" navigate={~p"/app/albums"}>
+                My albums
+              </.button>
+            <% else %>
+              <.link
+                id="nav-log-in"
+                navigate={~p"/auth/log-in"}
+                class="px-2 text-[15px] font-medium text-base-content no-underline hover:text-primary"
+              >
+                Log in
+              </.link>
+              <.button id="nav-start" size="sm" variant="primary" navigate={~p"/auth/register"}>
+                Start free
+              </.button>
+            <% end %>
+          </nav>
+        </div>
+      </header>
+
+      <main class="flex-1">{render_slot(@inner_block)}</main>
+
+      <footer id="site-footer" class="border-t border-base-300 bg-base-100">
+        <div class="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-start sm:justify-between sm:px-8">
+          <div class="flex max-w-xs flex-col gap-2">
+            <.logo />
+            <p class="text-sm text-ks-muted">Every memory, in the order it happened.</p>
+          </div>
+          <nav aria-label="Footer" class="grid grid-cols-2 gap-x-10 gap-y-2 text-sm">
+            <.link href={~p"/#pricing"} class="text-base-content no-underline hover:text-primary">
+              Pricing
+            </.link>
+            <.link href={~p"/terms"} class="text-base-content no-underline hover:text-primary">
+              Terms of use
+            </.link>
+            <.link href={~p"/#faq"} class="text-base-content no-underline hover:text-primary">
+              FAQ
+            </.link>
+            <.link href={~p"/privacy"} class="text-base-content no-underline hover:text-primary">
+              Privacy
+            </.link>
+            <.link
+              navigate={~p"/auth/log-in"}
+              class="text-base-content no-underline hover:text-primary"
+            >
+              Log in
+            </.link>
+          </nav>
+        </div>
+        <p class="mx-auto max-w-6xl px-4 pb-8 text-xs text-ks-muted sm:px-8">
+          © {Date.utc_today().year} Keepsake
+        </p>
+      </footer>
+    </div>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
   def app(assigns) do
     ~H"""
     <div class="flex min-h-screen flex-col bg-base-200">
@@ -414,6 +502,64 @@ defmodule KeepsakesWeb.Layouts do
     </div>
 
     <.flash_group flash={@flash} />
+    """
+  end
+
+  @default_description "Photo albums told as a timeline, shared with a link and a private code."
+
+  @doc """
+  Head tags a LiveView provides: its assigns don't reach the root layout
+  (only `page_title` does), so a LiveView that wants a description or
+  JSON-LD exports `meta/0` returning `%{description: ..., json_ld: ...}`.
+  Controllers just assign `meta_description`.
+  """
+  def live_meta(assigns, key) do
+    # The LiveView router records the module on the conn
+    with %Plug.Conn{private: %{phoenix_live_view: live}} <- assigns[:conn],
+         module when is_atom(module) <- elem(live, 0),
+         true <- function_exported?(module, :meta, 0) do
+      Map.get(module.meta(), key)
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Search and social tags for the root layout: description, canonical URL,
+  Open Graph and Twitter card (with `/images/og.png`), and the page's
+  JSON-LD when it sets `json_ld` (already encoded; `<` is escaped so it
+  can't close the script).
+  """
+  attr :page_title, :string, default: nil
+  attr :description, :string, default: nil
+  attr :path, :string, required: true
+  attr :json_ld, :string, default: nil
+
+  def seo_meta(assigns) do
+    assigns =
+      assign(assigns,
+        title: if(assigns.page_title, do: "#{assigns.page_title} · Keepsake", else: "Keepsake"),
+        description: assigns.description || @default_description,
+        url: KeepsakesWeb.Endpoint.url() <> assigns.path,
+        image: KeepsakesWeb.Endpoint.static_url() <> "/images/og.png",
+        json_ld: assigns.json_ld && String.replace(assigns.json_ld, "<", "\\u003c")
+      )
+
+    ~H"""
+    <meta name="description" content={@description} />
+    <link rel="canonical" href={@url} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Keepsake" />
+    <meta property="og:title" content={@title} />
+    <meta property="og:description" content={@description} />
+    <meta property="og:url" content={@url} />
+    <meta property="og:image" content={@image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script :if={@json_ld} type="application/ld+json">
+      <%= Phoenix.HTML.raw(@json_ld) %>
+    </script>
     """
   end
 

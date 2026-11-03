@@ -209,12 +209,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Installable app: `manifest.webmanifest`, icons (`priv/static/images/icons/`), and a service worker (`sw.js`) that caches static assets and shows `offline.html` when there's no connection. Pages and photos are never cached by it (photos rely on the browser cache).
 - Exports add each album's approved guestbook notes (`guestbook.json`).
 - The admin customer profile shows collaborators used against the plan's seats.
+- Landing page at `/` (`KeepsakesWeb.HomeLive`): hero, how it works, features (plan-gated ones marked), use cases, template showcase, pricing, FAQ and a final call to action, with real screenshots of the sample album (`priv/static/images/landing/`, retaken per `docs/setup/landing-screenshots.md`). Pricing comes live from the public plans in NGN or USD, monthly or yearly, with the yearly saving worked out from the prices; the trial and grace lengths in the copy and FAQ come from `Keepsakes.Settings`. Signed-in visitors still go straight to their albums.
+- Privacy notice at `/privacy`: a `[LEGAL REVIEW]` draft written from what the app stores (accounts, photos with location removed for guests, encrypted codes and 2FA secrets, guests' names and browser keys, Flutterwave card references, processors, cookies, retention, NDPA 2023 rights), with `[COMPANY NAME]`-style placeholders.
+- Search and sharing: per-page description, canonical URL, Open Graph and Twitter card tags with a 1200×630 preview image (`/images/og.png`), and JSON-LD for the product with its live prices on the landing page. `/sitemap.xml` lists the public pages from the endpoint's URL; `/robots.txt` opens the public site and closes the portal, guest albums, sign-in, invitations and media, and tells crawlers to stay off the admin host and customers' domains.
+- A `:marketing` layout shell (header with section links and Start free, footer with Terms, Privacy and Log in) for the landing and legal pages.
 
 ### Changed
 - Album access goes by role (`Keepsakes.Albums.role/2`, `authorize!/3`: view, edit, manage) instead of matching the owner's id, so collaborators can act on albums they joined; anyone else gets `Keepsakes.Albums.NotAllowed` (404). Plan limits and storage stay the owner's whoever uploads, and memory events also go to an `album:<id>` topic. `Albums.get_memory!/3` now takes the album.
 - The Share page's "Background music, coming soon" switch is replaced by a "For your guests" section: guest uploads, hearts and guestbook, music, time capsule and the QR card.
 - The template renderer contract (`KeepsakesWeb.Templates.Renderer`) adds `add/1`, `guestbook/1` and `sealed/1`, plus hearts and sealed memories in `timeline/1` and music in `slideshow/1`; the Trail renderer implements them.
 - `.m4a` files are served as `audio/mp4` (`config :mime, :types`).
+- The Terms of use at `/terms` are expanded into a full draft (accounts, uploads, sharing, payments and trials, removal, leaving, liability, changes) with placeholders; the uploads and music-rights clause keeps its meaning, so the terms version is unchanged.
+- Plan cards on the billing page and the landing page share `KeepsakesWeb.PlanComponents`; the comparison now includes collaborators, guest uploads, hearts and guestbook, slideshow music, the time capsule and custom domains.
 - Dependencies updated: dns_cluster 0.2.0 → 0.3.1 and phoenix_live_dashboard 0.8.7 → 0.9.1 (requirements raised in `mix.exs`), plus hammer 7.5.1, swoosh 1.29.3, tailwind 0.5.2, websock_adapter 0.7.0 and elixir_make 0.10.1.
 - Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
 - AGENTS.md now prefers daisyUI components themed with the Keepsake themes instead of forbidding daisyUI.
@@ -251,6 +257,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Staff internal notes and new tickets now broadcast too, so every open page sees them; `Support.set_status/4` is shared by owners and staff.
 - Tests read feature flags straight from the database (FunWithFlags cache off in test), so flag state can't leak between tests.
 - A plan given by staff ends on its date and moves the customer to Free without a charge. Plans & billing describes it as a gift and has no "Keep my plan" button for it. Paying for any plan replaces it.
+
+### Removed
+- The interim home page (`PageController.home`, `home.html.heex`) and the static `priv/static/robots.txt`, replaced by the landing page and the dynamic robots file.
 
 ### Fixed
 - The owner sidebar no longer stretches past the screen on long pages, which pushed the storage meter out of view.
