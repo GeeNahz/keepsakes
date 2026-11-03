@@ -40,9 +40,16 @@ defmodule KeepsakesWeb.AuthThrottle do
     "Too many attempts. Please try again in #{minutes} #{if minutes == 1, do: "minute", else: "minutes"}."
   end
 
-  @doc "The client IP as a string, from a conn or LiveView peer data."
+  @doc """
+  The client IP as a string, from a conn (already rewritten by
+  `KeepsakesWeb.ClientIP`) or a LiveView socket (`ClientIP.from_socket/1`).
+  """
   def client_ip(%Plug.Conn{remote_ip: ip}), do: format_ip(ip)
-  def client_ip(%{address: ip}), do: format_ip(ip)
+
+  def client_ip(%Phoenix.LiveView.Socket{} = socket),
+    do: client_ip(KeepsakesWeb.ClientIP.from_socket(socket))
+
+  def client_ip(ip) when is_tuple(ip), do: format_ip(ip)
   def client_ip(_), do: "unknown"
 
   defp format_ip(ip), do: ip |> :inet.ntoa() |> to_string()

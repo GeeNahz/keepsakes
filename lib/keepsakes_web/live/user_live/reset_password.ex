@@ -74,7 +74,7 @@ defmodule KeepsakesWeb.UserLive.ResetPassword do
        page_title: "Reset password",
        form: to_form(%{"email" => ""}, as: "user"),
        sent: false,
-       client_ip: AuthThrottle.client_ip(get_connect_info(socket, :peer_data))
+       client_ip: AuthThrottle.client_ip(socket)
      )}
   end
 

@@ -127,10 +127,11 @@ defmodule KeepsakesWeb.Admin.Auth do
       else: raise(Staff.Forbidden)
   end
 
+  # The visitor's address even behind the edge proxy (KeepsakesWeb.ClientIP)
   defp peer_ip(socket) do
-    case Phoenix.LiveView.get_connect_info(socket, :peer_data) do
-      %{address: address} -> address |> :inet.ntoa() |> to_string()
-      _ -> nil
+    case KeepsakesWeb.ClientIP.from_socket(socket) do
+      nil -> nil
+      address -> address |> :inet.ntoa() |> to_string()
     end
   end
 

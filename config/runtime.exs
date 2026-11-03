@@ -133,6 +133,15 @@ if config_env() != :test do
 
   if dev_admin_host && String.starts_with?(dev_admin_host, "admin."),
     do: config(:keepsakes, :admin_host, dev_admin_host)
+
+  # Dev only: listen beyond loopback so the OpenResty container (compose.yaml)
+  # can reach this server through host.docker.internal. 0.0.0.0 also exposes
+  # it to your local network while it runs.
+  with true <- config_env() == :dev,
+       bind when is_binary(bind) <- env!("PHX_BIND_IP", :string?, nil),
+       {:ok, ip} <- :inet.parse_address(String.to_charlist(bind)) do
+    config :keepsakes, KeepsakesWeb.Endpoint, http: [ip: ip]
+  end
 end
 
 mail_delivery =
