@@ -21,6 +21,11 @@ defmodule KeepsakesWeb.SiteRouter do
     plug :put_secure_browser_headers
   end
 
+  # Albums here are behind codes: crawlers are told to stay out
+  scope "/", KeepsakesWeb do
+    get "/robots.txt", SeoController, :robots
+  end
+
   scope "/", KeepsakesWeb do
     pipe_through :site
 
