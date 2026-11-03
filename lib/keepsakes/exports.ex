@@ -127,16 +127,23 @@ defmodule Keepsakes.Exports do
           asc: m.inserted_at
         ]
 
+    notes =
+      from e in Keepsakes.Sharing.GuestbookEntry,
+        where: e.status == "approved",
+        order_by: e.inserted_at
+
     from(a in Album,
       where: a.user_id == ^user.id,
       order_by: a.inserted_at,
-      preload: [memories: ^memories]
+      preload: [:music_track, memories: ^memories]
     )
     |> Repo.all()
+    |> Enum.map(fn album -> {album, Repo.all(where(notes, [e], e.album_id == ^album.id))} end)
   end
 
-  # Writes the album's photos and album.json; returns their paths relative to `dir`
-  defp write_album(album, dir) do
+  # Writes the album's photos, album.json, guestbook.json (approved notes)
+  # and its uploaded slideshow music; returns their paths relative to `dir`
+  defp write_album({album, notes}, dir) do
     folder = unique_folder(dir, album.slug)
     File.mkdir_p!(Path.join(dir, folder))
 
@@ -167,7 +174,27 @@ defmodule Keepsakes.Exports do
     meta = %{name: album.name, description: album.description, memories: entries}
     json = Path.join(folder, "album.json")
     File.write!(Path.join(dir, json), Jason.encode_to_iodata!(meta, pretty: true))
-    [json | Enum.reverse(files)]
+
+    guestbook =
+      if notes == [] do
+        []
+      else
+        path = Path.join(folder, "guestbook.json")
+        entries = Enum.map(notes, &%{name: &1.name, message: &1.message, at: &1.inserted_at})
+        File.write!(Path.join(dir, path), Jason.encode_to_iodata!(entries, pretty: true))
+        [path]
+      end
+
+    music =
+      with %{source: "upload", storage_key: key} <- album.music_track,
+           path = Path.join(folder, "music" <> Path.extname(key)),
+           {:ok, _} <- fetch_to(key, Path.join(dir, path)) do
+        [path]
+      else
+        _ -> []
+      end
+
+    [json | guestbook ++ music ++ Enum.reverse(files)]
   end
 
   defp fetch_to(key, path) do

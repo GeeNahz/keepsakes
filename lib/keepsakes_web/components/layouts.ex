@@ -188,7 +188,7 @@ defmodule KeepsakesWeb.Layouts do
     ~H"""
     <div class="flex min-h-screen flex-col bg-base-200">
       <%!-- Fixed height (h-16) so the sticky sidebar can sit right under it --%>
-      <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-base-300 bg-base-100 px-4 sm:px-8">
+      <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-base-300 bg-base-100 px-4 sm:px-8 print:hidden">
         <.link navigate={~p"/app/albums"} class="text-base-content no-underline">
           <.logo />
         </.link>
@@ -208,7 +208,7 @@ defmodule KeepsakesWeb.Layouts do
              inside it, keeping New album and the storage meter visible --%>
         <aside
           id="album-sidebar"
-          class="sticky top-16 hidden h-[calc(100dvh-4rem)] flex-col gap-1.5 self-start border-r border-base-300 bg-base-100 px-5 py-7 md:flex"
+          class="sticky top-16 hidden h-[calc(100dvh-4rem)] flex-col gap-1.5 self-start border-r border-base-300 bg-base-100 px-5 py-7 md:flex print:hidden"
         >
           <div class="px-3 pb-2 text-[13px] font-bold uppercase tracking-[0.06em] text-ks-muted">
             My albums
@@ -255,6 +255,35 @@ defmodule KeepsakesWeb.Layouts do
               <.icon name="hero-plus" class="size-[18px]" /> New album
             </button>
           <% end %>
+          <%= if @owner.shared != [] do %>
+            <div class="px-3 pb-2 pt-5 text-[13px] font-bold uppercase tracking-[0.06em] text-ks-muted">
+              Shared with me
+            </div>
+            <nav
+              id="sidebar-shared"
+              aria-label="Shared with me"
+              class="-mx-1 flex min-h-0 shrink flex-col gap-1.5 overflow-y-auto px-1"
+            >
+              <.link
+                :for={{album, _role} <- @owner.shared}
+                id={"sidebar-shared-#{album.id}"}
+                navigate={~p"/app/shared/#{album.id}"}
+                aria-current={album.id == @owner.current_album_id && "page"}
+                class={[
+                  "flex flex-col gap-0.5 rounded-field p-3 text-base-content no-underline transition-colors",
+                  if(album.id == @owner.current_album_id,
+                    do: "bg-ks-teal-soft font-bold",
+                    else: "hover:bg-base-200"
+                  )
+                ]}
+              >
+                <span class="truncate">{album.name}</span>
+                <span class="truncate text-[12px] font-normal text-ks-muted">
+                  {Keepsakes.Accounts.User.full_name(album.user)}
+                </span>
+              </.link>
+            </nav>
+          <% end %>
           <div class="mt-auto shrink-0 px-3 pt-4">
             <.storage_meter owner={@owner} />
           </div>
@@ -264,10 +293,10 @@ defmodule KeepsakesWeb.Layouts do
           <.confirm_email_banner user={@current_scope.user} />
           <.over_limit_banner owner={@owner} />
           <nav
-            :if={@owner.albums != []}
+            :if={@owner.albums != [] or @owner.shared != []}
             id="mobile-albums"
             aria-label="My albums"
-            class="flex gap-2 overflow-x-auto border-b border-base-300 bg-base-100 px-4 py-3 md:hidden"
+            class="flex gap-2 overflow-x-auto border-b border-base-300 bg-base-100 px-4 py-3 md:hidden print:hidden"
           >
             <.link
               :for={album <- @owner.albums}
@@ -281,6 +310,13 @@ defmodule KeepsakesWeb.Layouts do
               ]}
             >
               {album.name}
+            </.link>
+            <.link
+              :for={{album, _role} <- @owner.shared}
+              navigate={~p"/app/shared/#{album.id}"}
+              class="shrink-0 rounded-full bg-base-200 px-3.5 py-1.5 text-sm text-base-content no-underline"
+            >
+              {album.name} <.icon name="hero-user-group" class="size-3.5 text-ks-muted" />
             </.link>
             <button
               type="button"
@@ -558,6 +594,7 @@ defmodule KeepsakesWeb.Layouts do
   defp empty_owner do
     %{
       albums: [],
+      shared: [],
       storage_used: 0,
       storage_limit: 1024 * 1024 * 1024,
       plan_label: "",

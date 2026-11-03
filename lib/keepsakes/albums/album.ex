@@ -14,11 +14,15 @@ defmodule Keepsakes.Albums.Album do
     field :memories_count, :integer, virtual: true, default: 0
     # Listed on the owner's public site, on their own domain (Keepsakes.Domains)
     field :show_on_site, :boolean, default: false
+    # Time capsule: guests see "Opens on ..." until then
+    field :reveal_at, :utc_datetime
 
     belongs_to :user, Keepsakes.Accounts.User
     belongs_to :cover_memory, Memory
     # Guest pages' look; see Keepsakes.Templates.for_album/1 for the fallback
     belongs_to :template, Keepsakes.Templates.Template
+    # Slideshow music (Keepsakes.Music)
+    belongs_to :music_track, Keepsakes.Music.Track
     has_many :memories, Memory
 
     timestamps()

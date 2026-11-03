@@ -164,6 +164,9 @@ defmodule KeepsakesWeb.Admin.CustomerLive.Show do
               {length(@profile.albums)} of {limit(@profile.limits.max_albums)}
             </.row>
             <.row label="Photos">{@profile.photos}</.row>
+            <.row label="Collaborators">
+              {@profile.collaborators} of {limit(@profile.limits.collaborator_seats)}
+            </.row>
             <.row label="Storage">
               {Keepsakes.Format.bytes(@profile.storage_used)} of {limit_bytes(
                 @profile.limits.storage_bytes

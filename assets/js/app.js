@@ -93,6 +93,14 @@ liveSocket.connect()
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
 
+// Installable app + offline page (priv/static/sw.js). Not in development,
+// where a cached asset would hide your latest change.
+if ("serviceWorker" in navigator && process.env.NODE_ENV !== "development") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {})
+  })
+}
+
 // The lines below enable quality of life phoenix_live_reload
 // development features:
 //

@@ -187,6 +187,10 @@ defmodule KeepsakesWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/terms", PageController, :terms
+    # Collaborator invitations (Keepsakes.Albums.Members)
+    get "/invites/:token", InviteController, :show
+    post "/invites/:token", InviteController, :accept
   end
 
   # OpenResty asks before issuing a certificate (private network only)
@@ -256,6 +260,10 @@ defmodule KeepsakesWeb.Router do
       live "/:slug", GuestLive.Access, :access
       live "/:slug/timeline", GuestLive.Timeline, :timeline
       live "/:slug/slideshow", GuestLive.Slideshow, :slideshow
+      # Guests add photos (for approval) and sign the guestbook, when the
+      # owner turned them on
+      live "/:slug/add", GuestLive.Add, :add
+      live "/:slug/guestbook", GuestLive.Guestbook, :guestbook
       # Anyone with the link, code or not, can report the album
       live "/:slug/report", GuestLive.Report, :report
     end
@@ -281,7 +289,14 @@ defmodule KeepsakesWeb.Router do
       live "/albums/:slug/upload", AlbumLive.Show, :upload
       live "/albums/:slug/memories/:id", AlbumLive.Show, :edit
       live "/albums/:slug/share", AlbumLive.Share, :share
+      live "/albums/:slug/share/card", AlbumLive.Card, :card
       live "/albums/:slug/template", AlbumLive.Template, :template
+      live "/albums/:slug/people", AlbumLive.People, :people
+      # Albums others shared with the caller as a collaborator (by id: slugs
+      # are only unique per owner)
+      live "/shared/:album_id", AlbumLive.Show, :show
+      live "/shared/:album_id/upload", AlbumLive.Show, :upload
+      live "/shared/:album_id/memories/:id", AlbumLive.Show, :edit
       # Settings: one LiveView per tab (KeepsakesWeb.SettingsComponents)
       live "/settings/profile", SettingsLive.Profile, :profile
       live "/settings/account", SettingsLive.Account, :edit
@@ -303,6 +318,7 @@ defmodule KeepsakesWeb.Router do
     # Flutterwave's card page sends the owner back here
     get "/billing/return", BillingController, :return
     get "/settings/privacy/exports/:id", DataExportController, :show
+    get "/albums/:slug/share/qr.png", QrController, :show
     post "/settings/account/update-password", UserSessionController, :update_password
     post "/confirm-email/resend", UserConfirmationController, :create
   end

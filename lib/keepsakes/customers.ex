@@ -150,6 +150,7 @@ defmodule Keepsakes.Customers do
       limits: Entitlements.all(owner),
       storage_used: Albums.storage_used(owner),
       photos: Enum.sum(Enum.map(albums, & &1.memories_count)),
+      collaborators: Albums.Members.count_for_owner(user.id),
       albums: albums,
       shared_album_ids: shared_album_ids(user),
       tickets: Support.list_tickets(owner),

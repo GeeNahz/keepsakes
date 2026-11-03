@@ -35,6 +35,13 @@ defmodule Keepsakes.Albums.Memory do
     field :width, :integer
     field :height, :integer
     field :taken_on, :date
+    # "owner" (the owner or an editor) or "guest" (the guest upload page,
+    # status "submitted" until approved)
+    field :source, :string, default: "owner"
+    field :guest_name, :string
+    field :rights_confirmed_at, :utc_datetime
+    # Time capsule: guests see a sealed polaroid until then
+    field :reveal_at, :utc_datetime
 
     belongs_to :album, Keepsakes.Albums.Album
     belongs_to :user, Keepsakes.Accounts.User
@@ -78,6 +85,14 @@ defmodule Keepsakes.Albums.Memory do
         else: []
     end)
   end
+
+  @doc "Time capsule: when guests may see this memory (`nil` = now)."
+  def reveal_changeset(memory, reveal_at),
+    do: change(memory, reveal_at: reveal_at && DateTime.truncate(reveal_at, :second))
+
+  @doc "Whether the memory is still sealed for guests at `now`."
+  def sealed?(%{reveal_at: nil}, _now), do: false
+  def sealed?(%{reveal_at: at}, now), do: DateTime.compare(at, now) == :gt
 
   @doc "Has the name and date it needs to sit on the timeline."
   def ready?(%__MODULE__{title: title, month: month, year: year}),

@@ -9,6 +9,14 @@ defmodule KeepsakesWeb.PageController do
     render(conn, :home)
   end
 
+  # Public: linked from sign-up, guest uploads and music uploads
+  def terms(conn, _params) do
+    render(conn, :terms,
+      page_title: "Terms of use",
+      version: Keepsakes.Accounts.terms_version()
+    )
+  end
+
   # `/app` on its own opens the album list
   def app(conn, _params), do: redirect(conn, to: ~p"/app/albums")
 

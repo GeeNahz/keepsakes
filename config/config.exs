@@ -132,6 +132,10 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# M4A slideshow music (Keepsakes.Music) served from local disk needs a
+# real audio type. Compile-time: after changing, `mix deps.compile mime --force`.
+config :mime, :types, %{"audio/mp4" => ["m4a"]}
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

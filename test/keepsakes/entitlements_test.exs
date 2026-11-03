@@ -79,7 +79,7 @@ defmodule Keepsakes.EntitlementsTest do
       put_on_plan(user, "free")
 
       assert length(Albums.list_albums(scope)) == 3
-      assert Albums.get_memory!(scope, memory.id)
+      assert Albums.get_memory!(scope, album, memory.id)
       assert {:error, {:over_limit, :max_albums, 3, 2}} = Albums.create_album(scope, %{name: "4"})
     end
   end

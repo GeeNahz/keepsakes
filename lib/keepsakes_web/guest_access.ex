@@ -24,15 +24,22 @@ defmodule KeepsakesWeb.GuestAccess do
   import Phoenix.LiveView
 
   alias Keepsakes.{Albums, Sharing, Templates}
-  alias Keepsakes.Sharing.ShareLink
+  alias Keepsakes.Sharing.{Engagement, ShareLink}
 
   @session_key "guest_links"
+  # A random id per guest browser: one heart per photo, rate limits, and
+  # seeing your own pending guestbook note
+  @visitor_key "guest_visitor"
   # Keep the cookie small: remember the most recent links only
   @max_links 20
 
   ## Session (used by the controller)
 
-  @doc "Remembers that this browser unlocked `link` at its current code version."
+  @doc """
+  Remembers that this browser unlocked `link` at its current code version,
+  and gives the browser a random visitor key (hearts, guestbook, upload
+  limits) if it has none yet.
+  """
   def grant(conn, %ShareLink{id: id, code_version: version}) do
     links =
       conn
@@ -43,8 +50,20 @@ defmodule KeepsakesWeb.GuestAccess do
       |> Map.new()
       |> Map.put(id, version)
 
-    Plug.Conn.put_session(conn, @session_key, links)
+    conn = Plug.Conn.put_session(conn, @session_key, links)
+
+    if Plug.Conn.get_session(conn, @visitor_key),
+      do: conn,
+      else: Plug.Conn.put_session(conn, @visitor_key, new_visitor_key())
   end
+
+  defp new_visitor_key, do: Base.url_encode64(:crypto.strong_rand_bytes(16), padding: false)
+
+  # The owner (and collaborators previewing) count as one visitor each
+  defp visitor_key(session, %{user: %{id: user_id}}, :owner),
+    do: session[@visitor_key] || "user:" <> user_id
+
+  defp visitor_key(session, _scope, _access), do: session[@visitor_key]
 
   @doc "Access level of the current visitor for `link`."
   def access(nil, _session, _scope), do: :missing
@@ -128,7 +147,11 @@ defmodule KeepsakesWeb.GuestAccess do
              access: :owner,
              base_path: base_path,
              preview?: true,
-             branding?: Sharing.branding?(user.id)
+             branding?: Sharing.branding?(user.id),
+             visitor_key: nil,
+             uploads?: false,
+             reactions?: false,
+             sealed?: false
            )
            |> assign(KeepsakesWeb.Templates.assigns(template))}
         else
@@ -157,17 +180,33 @@ defmodule KeepsakesWeb.GuestAccess do
 
   defp assign_link(socket, link, session, base_path) do
     template = if link, do: Templates.for_album(link.album), else: Templates.system_default()
+    scope = socket.assigns.current_scope
+    access = access(link, session, scope)
 
     socket
     |> assign(
       link: link,
       album: link && link.album,
       owner_name: link && link.user.first_name,
-      access: access(link, session, socket.assigns.current_scope),
+      access: access,
       base_path: base_path,
       preview?: false,
-      branding?: link == nil or Sharing.branding?(link.user_id)
+      branding?: link == nil or Sharing.branding?(link.user_id),
+      visitor_key: visitor_key(session, scope, access)
     )
+    |> assign(engagement_assigns(link, access))
     |> assign(KeepsakesWeb.Templates.assigns(template))
   end
+
+  # What guests can do on this link, and whether the album is still sealed
+  # (the owner always sees through the time capsule)
+  defp engagement_assigns(%ShareLink{} = link, access) do
+    [
+      uploads?: Engagement.uploads_open?(link),
+      reactions?: Engagement.reactions_open?(link),
+      sealed?: access != :owner and Sharing.album_sealed?(link.album, DateTime.utc_now())
+    ]
+  end
+
+  defp engagement_assigns(nil, _access), do: [uploads?: false, reactions?: false, sealed?: false]
 end
