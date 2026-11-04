@@ -1,16 +1,32 @@
 name: CI
 
-# Runs the project's build gate (`mix precommit`) on every push and PR.
-# Deployment jobs (staging on `staging`, production on `master`) are added in Stage 11.
+# Every push and PR: the build gate (`mix precommit`).
+# A push to `staging` then builds the image and deploys staging; a push to
+# `master` (merging the staging -> master PR) deploys production. The
+# server side is deploy/server/; set-up and secrets: DEPLOYMENT.md, Part 2.
+#
+# Repository secrets used by the deploy job:
+#   SSH_HOST         the droplet's address
+#   SSH_USER         the deploy user (deploy)
+#   SSH_KEY          a private key only for deploys (its public half is in
+#                    the deploy user's authorized_keys)
+#   SSH_KNOWN_HOSTS  the droplet's host key line (ssh-keyscan <host>), so
+#                    the job refuses to talk to anything pretending to be it
+# App settings never live in GitHub: they're in the server's .env files.
 on:
   push:
     branches: ["**"]
   pull_request:
     branches: [master, staging]
 
+# A newer push replaces a running check, but never a deploy halfway through
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/staging' }}
+
+env:
+  # GHCR image names must be lower case
+  REGISTRY: ghcr.io/geenahz
 
 jobs:
   precommit:
@@ -69,3 +85,144 @@ jobs:
 
       - name: Fail if precommit changed files
         run: git diff --exit-code
+
+  images:
+    name: Build and push images
+    needs: precommit
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      environment: ${{ steps.meta.outputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick the tag and environment
+        id: meta
+        run: |
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF" = refs/heads/master ]; then
+            echo "environment=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Layers are cached between runs (GitHub's cache), so a code-only
+      # change skips the dependency layers
+      - name: App image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/keepsakes:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/keepsakes:${{ steps.meta.outputs.environment }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      # The shared services. Built on both branches (so the very first deploy,
+      # whichever it is, can start them) but only production deploys update
+      # them afterwards
+      - name: Edge image
+        uses: docker/build-push-action@v6
+        with:
+          context: deploy/openresty
+          push: true
+          tags: ${{ env.REGISTRY }}/keepsakes-edge:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=edge
+          cache-to: type=gha,mode=max,scope=edge
+
+      - name: Backup image
+        uses: docker/build-push-action@v6
+        with:
+          context: deploy/backup
+          push: true
+          tags: ${{ env.REGISTRY }}/keepsakes-backup:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=backup
+          cache-to: type=gha,mode=max,scope=backup
+
+  deploy:
+    name: Deploy ${{ needs.images.outputs.environment }}
+    needs: images
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    # One deploy per environment at a time, and never cancelled midway
+    concurrency:
+      group: deploy-${{ needs.images.outputs.environment }}
+      cancel-in-progress: false
+    env:
+      TAG: ${{ needs.images.outputs.tag }}
+      ENVIRONMENT: ${{ needs.images.outputs.environment }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host server\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/deploy_key\n  IdentitiesOnly yes\n' \
+            "$SSH_HOST" "$SSH_USER" > ~/.ssh/config
+
+      # The compose files and scripts on the server always match this commit
+      - name: Copy the server files
+        run: rsync -az --delete deploy/server/ server:/srv/keepsakes/deploy/
+
+      # This job's token, valid only while the job runs: nothing long-lived
+      # with access to the images is stored on the server
+      - name: Let the server pull from GHCR
+        run: printf '%s' "${{ secrets.GITHUB_TOKEN }}" | ssh server docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Deploy
+        run: |
+          # The tag is meant to be filled in here, before it reaches the server
+          # shellcheck disable=SC2029
+          if [ "$ENVIRONMENT" = production ]; then
+            ssh server /srv/keepsakes/deploy/bin/infra-up "$TAG"
+          fi
+          # shellcheck disable=SC2029
+          ssh server /srv/keepsakes/deploy/bin/deploy "$ENVIRONMENT" "$TAG"
+
+      - name: Log the server out of GHCR
+        if: always()
+        run: ssh server docker logout ghcr.io || true
+
+  # GHCR's free storage is 500 MB on a private repo: keep the newest ten of
+  # each image (enough to roll back to any recent deploy)
+  prune:
+    name: Prune old images
+    needs: [images, deploy]
+    if: needs.images.outputs.environment == 'production'
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        package: [keepsakes, keepsakes-edge, keepsakes-backup]
+    steps:
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ matrix.package }}
+          package-type: container
+          min-versions-to-keep: 10

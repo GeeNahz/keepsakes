@@ -630,6 +630,13 @@ defmodule KeepsakesWeb.Layouts do
       permission: "flags.manage"
     },
     %{
+      key: :errors,
+      label: "Errors",
+      icon: "hero-bug-ant",
+      path: "/errors",
+      permission: "errors.view"
+    },
+    %{
       key: :staff,
       label: "Staff",
       icon: "hero-user-group",

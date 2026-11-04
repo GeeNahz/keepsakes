@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Deploys an app image with no downtime:
+#
+#   bin/deploy <production|staging> <tag>
+#
+# 1. Pulls the image.
+# 2. Starts a container with it NEXT TO the running one. Both answer to
+#    app-<env> on the network, and the edge sends requests to both.
+#    The new one runs any pending migrations as it boots (bin/server), so
+#    migrations must work with the old code still running: add first,
+#    remove in a later deploy (DEPLOYMENT.md, "Changing the database").
+# 3. Waits for its health check (/healthz).
+# 4. Healthy: stops the old container (it finishes what it's doing first).
+#    Not healthy in time: removes the new one, prints its logs, and leaves
+#    the old one serving as if nothing happened. Exits 1.
+#
+# The tag that ran before is kept for bin/rollback.
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+env="${1:-}"
+tag="${2:-}"
+valid_env "$env"
+valid_tag "$tag"
+
+state="$KS_ROOT/$env"
+health_timeout="${HEALTH_TIMEOUT:-180}"
+
+# The very first deploy on a server: the shared services (edge, Postgres,
+# backups) aren't running yet. Start them from the same commit's images.
+if [ ! -f "$KS_ROOT/infra/.deployed" ]; then
+  say "first deploy on this server: starting the shared services"
+  "$DEPLOY_DIR/bin/infra-up" "$tag"
+fi
+
+export IMAGE_TAG="$tag"
+
+# SKIP_PULL=1 uses an image already on this machine (local rehearsals)
+if [ "${SKIP_PULL:-}" != "1" ]; then
+  say "$env: pulling $KS_REGISTRY/keepsakes:$tag"
+  app_compose "$env" pull --quiet app
+fi
+
+mapfile -t old_ids < <(app_compose "$env" ps -q app)
+current="$(cat "$state/.deployed" 2>/dev/null || true)"
+
+record() {
+  if [ -n "$current" ] && [ "$current" != "$tag" ]; then
+    echo "$current" >"$state/.previous"
+  fi
+  echo "$tag" >"$state/.deployed"
+}
+
+if [ "${#old_ids[@]}" -eq 0 ]; then
+  # Nothing running yet (first deploy, or after a stop): just start it
+  say "$env: starting the first container"
+  app_compose "$env" up -d --no-deps app
+  mapfile -t new_ids < <(app_compose "$env" ps -q app)
+  if ! wait_healthy "${new_ids[0]}" "$health_timeout"; then
+    docker logs --tail 80 "${new_ids[0]}" >&2 || true
+    die "$env: $tag didn't become healthy (nothing older to fall back to)"
+  fi
+  record
+  say "$env: $tag is live"
+  exit 0
+fi
+
+say "$env: starting $tag next to the running container"
+app_compose "$env" up -d --no-deps --no-recreate --scale "app=$((${#old_ids[@]} + 1))" app
+
+new_id=""
+while read -r id; do
+  if [[ ! " ${old_ids[*]} " =~ \ ${id}\  ]]; then
+    new_id="$id"
+  fi
+done < <(app_compose "$env" ps -q app)
+[ -n "$new_id" ] || die "$env: the new container didn't start"
+
+say "$env: waiting up to ${health_timeout}s for it to be healthy"
+if ! wait_healthy "$new_id" "$health_timeout"; then
+  echo "--- the new container's last log lines ---" >&2
+  docker logs --tail 80 "$new_id" >&2 || true
+  docker rm -f "$new_id" >/dev/null
+  die "$env: $tag never became healthy; it was removed and ${current:-the old version} is still serving"
+fi
+
+say "$env: healthy; retiring the old container"
+for id in "${old_ids[@]}"; do
+  # Gives it stop_grace_period (30 s) to finish requests
+  docker stop "$id" >/dev/null
+  docker rm "$id" >/dev/null
+done
+# Tell compose there's one container again (changes nothing that's running)
+app_compose "$env" up -d --no-deps --no-recreate --scale app=1 app >/dev/null 2>&1
+
+record
+say "$env: $tag is live (was ${current:-unknown})"
+
+# Old images pile up otherwise; ones from the last ten days stay for rollbacks
+docker image prune -af --filter "until=240h" >/dev/null 2>&1 || true

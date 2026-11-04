@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Starts or updates the shared services (edge, Postgres, backups):
+#
+#   bin/infra-up <tag>
+#
+# Run by production deploys before the app, and by hand the first time.
+# Only containers whose image or settings changed are recreated. An edge
+# change restarts OpenResty: a few seconds without the site, so it's left
+# to production deploys (staging deploys never touch the shared services).
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+tag="${1:-}"
+valid_tag "$tag"
+export INFRA_TAG="$tag"
+
+if [ "${SKIP_PULL:-}" != "1" ]; then
+  say "infra: pulling the edge and backup images ($tag)"
+  infra pull --quiet openresty backup
+fi
+
+say "infra: starting"
+infra up -d --wait --quiet-pull --remove-orphans
+echo "$tag" >"$KS_ROOT/infra/.deployed"
+say "infra: $tag is running"

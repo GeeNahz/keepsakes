@@ -35,7 +35,9 @@ defmodule Keepsakes.Staff.Permissions do
        {"templates.manage", "Create and edit templates"},
        {"domains.manage", "Manage custom domains"},
        {"config.manage", "Change system settings"},
-       {"flags.manage", "Feature flags and maintenance mode"}
+       {"flags.manage", "Feature flags and maintenance mode"},
+       {"errors.view", "See application errors"},
+       {"errors.manage", "Resolve and mute application errors"}
      ]},
     {"Staff",
      [

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Backups by hand (they also run nightly on their own):
+#
+#   bin/backup now                         back up everything right away
+#   bin/backup list [env]                  the database dumps stored
+#   bin/backup drill <identity> [env]      restore the newest dump into a
+#                                          scratch database, count rows, drop it
+#   bin/backup restore <identity> <env> <new db> [dump]
+#                                          restore into a new database
+#
+# <identity> is the age PRIVATE key file. Keep it off the server: copy it
+# up for the drill and delete it after (DEPLOYMENT.md, "Backups").
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+with_identity() {
+  local identity="$1"
+  shift
+  [ -f "$identity" ] || die "no such identity file: $identity"
+  infra run --rm --no-deps -v "$(realpath "$identity"):/run/age/identity:ro" backup "$@"
+}
+
+case "${1:-}" in
+  now) infra exec backup backup.sh ;;
+  list) infra exec backup restore.sh list "${2:-production}" ;;
+  drill)
+    [ -n "${2:-}" ] || die "usage: bin/backup drill <identity file> [env]"
+    with_identity "$2" restore.sh drill "${3:-production}"
+    ;;
+  restore)
+    [ -n "${4:-}" ] || die "usage: bin/backup restore <identity file> <env> <new db> [dump]"
+    with_identity "$2" restore.sh into "$3" "$4" "${5:-}"
+    ;;
+  *) die "usage: bin/backup now|list|drill|restore" ;;
+esac

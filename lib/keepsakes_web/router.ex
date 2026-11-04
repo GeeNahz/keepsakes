@@ -182,6 +182,17 @@ defmodule KeepsakesWeb.Router do
       ] do
       live "/audit", AuditLive.Index, :index
     end
+
+    # Errors ErrorTracker recorded, shown in the admin layout (Keepsakes.Errors)
+    live_session :staff_errors,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "errors.view"}}
+      ] do
+      live "/errors", ErrorLive.Index, :index
+      live "/errors/:id", ErrorLive.Show, :show
+    end
   end
 
   # Photos on local disk, authorised by the signed token in the URL itself
