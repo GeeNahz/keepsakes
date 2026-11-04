@@ -54,7 +54,7 @@ RUN mix release
 FROM ${RUNNER_IMAGE}
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libstdc++6 openssl libncurses6 locales ca-certificates \
+ && apt-get install -y --no-install-recommends libstdc++6 openssl libncurses6 locales ca-certificates curl \
  && rm -rf /var/lib/apt/lists/* \
  && sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen && locale-gen
 
@@ -70,5 +70,10 @@ COPY --from=build --chown=nobody:root /app/_build/prod/rel/keepsakes ./
 USER nobody
 
 EXPOSE 4000
+# Healthy once /healthz answers (the app is up and reaches its database).
+# The deploy script waits for this before retiring the old container. The
+# start period covers migrations on boot.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=60s --retries=3 \
+  CMD curl -fsS "http://localhost:${PORT}/healthz" || exit 1
 # bin/server runs pending migrations, then starts the app
 CMD ["/app/bin/server"]

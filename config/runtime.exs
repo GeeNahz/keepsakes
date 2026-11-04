@@ -189,6 +189,13 @@ if config_env() == :prod do
 
   config :keepsakes, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
+  # Prometheus metrics on their own port, reachable only on the Docker
+  # network (Keepsakes.PromEx). On unless METRICS_ENABLED=false; small even
+  # when nothing scrapes them.
+  config :keepsakes, :metrics,
+    enabled: System.get_env("METRICS_ENABLED") != "false",
+    port: String.to_integer(System.get_env("METRICS_PORT") || "4021")
+
   # The staff portal answers only on its own host: admin.<PHX_HOST> unless
   # ADMIN_HOST says otherwise. See docs/learning/admin-subdomain.md.
   admin_host = System.get_env("ADMIN_HOST") || "admin." <> host

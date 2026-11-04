@@ -23,4 +23,23 @@ for ca in /etc/openresty/extra-ca/*.pem; do
   [ -f "$ca" ] && cat "$ca" >> /etc/openresty/tls/trusted.pem
 done
 
+# Which app each hostname goes to: $app_backend for nginx (Lua reads the
+# same variables, lua/keepsake/backends.lua). Hostnames in STAGING_HOSTS go
+# to STAGING_UPSTREAM, everything else to APP_UPSTREAM.
+APP_UPSTREAM="${APP_UPSTREAM:-app:4100}"
+if [ -n "${STAGING_HOSTS:-}" ] && [ -z "${STAGING_UPSTREAM:-}" ]; then
+  echo "STAGING_HOSTS is set but STAGING_UPSTREAM isn't" >&2
+  exit 1
+fi
+mkdir -p /etc/openresty/generated
+{
+  echo "map \$host \$app_backend {"
+  echo "  hostnames;"
+  echo "  default $APP_UPSTREAM;"
+  for host in ${STAGING_HOSTS:-}; do
+    echo "  $host $STAGING_UPSTREAM;"
+  done
+  echo "}"
+} > /etc/openresty/generated/upstream.conf
+
 exec "$@"

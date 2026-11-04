@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# The optional metrics profile: Prometheus, Grafana and Uptime Kuma.
+# Off by default; together they use about 400-600 MB of memory.
+#
+#   bin/metrics on       start them (and keep them on across deploys)
+#   bin/metrics off      stop and remove them (their data volumes stay)
+#   bin/metrics status
+#
+# They listen on 127.0.0.1 only. From your machine:
+#   ssh -N -L 3000:127.0.0.1:3000 -L 3001:127.0.0.1:3001 deploy@<server>
+# then open http://localhost:3000 (Grafana) and http://localhost:3001
+# (Uptime Kuma). The apps' metrics themselves are always collected
+# (METRICS_ENABLED); this only switches on what reads and shows them.
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+services=(prometheus grafana uptime-kuma)
+
+case "${1:-status}" in
+  on)
+    # Without it Grafana would start with admin/admin
+    grep -Eq '^GRAFANA_ADMIN_PASSWORD=.{12,}' "$KS_ROOT/infra/.env" ||
+      die "set GRAFANA_ADMIN_PASSWORD (12+ characters) in $KS_ROOT/infra/.env first"
+    touch "$KS_ROOT/infra/.metrics-on"
+    infra up -d --wait --quiet-pull "${services[@]}"
+    say "metrics: on"
+    ;;
+  off)
+    infra --profile metrics rm -sf "${services[@]}"
+    rm -f "$KS_ROOT/infra/.metrics-on"
+    say "metrics: off (data kept)"
+    ;;
+  status)
+    if [ -f "$KS_ROOT/infra/.metrics-on" ]; then
+      say "metrics: on"
+      infra ps "${services[@]}"
+    else
+      say "metrics: off"
+    fi
+    ;;
+  *)
+    die "usage: bin/metrics on|off|status"
+    ;;
+esac

@@ -1,0 +1,26 @@
+# Scrapes each app's metrics listener (Keepsakes.PromEx, port 4021) over
+# the `keepsakes` network. Docker's DNS lists every container answering to
+# app-<env>, so during a rolling deploy both are scraped. An environment
+# that isn't running just shows as down.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: keepsakes-production
+    dns_sd_configs:
+      - names: [app-production]
+        type: A
+        port: 4021
+        refresh_interval: 30s
+
+  - job_name: keepsakes-staging
+    dns_sd_configs:
+      - names: [app-staging]
+        type: A
+        port: 4021
+        refresh_interval: 30s
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

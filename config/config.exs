@@ -64,6 +64,19 @@ config :error_tracker,
   otp_app: :keepsakes,
   enabled: true
 
+# Prometheus metrics (Keepsakes.PromEx): off unless runtime.exs turns them
+# on (METRICS_ENABLED). Served by our own listener on :metrics' port, not
+# PromEx's server (that one needs Cowboy) and not through Grafana uploads
+# (the server provisions dashboards from files).
+config :keepsakes, :metrics, enabled: false, port: 4021
+
+config :keepsakes, Keepsakes.PromEx,
+  disabled: false,
+  manual_metrics_start_delay: :no_delay,
+  drop_metrics_groups: [],
+  grafana: :disabled,
+  metrics_server: :disabled
+
 # The staff portal's host (prod derives it from PHX_HOST in runtime.exs).
 # *.localhost resolves to this machine, so dev needs no hosts-file edits.
 config :keepsakes, :admin_host, "admin.localhost"

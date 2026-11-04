@@ -1,0 +1,11 @@
+# Grafana's only data source. PromEx's dashboards ask for "prometheus".
+apiVersion: 1
+
+datasources:
+  - name: prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

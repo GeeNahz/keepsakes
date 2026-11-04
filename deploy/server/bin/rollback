@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Goes back to the image that ran before the current one, with the same
+# no-downtime swap as a deploy:
+#
+#   bin/rollback <production|staging>
+#
+# Only the code goes back: migrations the newer version ran stay (they
+# must work with the old code anyway; see bin/deploy). To go further back,
+# deploy any earlier tag: bin/deploy <env> <tag> (GHCR keeps the last ten).
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+env="${1:-}"
+valid_env "$env"
+
+previous="$(cat "$KS_ROOT/$env/.previous" 2>/dev/null || true)"
+[ -n "$previous" ] || die "$env: no earlier version recorded"
+
+say "$env: rolling back to $previous"
+exec "$DEPLOY_DIR/bin/deploy" "$env" "$previous"

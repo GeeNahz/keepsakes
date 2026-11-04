@@ -16,6 +16,10 @@ defmodule KeepsakesWeb.Endpoint do
     websocket: [connect_info: [:peer_data, :x_headers, session: @session_options]],
     longpoll: [connect_info: [:peer_data, :x_headers, session: @session_options]]
 
+  # Up or down, for Docker, the deploy script and uptime monitors. First, so
+  # health checks skip logging, sessions and maintenance mode
+  plug KeepsakesWeb.Healthz
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),

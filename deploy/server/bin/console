@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# An IEx shell inside a running app, or its logs:
+#
+#   bin/console <production|staging>          IEx connected to the live app
+#   bin/console <production|staging> logs     follow its logs
+#
+# Careful in production's IEx: it's the real app and the real data.
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+env="${1:-}"
+valid_env "$env"
+
+case "${2:-}" in
+  logs) app_compose "$env" logs -f --tail 100 app ;;
+  "") app_compose "$env" exec app bin/keepsakes remote ;;
+  *) die "usage: bin/console <env> [logs]" ;;
+esac

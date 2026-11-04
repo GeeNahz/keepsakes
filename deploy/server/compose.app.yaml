@@ -1,0 +1,41 @@
+# One environment's app: production or staging, each its own project
+# (ks-production, ks-staging) with its own settings file. Run through
+# bin/deploy, which sets KS_ENV and IMAGE_TAG and does the rolling swap:
+#
+#   bin/deploy staging <tag>
+#
+# Joins the `keepsakes` network made by compose.infra.yaml, under the name
+# app-<env> (what the edge's APP_UPSTREAM / STAGING_UPSTREAM point at).
+# During a deploy two containers share that name for a few seconds.
+
+services:
+  app:
+    image: ${KS_REGISTRY:-ghcr.io/geenahz}/keepsakes:${IMAGE_TAG:?set by bin/deploy}
+    env_file: ${KS_ROOT:-/srv/keepsakes}/${KS_ENV:?set by bin/deploy}/.env
+    environment:
+      PORT: "4000"
+      PHX_SERVER: "true"
+      KS_ENV: ${KS_ENV}
+    volumes:
+      - uploads:/var/lib/keepsakes/uploads
+    networks:
+      keepsakes:
+        aliases:
+          - app-${KS_ENV}
+    # Time to finish requests and close LiveView sockets on the way out
+    stop_grace_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  keepsakes:
+    external: true
+
+volumes:
+  uploads:
+    external: true
+    name: keepsakes-uploads-${KS_ENV}

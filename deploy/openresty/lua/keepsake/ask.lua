@@ -11,10 +11,13 @@
 -- Step 6 adds a cap on how many *new* names may get certificates per minute
 -- and per hour, on top of the app's yes.
 local http = require("resty.http")
+local backends = require("keepsake.backends")
 
 local _M = {}
 
-local ASK_URL = "http://app:4100/internal/tls/ask"
+-- Asked of the app the name belongs to (keepsake/backends.lua): staging
+-- approves its own hostnames, production everything else
+local ASK_PATH = "/internal/tls/ask"
 local TTL = 60
 local cache = ngx.shared.tls_ask
 local token = os.getenv("TLS_ASK_TOKEN")
@@ -83,7 +86,7 @@ function _M.approved(domain)
   local httpc = http.new()
   httpc:set_timeout(timeout_ms)
 
-  local res, err = httpc:request_uri(ASK_URL, {
+  local res, err = httpc:request_uri("http://" .. backends.for_host(domain) .. ASK_PATH, {
     query = { domain = domain },
     headers = { ["x-tls-ask-token"] = (token ~= "" and token) or nil },
   })

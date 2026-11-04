@@ -21,7 +21,7 @@ config :keepsakes, KeepsakesWeb.Endpoint,
     host: nil,
     rewrite_on: [:x_forwarded_proto],
     exclude: [
-      paths: ["/internal/tls/ask"],
+      paths: ["/internal/tls/ask", "/healthz"],
       hosts: ["localhost", "127.0.0.1"]
     ]
   ]
