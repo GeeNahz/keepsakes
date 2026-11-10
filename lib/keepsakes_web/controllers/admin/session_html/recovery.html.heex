@@ -1,0 +1,21 @@
+<Layouts.app flash={@flash} shell={:admin}>
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1.5">
+      <h1 class="text-2xl font-bold">Save your recovery codes</h1>
+      <p class="text-ks-muted">
+        Each one works once if you lose your phone. They won't be shown again.
+      </p>
+    </div>
+
+    <ul
+      id="staff-recovery-codes"
+      class="grid grid-cols-2 gap-2 rounded-field bg-base-200 p-4 font-mono text-[15px]"
+    >
+      <li :for={code <- @codes}>{code}</li>
+    </ul>
+
+    <.form for={%{}} id="staff-finish-form" action={~p"/two-step/finish"}>
+      <.button variant="primary" size="lg" class="w-full">I've saved them, continue</.button>
+    </.form>
+  </div>
+</Layouts.app>

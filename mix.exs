@@ -40,6 +40,7 @@ defmodule Keepsakes.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:bcrypt_elixir, "~> 3.0"},
       {:phoenix, "~> 1.8.8"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
@@ -48,7 +49,7 @@ defmodule Keepsakes.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.2.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
-      {:phoenix_live_dashboard, "~> 0.8.3"},
+      {:phoenix_live_dashboard, "~> 0.9.1"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
       {:heroicons,
@@ -64,8 +65,20 @@ defmodule Keepsakes.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
-      {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:dns_cluster, "~> 0.3.1"},
+      {:bandit, "~> 1.5"},
+      {:dotenvy, "~> 1.2"},
+      {:oban, "~> 2.24"},
+      {:image, "~> 0.72.0"},
+      {:req_s3, "~> 0.2.5"},
+      {:hammer, "~> 7.5"},
+      {:cloak_ecto, "~> 1.3"},
+      {:nimble_totp, "~> 1.0"},
+      {:eqrcode, "~> 0.2.1"},
+      {:fun_with_flags, "~> 1.13"},
+      {:error_tracker, "~> 0.9.0"},
+      {:prom_ex, "~> 1.12"},
+      {:mox, "~> 1.3", only: :test}
     ]
   end
 

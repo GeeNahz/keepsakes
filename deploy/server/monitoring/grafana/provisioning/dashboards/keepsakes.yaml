@@ -1,0 +1,14 @@
+# Loads PromEx's dashboards (BEAM, Phoenix, LiveView, Ecto, Oban, the app)
+# from monitoring/grafana/dashboards/. Regenerate them after upgrading
+# PromEx, from the repo root:
+#   mix prom_ex.dashboard.export -m Keepsakes.PromEx -d beam.json --stdout
+# (one per dashboard; see DEPLOYMENT.md, "Metrics")
+apiVersion: 1
+
+providers:
+  - name: keepsakes
+    folder: Keepsake
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

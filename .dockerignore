@@ -1,0 +1,16 @@
+# Kept out of Docker build contexts: build output, local data and editor files.
+# (The dev image doesn't copy the source at all; it's mounted at runtime.)
+.git
+_build
+deps
+.elixir_ls
+.lexical
+cover
+erl_crash.dump
+*.ez
+priv/uploads
+priv/static/assets
+test_imgs
+.env
+.env.*
+!.env.example

@@ -1,0 +1,112 @@
+<%!-- [LEGAL REVIEW] Draft privacy notice, written from what the app
+     actually stores (see the contexts named in comments). Placeholders in
+     [BRACKETS] must be filled in. Keep it true when features change. --%>
+<Layouts.app flash={@flash} current_scope={@current_scope} shell={:marketing}>
+  <article
+    id="privacy"
+    class="mx-auto flex max-w-2xl flex-col gap-7 px-4 py-14 text-[15px] leading-relaxed sm:px-8"
+  >
+    <header class="flex flex-col gap-2">
+      <h1 class="font-display text-4xl font-bold">Privacy</h1>
+      <p class="text-ks-muted">Last updated {@updated}</p>
+      <p
+        id="privacy-review-note"
+        class="rounded-box border border-accent/40 bg-ks-amber-soft px-4 py-3 text-sm text-ks-amber-deep"
+      >
+        [LEGAL REVIEW] This notice is a working draft and will be reviewed before launch.
+      </p>
+    </header>
+
+    <section id="privacy-who" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">Who is responsible</h2>
+      <p>
+        [COMPANY NAME], [ADDRESS], is responsible for the personal data described here. Contact:
+        [CONTACT EMAIL]. [LEGAL REVIEW: name a Data Protection Officer if required under the NDPA.]
+      </p>
+    </section>
+
+    <section id="privacy-what" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">What we keep, and why</h2>
+      <ul class="flex list-disc flex-col gap-1.5 pl-5">
+        <li>
+          <strong>Your account:</strong> name, email, password (stored only as a one-way hash),
+          optional photo and bio, your settings, and when you agreed to the terms. To run your account.
+        </li>
+        <li>
+          <strong>Your albums:</strong> photos and their details (titles, dates, captions, places,
+          people's names you type). Location data embedded in photos is removed from the copies
+          guests see. To show your albums to you and the people you share with.
+        </li>
+        <li>
+          <strong>Security:</strong>
+          access codes and two-step login secrets are stored encrypted. We
+          record the devices you're signed in on and limit repeated wrong codes and passwords, using
+          the network address they came from.
+        </li>
+        <li>
+          <strong>Guests:</strong>
+          guests don't need an account. When a guest adds a photo or signs a
+          guestbook we keep the name they give, and a random identifier for their browser so a heart
+          counts once. We count how often an album is opened, not who opened it.
+        </li>
+        <li>
+          <strong>Payments:</strong>
+          Flutterwave processes card payments. We never see your full card
+          number; we keep a reference Flutterwave gives us for renewals, the card's brand and last four
+          digits, and your invoices.
+        </li>
+        <li>
+          <strong>Support:</strong> messages and attachments you send us.
+        </li>
+      </ul>
+      <p>
+        Our legal bases are providing the service you signed up for, our legitimate interest in keeping
+        it safe, and the law (for example keeping invoices). [LEGAL REVIEW: confirm bases under the NDPA.]
+      </p>
+    </section>
+
+    <section id="privacy-processors" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">Who helps us</h2>
+      <p>
+        We use a few providers who handle data on our behalf: Cloudflare (photo storage, R2),
+        Resend (sending email), Flutterwave (payments) and DigitalOcean (our servers). Some of them store
+        data outside Nigeria. [LEGAL REVIEW: cross-border transfer safeguards.]
+      </p>
+    </section>
+
+    <section id="privacy-cookies" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">Cookies</h2>
+      <p>
+        We use one cookie to keep you signed in and to remember which shared albums you've unlocked, plus
+        your browser's local storage for your light or dark theme. No advertising or tracking cookies.
+      </p>
+    </section>
+
+    <section id="privacy-retention" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">How long we keep it</h2>
+      <p>
+        For as long as you have an account. When you delete it, everything goes after a 14-day window in
+        which you can change your mind, except invoices and payment records, which we keep for
+        [RETENTION PERIOD] for accounting. Exports you request are deleted after 7 days.
+      </p>
+    </section>
+
+    <section id="privacy-rights" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">Your rights</h2>
+      <p>
+        Under Nigeria's Data Protection Act 2023 you can ask to see, correct, move or delete your data,
+        and object to how we use it. Most of this you can do yourself: edit your details in Settings,
+        export everything from Settings → Data &amp; privacy, or delete your account there. For anything
+        else, write to [CONTACT EMAIL]. You can also complain to the Nigeria Data Protection Commission.
+      </p>
+    </section>
+
+    <section id="privacy-changes" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">Changes</h2>
+      <p>
+        We'll update this page when what we do changes, and tell you by email if it's significant. See
+        also our <.link href={~p"/terms"} class="font-medium underline">Terms of use</.link>.
+      </p>
+    </section>
+  </article>
+</Layouts.app>

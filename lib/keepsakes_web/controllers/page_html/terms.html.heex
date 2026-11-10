@@ -1,0 +1,114 @@
+<%!-- [LEGAL REVIEW] Draft terms, to be reviewed by a lawyer before launch.
+     Placeholders in [BRACKETS] must be filled in. The "What you upload"
+     section is what sign-up, guest uploads and music uploads ask people to
+     agree to: if its meaning changes, bump Accounts.terms_version/0 so
+     everyone is asked again. --%>
+<Layouts.app flash={@flash} current_scope={@current_scope} shell={:marketing}>
+  <article
+    id="terms"
+    class="mx-auto flex max-w-2xl flex-col gap-7 px-4 py-14 text-[15px] leading-relaxed sm:px-8"
+  >
+    <header class="flex flex-col gap-2">
+      <h1 class="font-display text-4xl font-bold">Terms of use</h1>
+      <p class="text-ks-muted">Version {@version}</p>
+      <p
+        id="terms-review-note"
+        class="rounded-box border border-accent/40 bg-ks-amber-soft px-4 py-3 text-sm text-ks-amber-deep"
+      >
+        [LEGAL REVIEW] These terms are a working draft and will be reviewed before launch.
+      </p>
+    </header>
+
+    <section id="terms-service" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">1. Who we are and what this covers</h2>
+      <p>
+        Keepsake is run by [COMPANY NAME], [ADDRESS] ("we"). These terms cover your use of Keepsake:
+        the website, your account, and the albums you create and share. By creating an account, or by
+        adding photos to someone's album as a guest, you agree to them.
+      </p>
+    </section>
+
+    <section id="terms-account" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">2. Your account</h2>
+      <p>
+        You need to be at least [MINIMUM AGE] to create an account. Keep your password safe and your
+        email address current; you're responsible for what happens under your account. You can turn on
+        two-step login in Settings.
+      </p>
+    </section>
+
+    <section id="terms-uploads" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">3. What you upload</h2>
+      <p>
+        You keep ownership of the photos, music and words you add. You must own them, or have
+        permission from whoever does, to upload and share them. That includes music you add to a
+        slideshow: you are responsible for having the rights to use it, and for any claim that you didn't.
+      </p>
+      <p>
+        Guests who add photos to an album confirm the same for the photos they add. The album's owner
+        decides what is shown.
+      </p>
+      <p>
+        You give us permission to store, resize and show your content only to run the service for you
+        and the people you share with. We don't sell it, and we don't use it for advertising.
+      </p>
+    </section>
+
+    <section id="terms-sharing" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">4. Sharing, guests and collaborators</h2>
+      <p>
+        Anyone with an album's link and access code can see it. Keep codes to the people you mean to
+        share with, and change the code if it spreads further. People you invite as collaborators can add
+        and edit photos (editors) or see every photo (viewers); you can remove them at any time.
+      </p>
+    </section>
+
+    <section id="terms-payments" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">5. Plans, trials and payments</h2>
+      <p>
+        New accounts start on a free trial. When it ends you can choose a paid plan or continue on the
+        Free plan; nothing you've added is deleted, but you can't add more than Free allows. Paid plans
+        are billed monthly or yearly by card through Flutterwave, renew automatically, and can be
+        cancelled any time in Settings (you keep the plan until the period ends). Refunds are at our
+        discretion unless the law requires otherwise. [LEGAL REVIEW: refund policy]
+      </p>
+    </section>
+
+    <section id="terms-removal" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">6. Content and accounts we may remove</h2>
+      <p>
+        Don't use Keepsake for anything illegal, for content that exploits or harms anyone, or for content
+        you don't have the rights to. We may remove content, or pause an account, when we receive a
+        credible report that it breaks these terms or the law. Anyone can report an album from its page.
+      </p>
+    </section>
+
+    <section id="terms-ending" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">7. Leaving</h2>
+      <p>
+        You can export everything and delete your account at any time from Settings. Deletion takes
+        effect after 14 days, during which you can change your mind; invoices are kept for our accounting.
+      </p>
+    </section>
+
+    <section id="terms-liability" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">8. Our responsibility</h2>
+      <p>
+        We work hard to keep Keepsake running and your photos safe, and we keep backups, but we can't
+        promise the service will never be interrupted. Please keep your own copies of photos that matter.
+        [LEGAL REVIEW: limitation of liability, governing law ([JURISDICTION]) and disputes]
+      </p>
+    </section>
+
+    <section id="terms-changes" class="flex flex-col gap-2">
+      <h2 class="text-xl font-bold">9. Changes and contact</h2>
+      <p>
+        If we change these terms in a way that matters, we'll tell you by email or in the app before the
+        change applies. Questions: [CONTACT EMAIL]. How we handle personal data is in our <.link
+          href={~p"/privacy"}
+          class="font-medium underline"
+        >Privacy notice</.link>.
+      </p>
+    </section>
+  </article>
+</Layouts.app>

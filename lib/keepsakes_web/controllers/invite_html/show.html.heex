@@ -1,0 +1,43 @@
+<Layouts.app flash={@flash} current_scope={@current_scope} shell={:plain}>
+  <section id="invite" class="mx-auto flex max-w-md flex-col items-center gap-5 py-16 text-center">
+    <div class="flex size-14 items-center justify-center rounded-[14px] bg-ks-teal-soft">
+      <.icon name="hero-user-group" class="size-7 text-primary" />
+    </div>
+
+    <%= case @state do %>
+      <% :invalid -> %>
+        <h1 id="invite-invalid" class="text-3xl font-bold">This invitation has expired</h1>
+        <p class="text-ks-muted">
+          Invitations work for 14 days and only once. Ask the album's owner to send a new one.
+        </p>
+      <% :signed_out -> %>
+        <h1 id="invite-title" class="text-3xl font-bold">Join {@invite.album.name}</h1>
+        <p class="text-ks-muted">
+          {@owner_name} invited {@invite.email} to {@invite.album.name} as {role_text(
+            @invite.role
+          )}.
+          Log in, or create a free account, with that email to join.
+        </p>
+        <div class="flex flex-wrap justify-center gap-2.5">
+          <.button id="invite-log-in" variant="primary" href={~p"/auth/log-in"}>Log in</.button>
+          <.button id="invite-register" href={~p"/auth/register"}>Create an account</.button>
+        </div>
+      <% :wrong_account -> %>
+        <h1 id="invite-wrong-account" class="text-3xl font-bold">
+          This invitation is for someone else
+        </h1>
+        <p class="text-ks-muted">
+          It was sent to {@invite.email}, but you're logged in as {@current_scope.user.email}.
+          Log out and log in with {@invite.email} to join.
+        </p>
+      <% :ready -> %>
+        <h1 id="invite-title" class="text-3xl font-bold">Join {@invite.album.name}</h1>
+        <p class="text-ks-muted">
+          {@owner_name} invited you as {role_text(@invite.role)}.
+        </p>
+        <.form for={%{}} id="invite-accept-form" action={~p"/invites/#{@token}"} method="post">
+          <.button id="invite-accept" variant="primary" size="lg">Join the album</.button>
+        </.form>
+    <% end %>
+  </section>
+</Layouts.app>

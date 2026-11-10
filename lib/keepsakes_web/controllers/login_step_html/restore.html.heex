@@ -1,0 +1,23 @@
+<Layouts.app flash={@flash} shell={:auth}>
+  <div class="flex flex-col gap-2">
+    <h1 class="text-4xl font-bold leading-[1.1] sm:text-[40px]">Restore your account?</h1>
+    <p class="text-[17px] text-ks-muted">
+      Your account is paused and will be deleted for good on <strong class="text-base-content">{Calendar.strftime(@delete_on, "%-d %B %Y")}</strong>.
+    </p>
+  </div>
+
+  <div class="flex max-w-[440px] flex-col gap-4">
+    <p class="text-[15px] leading-relaxed text-ks-muted">
+      Restoring brings everything back as it was: your albums, photos, shared links and
+      your plan.
+    </p>
+    <.form for={%{}} id="restore-form" action={~p"/auth/restore"}>
+      <.button variant="primary" size="lg" class="w-full">Restore my account</.button>
+    </.form>
+    <.form for={%{}} action={~p"/auth/two-step/cancel"} method="delete">
+      <button type="submit" class="cursor-pointer text-sm font-bold text-primary">
+        Not now
+      </button>
+    </.form>
+  </div>
+</Layouts.app>

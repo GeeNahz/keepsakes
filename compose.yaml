@@ -1,0 +1,170 @@
+# Keepsake, run locally: the same services production runs, in one place.
+#
+#   docker compose up --build
+#   docker compose exec app mix run priv/repo/seeds.exs   # dev account + test domain
+#
+#   http://localhost:8088          the site, through OpenResty (the edge)
+#   http://admin.localhost:8088    the admin portal
+#   http://localhost:4100          the app directly, bypassing OpenResty
+#   https://photos.adaobi.test:8443  a customer domain over HTTPS, its
+#                                  certificate issued on demand by Pebble
+#                                  (resolve the name yourself: see
+#                                  docs/learning/openresty/04-on-demand-tls.md)
+#
+# pebble + challtestsrv are a local Let's Encrypt and its DNS; production
+# uses the real CA and DNS instead.
+#
+# Your source is mounted into the app container, so code reloading works as
+# with `mix phx.server`. Settings come from .env; DB_HOST points at the db
+# service here. Production pulls the app image from GHCR instead of building
+# it (Stage 11). Learning route: docs/learning/openresty/.
+name: keepsakes
+
+services:
+  db:
+    image: postgres:18.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASS: postgres
+      PORT: "4100"
+      # Listen on the container's network, not just its loopback
+      PHX_BIND_IP: 0.0.0.0
+    volumes:
+      - .:/app
+      # Kept in volumes so the container's compiled files don't mix with yours
+      - deps:/app/deps
+      - build:/app/_build
+      - hex:/home/dev/.hex
+      - mix:/home/dev/.mix
+    ports:
+      - "4100:4100"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  openresty:
+    build: ./deploy/openresty
+    ports:
+      - "8088:80"
+      - "8443:443"
+    environment:
+      # Where certificates come from: Pebble here, Let's Encrypt in production
+      ACME_DIRECTORY_URL: https://pebble:14000/dir
+      ACME_EMAIL: dev@keepsake.test
+      # Renew with this many days left (30), checking every N seconds (6 h).
+      # Set from your shell to watch a renewal: see docs/learning/openresty/05-*
+      ACME_RENEW_DAYS: ${ACME_RENEW_DAYS:-30}
+      ACME_RENEW_CHECK_SECONDS: ${ACME_RENEW_CHECK_SECONDS:-21600}
+      # At most this many brand-new certificates per minute / hour (step 6)
+      ACME_NEW_PER_MINUTE: ${ACME_NEW_PER_MINUTE:-10}
+      ACME_NEW_PER_HOUR: ${ACME_NEW_PER_HOUR:-90}
+      # Must match the app's (both read it from .env); empty = not required
+      TLS_ASK_TOKEN: ${TLS_ASK_TOKEN:-}
+      # The dev server takes seconds per request here (it checks the source
+      # for changes first); a release answers in ms, so production keeps 2 s
+      TLS_ASK_TIMEOUT_MS: "10000"
+    volumes:
+      # Live config: after an edit, `docker compose exec openresty openresty -s reload`
+      # (the image bakes the same files in for production)
+      - ./deploy/openresty/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./deploy/openresty/conf.d:/etc/nginx/conf.d:ro
+      - ./deploy/openresty/snippets:/etc/nginx/snippets:ro
+      - ./deploy/openresty/lua:/etc/nginx/lua:ro
+      # Trust Pebble's HTTPS when talking ACME to it (local only)
+      - ./deploy/pebble/pebble.minica.pem:/etc/openresty/extra-ca/pebble.minica.pem:ro
+      # Certificates and the ACME account key survive restarts and rebuilds
+      - certs:/var/lib/acme
+    networks:
+      default:
+        # Fixed, so the test DNS server can point every test domain here
+        ipv4_address: 172.30.0.10
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  # --- The production image, run locally (docs/learning/openresty/07-*) ---
+  # Only with `--profile release`. Its own empty database (keepsakes_release),
+  # so it never migrates or touches your dev data. Not behind OpenResty.
+  #   docker compose --profile release up -d --build app_release
+  #   http://localhost:4200
+  app_release:
+    profiles: [release]
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: ecto://postgres:postgres@db/keepsakes_release
+      PHX_HOST: localhost
+      PORT: "4000"
+      # Local-only throwaway values; production's come from the VPS .env
+      SECRET_KEY_BASE: local-release-only-not-a-secret-local-release-only-not-a-secret-0000
+      CLOAK_KEY: slicKIYnX3WbZIL9SNNqZj8ULVZOxtSDCumAStf8nek=
+      # The release has no /dev/mailbox: mail goes through Resend, as in production
+      MAIL_DELIVERY: resend
+    ports:
+      - "4200:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # --- A local certificate authority (docs/learning/openresty/03-*) ---
+
+  # Pebble: Let's Encrypt's test CA. Same ACME protocol as the real one, but
+  # it issues throwaway certificates instantly, with no rate limits.
+  # ACME directory: https://pebble:14000/dir (on the compose network)
+  pebble:
+    image: ghcr.io/letsencrypt/pebble:2.10.1
+    command: -config /etc/pebble/pebble-config.json -dnsserver challtestsrv:8053
+    environment:
+      # Validate at once instead of after a random pause, and don't reject
+      # a share of requests on purpose (Pebble does both by default to keep
+      # clients honest)
+      PEBBLE_VA_NOSLEEP: "1"
+      PEBBLE_WFE_NONCEREJECT: "0"
+    volumes:
+      - ./deploy/pebble/pebble-config.json:/etc/pebble/pebble-config.json:ro
+    depends_on:
+      - challtestsrv
+    restart: unless-stopped
+
+  # challtestsrv: a fake DNS server for Pebble. Every name it's asked about
+  # resolves to OpenResty, so any test domain "points at our edge", the way a
+  # customer's CNAME would in real life.
+  challtestsrv:
+    image: ghcr.io/letsencrypt/pebble-challtestsrv:2.10.1
+    command: -defaultIPv4 172.30.0.10 -defaultIPv6 "" -http01 "" -https01 "" -tlsalpn01 "" -doh ""
+    restart: unless-stopped
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  db_data:
+  deps:
+  build:
+  hex:
+  mix:
+  certs:

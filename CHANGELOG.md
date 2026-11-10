@@ -1,0 +1,284 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- `.env` loading via Dotenvy in `config/runtime.exs` (real env vars win); every variable is documented in the committed `.env.example`, and dev/test DB credentials come from `DB_USER`/`DB_PASS`/`DB_HOST`/`DB_PORT`.
+- Project `.tool-versions` pinning Erlang 29.0, Elixir 1.19.5 and Node.js 26.12.1.
+- Oban background jobs (`media`, `mailers`, `billing`, `domains` queues) with the `oban_jobs` migration.
+- FunWithFlags feature flags persisted in Postgres (`fun_with_flags_toggles`, UUID key) with PubSub cache busting.
+- Self-hosted ErrorTracker error tracking (`error_tracker_*` tables), disabled in test.
+- `Keepsakes.Vault` (Cloak AES-GCM, key from `CLOAK_KEY`) and `Keepsakes.Encrypted.Binary` Ecto type for encrypting sensitive columns.
+- `Keepsakes.RateLimit` ETS rate limiter (Hammer) for access-code and auth throttling.
+- `Keepsakes.Schema` base module enforcing UUID (`:binary_id`) primary and foreign keys plus UTC timestamps on every schema.
+- `Keepsakes.Settings` typed system configuration (`system_settings` table) with defaults for trial days (60), grace days (7), image long edge (2400 px), image quality, max upload size, signups, maintenance mode and default template, plus an ETS cache invalidated over PubSub.
+- `Keepsakes.Storage` behaviour with `Local` (signed `/media/<token>` URLs) and `S3` (Cloudflare R2 / DigitalOcean Spaces via ReqS3, presigned URLs) adapters, selected by whether `S3_BUCKET` is set.
+- `keepsake` and `keepsake-night` daisyUI themes and `ks-*` design tokens from the design canvas, with self-hosted font declarations for DM Sans, Bricolage Grotesque, DM Mono and Caveat.
+- Self-hosted latin WOFF2 font files (DM Sans, Bricolage Grotesque, DM Mono 500, Caveat 600) in `priv/static/fonts`.
+- Core components `logo`, `avatar`, `badge`, `meter` and `modal`, plus `primary`/`secondary`/`outline`/`ghost`/`danger` button variants.
+- Dev-only component gallery at `/dev/components`.
+- GitHub Actions CI workflow running `mix precommit` against Postgres 18 on every push and pull request.
+- User accounts (`phx.gen.auth`, LiveView, bcrypt): `users` table with `first_name`, optional `last_name`, citext `email`, `avatar_key`, `hashed_password`, `confirmed_at`, plus `users_tokens`, all UUID-keyed.
+- Registration at `/users/register` ported from the design's "Create your account" screen (first name, last name, email, password); new users are logged in immediately and emailed a confirmation link.
+- Log in at `/users/log-in` with email + password ("Keep me logged in") or an emailed one-time sign-in link.
+- "Forgot password?" at `/users/reset-password`, which emails a 15-minute link that signs the user in and opens the password section of settings.
+- Confirm-email banner in the owner portal for unconfirmed accounts, with `POST /users/confirm/resend` to send a new link.
+- Branded HTML + plain-text transactional emails (`Keepsakes.Mailer.build/1`, `Keepsakes.Mailer.Layout`) for confirmation, sign-in link, password reset and email change.
+- Resend email delivery through Swoosh, enabled by `MAIL_DELIVERY=resend` (the default in prod) with `RESEND_API_KEY`, `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME`; dev keeps the local `/dev/mailbox` otherwise.
+- Rate limits on password log in (20 per 15 min per IP, 8 per email), emailed links (10 per hour per IP, 3 per 15 min per email) and registration (10 per hour per IP) via `KeepsakesWeb.AuthThrottle`.
+- Registration respects the `signups_open` system setting and shows a "sign-ups paused" notice when it is off.
+- Owner portal shell: header with "My albums" and an avatar menu (settings, log out, theme), album sidebar with the storage meter, used by `/albums` and settings.
+- `/albums` owner home showing the design's "Start your first album" empty state (album creation lands in Stage 2).
+- Name section in account settings, and a "Set a password" prompt for accounts without one.
+- `Keepsakes.Accounts.Scope` carries `user` plus `subscription` and `entitlements` slots for plans.
+- `docs/setup/accounts.md`: Cloudflare R2 and Resend setup walkthroughs, what `MAIL_DELIVERY` does, and a per-stage production-readiness checklist of accounts and variables.
+- `mix keepsakes.storage.check` (and `Keepsakes.Release.storage_check/0` for releases): writes, reads, signs a URL for, fetches and deletes a probe object to verify storage credentials.
+- `albums` and `memories` tables with `Keepsakes.Albums` context scoped to the owner: per-owner album slugs, drafts, publishing, timeline ordering (year, month, then upload order; undated last), cover selection, people tags and storage usage, with live PubSub updates.
+- Media pipeline (`Keepsakes.Media.ProcessMemory` Oban job on the `media` queue): reads EXIF date taken and GPS, auto-fills month/year and place without overwriting what the owner typed, rotates upright, stores 480/1200/2400 px WebP variants with all metadata stripped, then deletes the original. `Keepsakes.Media.Purge` removes files of deleted memories.
+- Place names from photo GPS via OpenStreetMap Nominatim (`Keepsakes.Media.Geocoder`, rate limited to 1 request/second), switchable off with `GEOCODER=none`.
+- `GET /media/:token` serves locally stored photos from signed, expiring tokens, with `LOCAL_X_ACCEL_PREFIX` handing the file off to OpenResty in production.
+- Album page (`/albums/:slug`): AlbumNoPhotos empty state with drag-and-drop, and the Album grid with cover badge, "Needs name/date" badges and a "Sorted by date taken" summary.
+- Upload screen (`/albums/:slug/upload`) for Upload one and Bulk upload: drag-and-drop, `UploadQueue` with progress and readiness, `MemoryForm` that saves as you type, people chips, Prev/Next with readiness dots, live "optimised" note, Save/Cancel. Unfinished drafts can be resumed later.
+- Memory editor dialog (`/albums/:slug/memories/:id`) to edit details, set the album cover or delete a memory.
+- New album dialog from the sidebar, and a working "Start your first album" form; `/albums` opens the newest album.
+- Mobile album switcher row on the owner pages.
+- Development seeds (`priv/repo/seeds.exs`): a confirmed local test account and sample photos in `tmp/sample-photos/`.
+- `share_links` table and `Keepsakes.Sharing` context: one public link per album (`/a/<album-slug>-XXXX`), a 6-digit access code encrypted at rest (random or chosen by the owner, with obviously guessable codes like `123456` rejected), a code version that locks out old guests when the code changes, expiry, default guest view, captions/locations and download options, and open counts.
+- Share page (`/albums/:slug/share`): set up sharing, copy the link, code and invite message, change the code (new random or your own), guest settings that save as you change them, activity ("Opened 14 times · last opened 2 hours ago") and Turn off sharing.
+- Guest Access page (`/a/:slug`): six auto-advancing digit boxes with paste support, checked by `POST /a/:slug/access`, which is limited to 5 tries per 15 minutes per link and IP and remembers the unlock in the session. Unknown, turned-off and expired links show a "not available" page.
+- Guest Timeline (`/a/:slug/timeline`): polaroids along a dashed trail (zig-zag on wide screens, alternating column on phones) with year markers and "To be continued…"; only complete, processed memories are shown.
+- Auto-scroll on the timeline (`?auto=1` or the header toggle): slow/normal/fast, pause, replay from the top, pauses when the guest scrolls by hand.
+- Guest Slideshow (`/a/:slug/slideshow`): tilted carousel over the trail, play/pause, previous/next, 3/5/8 second pacing, progress bar, jump-to stops, arrow keys, space and swipe.
+- Guest photo downloads (`GET /a/:slug/photos/:id/download`) when the owner allows them.
+- Owner preview of the guest views without a code (`/a/preview/:album_slug/timeline`), and a banner when the owner views their own shared album.
+- Guest pages use a `guest_root` layout: always the night theme, `noindex`, same-origin referrer.
+- Dev seeds also create a shared "Our Little One" sample album with six processed memories (code `482917`).
+- Guest templates: a `templates` table (slug, name, description, renderer, theme, premium, active, position, optional owner `user_id` for future user-made templates), `albums.template_id` and `users.default_template_id`, seeded with "Trail" (the canvas design, system default) and "Daylight" (the same layout on warm paper with teal accents).
+- `Keepsakes.Templates` context: templates available to a user (public plus their own), the system default from `Settings.default_template`, new albums get the owner's default template, and guest pages fall back from the album's template to the owner's default to the system default when a template is switched off.
+- `Keepsakes.Templates.Theme`: validated colour and font slots that become CSS custom properties over the new `ks-guest-*` tokens; invalid values are never emitted.
+- `KeepsakesWeb.Templates.Renderer` behaviour (`access/1`, `unavailable/1`, `timeline/1`, `slideshow/1`) with `KeepsakesWeb.Templates.Trail` as the first renderer.
+- Template picker at `/albums/:slug/template` (Template button on the album page): cards drawn in each template's colours with the album's own photos, In use and Premium badges, Preview, Use this template, and a disabled "Create your own – Coming soon" card.
+- Preview an album in a template before using it at `/a/preview/:album_slug/:template/timeline` (and `/slideshow`); the preview banner names the template and links back to the picker.
+- "Template for new albums" setting on `/users/settings`.
+- Plans and prices: `plans` (free/trial/paid, public flag, feature values as JSON) and `plan_prices` (NGN/USD, month/year, minor units), seeded with Free, Plus, Pro and a hidden Free trial plan (Pro features). Plus and Pro prices are [TBD] placeholders: ₦5,000/₦50,000 and $5/$50 for Plus, ₦12,000/₦120,000 and $12/$120 for Pro, per month/year.
+- `Keepsakes.Billing.Features` feature catalogue (album, photo-per-album, storage, upload-size, collaborator and custom-domain limits; premium templates, guest downloads, remove branding, guest uploads, time capsule, reactions/guestbook and slideshow music switches) with validation for plan values.
+- Subscriptions: `subscriptions` (one per user) and `subscription_events`. Registration starts a 60-day trial in the same transaction; existing accounts were given a trial starting from the migration.
+- Trial lifecycle (`Billing.advance/1`, hourly `Billing.LifecycleWorker` cron on the `billing` queue): reminder email a week before the trial ends, then 7 days of grace with full access, then the Free plan, each with an email and an event, and safe against double runs.
+- `Keepsakes.Entitlements`: plan values read fresh on each check, `check/4` under a per-user Postgres advisory lock, and friendly over-limit messages. Album creation, uploads (photo size, photos per album, storage) are refused over the plan's limits; nothing is ever deleted when an account is over its limits.
+- `/billing` (Plans & billing, also in the account menu and the sidebar): current plan and status, usage meters for storage, albums and the largest album, and Free/Plus/Pro compared in NGN or USD, monthly or yearly. Paid plan buttons say payments are coming (Stage 5b).
+- Over-limit banner across the owner portal, an upgrade notice in the New album dialog when the album limit is reached, and a dismissible notice when an upload is refused for a plan limit.
+- Card payments through Flutterwave v3 (`FLW_PUBLIC_KEY`, `FLW_SECRET_KEY`, `FLW_ENCRYPTION_KEY`, `FLW_SECRET_HASH` in `.env.example`): a `Keepsakes.Billing.Gateway` behaviour with `Gateways.Flutterwave` for hosted card checkout, transaction verification (by ID or reference), saved-card charges, refunds and webhook checks.
+- `invoices` (sequential `KS-000001` numbers, subtotal, credit and amount, paid period), `payments` (one per collection attempt, unique `tx_ref`), `payment_methods` (one card per user, token encrypted with Cloak) and `payment_events` (webhooks stored once by gateway event ID); subscriptions gain `pending_price_id`, `retry_count` and `next_retry_at`.
+- Choosing a plan on `/billing` shows what it means before paying: paying during the trial keeps the remaining trial days; upgrades (a higher plan, or monthly to yearly) start now with unused paid days credited in whole naira/dollars; downgrades and currency changes are booked for the next renewal and can be dropped ("Keep my current plan").
+- `GET /billing/return` confirms the payment with Flutterwave before applying it (amount and currency checked, applied exactly once), saves the card and emails a receipt; a cancelled checkout voids its invoice.
+- `POST /webhooks/flutterwave` checks `verif-hash`, stores the event once and confirms the payment in a background job (`Billing.WebhookWorker`).
+- Renewals in the hourly billing run: the saved card is charged at the end of each period; a failed charge makes the plan `past_due` with full access and is retried 1, 3 and 5 days after the first failure (with emails), then 7 days of grace, then Free. Payments left pending are re-checked after 15 minutes and given up after a day. Cancelled plans move to Free when the paid period ends.
+- Plans & billing shows price, renewal or end date, card on file, Cancel plan / Keep my plan, Pay now after a failed renewal, a booked change, and an invoice list; receipts at `/billing/invoices/:id` with Print.
+- Emails: receipt, renewal payment failed, and plan about to end after failed retries.
+- Discount codes: `discount_codes` (code, percent off, `once`/`repeating` for N months/`forever`, usage cap, expiry, plan limits, on/off) and `discount_redemptions` (one per user per code, terms copied when used); subscriptions carry the discount in use and invoices record `discount_minor` and a label such as "LAUNCH20 · 20% off".
+- "Have a code?" in the plan dialog on Plans & billing: codes are matched in any case, explain why they can't be used (invalid, expired, used up, wrong plan, already used), take their share off in whole naira/dollars before any upgrade credit, are checked again at payment, and keep applying at renewals while they last. 100% codes are refused for card plans.
+- `mix keepsakes.discount.create CODE --percent N --duration once|repeating|forever [--months N --max N --expires YYYY-MM-DD --plans plus,pro --description ...]` (and `Keepsakes.Billing.Discounts.create_code/1` for releases) until the admin portal exists.
+- Referrals: every user has an invite code (`users.referral_code`; existing accounts were given one) and signing up through `/auth/register?ref=CODE` records who invited them. When an invited person first pays, their inviter gets a free month: added to their current paid period, or banked and added to their first paid period while on the trial or Free. Once per invited person, with an email.
+- "Invite friends, get a free month" card on Plans & billing with the invite link, a copy button, and joined / months earned / waiting counts; the active discount shows with the plan details; receipts and receipt emails list the discount.
+- Settings area under `/app/settings` with a tab list (a scrolling row on phones that brings the current tab into view): Profile, Account, Security, Notifications, Sharing defaults, Templates, Billing, Referrals, Domains, Data & privacy; `/app/settings` opens Profile.
+- Profile tab: name, a short bio (`users.bio`) and a profile photo, cropped to a 256 px square WebP in storage; it replaces the initials in the account menu.
+- Security tab: optional two-step login with an authenticator app (TOTP secret encrypted with Cloak, QR code and typed key, 10 single-use recovery codes stored hashed, regenerate or turn off with a code), and signed-in devices (browser, address and date per session, with Sign out and Sign out all other devices); sessions now record their user agent and IP.
+- `/auth/two-step` after a correct password or sign-in link for accounts with two-step login (6 tries per 15 minutes), and `/auth/restore` for accounts paused for deletion.
+- Notifications tab: guest activity, billing reminders and product news switches (`users.notify_*`). A daily email (07:15 Lagos time) lists which shared albums were opened since the last one; billing reminders cover the trial-ending email and a new heads-up three days before a paid plan renews.
+- Sharing defaults tab: code mode, link expiry, first view, captions and downloads used for every new share link.
+- Referrals tab with the invite link and counts (moved from Plans & billing); Domains tab placeholder ("Coming soon").
+- Data & privacy tab: "Export everything" builds a zip of every album's photos (2400 px) and an `album.json` of their details in the background, emails a link valid for 7 days (`/app/settings/privacy/exports/:id`) and updates the page when ready (`data_exports` table). "Delete account" (type your email to confirm) signs out everywhere, stops shared links and renewals, emails the deletion date, and deletes everything for good after 14 days unless restored at login.
+- Daily `HousekeepingWorker` cron: guest activity emails, removing expired exports, deleting accounts past their 14-day pause.
+- Support tickets: `tickets` (numbers like `KS-T-1001`, category, priority, status, assignee, first-response/resolved/closed times, 1–5 rating), `ticket_messages` (customer, guest, staff or system; staff-only notes never shown to customers; microsecond timestamps keep order) and `ticket_attachments` (photos and PDFs stored under the owner's prefix).
+- Help & support at `/app/help` (in the account menu): contact support with a category, subject, message and up to 3 photos or PDFs (10 MB each), and a list of your tickets with their status.
+- Ticket page `/app/help/:number`: the conversation updates live, replies with files, Mark as solved and Reopen (writing on a solved ticket reopens it), and a rating once solved. Solved tickets close after 7 quiet days (daily housekeeping).
+- "Report this album" on the guest timeline opens `/a/:slug/report` (works without the code): a reason, optional details and an optional email; creates a high-priority abuse ticket linked to the album (5 reports per hour per address).
+- Support emails: "we've got your message" on a new ticket, a copy of each support reply, a thank-you to guests who leave an email, and alerts for new tickets and customer replies to `SUPPORT_INBOX` (new, optional) until the admin portal's inbox exists.
+- Upload progress bars for support attachments (files upload as soon as they're picked; Send shows "Uploading…" until they finish) and for the profile photo.
+- `Keepsakes.Storage.list/1` (S3 ListObjectsV2 with pagination, local disk) and `mix keepsakes.storage.clear`, which empties the configured bucket for a fresh start (asks first, never in prod, refuses buckets not named staging/dev/test without `--any-bucket`).
+- Admin portal on its own host, `admin.<PHX_HOST>` (`admin.localhost` in dev; `ADMIN_HOST` overrides it and must start with `admin.`), in the same app: `:admin_browser` pipeline, `admin_root` layout, `noindex` header and meta, and a 404 for main-site pages on the admin host and admin pages on the main host (`KeepsakesWeb.Hosts`).
+- Staff are ordinary accounts with an active `staff_memberships` row and one or more roles (`roles`, `staff_roles`); `Keepsakes.Staff` grants, changes and revokes access, and only a Super Admin can give, change or take away Super Admin. The last Super Admin and your own access can't be removed.
+- Staff sign-in at `admin.<host>/log-in` with the account's email and password, then a code when the account has two-step login. The admin session is its own 12-hour `staff_session` token, kept apart from the main site by host-only cookies, and checks staff access on every request.
+- `REQUIRE_STAFF_TWO_STEP` (off by default, meant for production): staff without two-step login set it up on sign-in (QR code, then recovery codes) before getting in.
+- Role-based permissions from a code-defined catalogue (`Keepsakes.Staff.Permissions`, e.g. `finance.refund`, `roles.manage`), seeded Super Admin (locked, all permissions), Finance and Support roles, a 403 for pages without the permission, and an admin sidebar that only lists permitted sections.
+- First Super Admin from `SUPER_ADMIN_EMAIL` (granted at startup and when that address signs up) or `mix keepsakes.staff.grant EMAIL --role ROLE` / `Keepsakes.Release.grant_staff/2` in a release.
+- Admin audit log (`audit_events`): staff sign-ins, staff and role changes with before/after values and IP, written in the same transaction as the change; `/audit` lists it with section and "done by" filters.
+- Admin dashboard at `admin.<host>/`: customers (new in 7 and 30 days), free trials, paying customers, share who have ever paid, 30-day churn, MRR and ARR per currency (list prices), photo storage, open tickets, and server-rendered SVG bar charts of sign-ups and uploads per day with table views (`Keepsakes.Metrics`, staff excluded).
+- Admin Staff page (`/staff`: add by account email, change roles, remove) and Roles pages (`/roles`, `/roles/new`, `/roles/:id`: name, description and grouped permission checkboxes, delete).
+- `docs/learning/admin-subdomain.md` explaining how one app serves the admin subdomain, and the admin row in the production checklist.
+- Admin Customers list at `admin.<host>/customers` (`users.view`): every customer account (staff left out), newest first, 50 at a time with Load more, search by name or email and filters by plan and status (including suspended and deletion pending), kept in the URL; the dashboard's Customers and Free trial tiles link to it.
+- Admin customer profile at `/customers/:id`: plan, trial or period end, card, banked free months, discount and plan history; albums, photos and storage against the plan with over-limit flags; albums (shared or not); support tickets; invoices (with `finance.view`); and staff activity on the account (with `audit.view`).
+- Customer fixes for staff with `users.manage`, each audited (and recorded in the plan history where it changes the plan):
+  - **Extend trial:** 1–90 days; also brings a trial in grace back. The customer is emailed.
+  - **Gift free months:** 1–12, used on their next paid checkout. Needs a reason.
+  - **Give a plan:** a paid plan until a date, free of charge and with no card. The customer is emailed.
+  - **Move to Free.**
+  - **Suspend / Unsuspend**, with a reason.
+- `Keepsakes.Customers` context behind those pages, and `users.suspended_at`, `users.suspension_reason` and `subscriptions.complimentary` columns.
+- Emails: "Your Keepsake trial now runs until …" and "You've been given Keepsake <plan>".
+- Admin Plans editor at `/plans`, `/plans/new`, `/plans/:id` (`plans.manage`):
+  - **List:** plans with their subscriber counts and current prices.
+  - **Create:** new paid plans.
+  - **Edit:** name, description, order on the pricing page and "Show to new buyers" (hide instead of delete); features from the catalogue (limits with an Unlimited box, storage in GB, switches for the rest); NGN/USD monthly and yearly prices. Free and Trial plans take name, description and features only.
+  - Each change is audited (`plan.created`, `plan.updated`, `price.changed`).
+- Admin Discount codes at `/discounts` (`discounts.manage`):
+  - **List:** each code's terms, uses / most uses, expiry, plans, and how much it took off paid invoices per currency.
+  - **Form:** create and edit codes, with an end date and plan limits. Turn a code off instead of deleting it.
+  - What a code gives is locked once someone has used it.
+  - Audited.
+- Admin Finance section (`finance.view`):
+  - **Overview (`/finance`):** money in this month and last per currency after refunds, 12-month revenue charts per currency, revenue by plan, refunds this month and failed payments in 30 days.
+  - **Payments (`/finance/payments`):** filter by status (including refunded), currency, dates and email / invoice / reference, 50 at a time.
+  - **Invoice (`/finance/invoices/:id`):** amounts, period, customer, payments and refunds.
+- Refunds from the invoice page (`finance.refund`):
+  - Full or partial, through Flutterwave, with a reason.
+  - A choice to end the plan now (move to Free) or keep it until the period ends with no renewal.
+  - The customer is emailed and the refund is audited (`payment.refunded`).
+  - New `refunds` table.
+- CSV exports of payments and refunds for a date range (`finance.export`, `/finance/export/payments.csv` and `/finance/export/refunds.csv`), audited as `finance.exported`.
+- Sidebar entries for Finance, Plans and Discount codes. The dashboard MRR tiles link to Finance, and customer invoices link to their invoice page.
+- Admin Support inbox at `/support` (`support.view`):
+  - Shows tickets needing a reply by default, plus filters for status, priority, category, assignee and search (number, subject, email). The filters are kept in the URL.
+  - Unanswered tickets are sorted by when their first reply is due, with an SLA badge: Overdue, Due soon, On track or Replied.
+  - Updates live as tickets arrive or change (new `support:inbox` topic).
+- Ticket page `/support/:number`:
+  - The full thread, with internal notes highlighted, plus the customer card, the reported album and the rating.
+  - Reply or add an internal note, with a canned-reply picker (`support.reply`).
+  - Mark solved, reopen or close (`support.reply`); assign and change priority (`support.assign`).
+  - Every staff action is audited; message text isn't copied into the log.
+- Canned replies at `/support/replies` (new `canned_replies` table).
+- First-reply targets as system settings: `sla_urgent_hours` 4, `sla_high_hours` 8, `sla_normal_hours` 24, `sla_low_hours` 72.
+- Admin Templates at `/templates` (`templates.manage`):
+  - **List:** each template with how many albums use it and which is the default.
+  - **Form:** name, renderer, premium, visible, order, and theme colours (`#RRGGBB`, empty uses the renderer's), fonts and light/dark, with a live preview.
+  - The default template can't be hidden. Changes are audited.
+- Admin System settings at `/settings` (`config.manage`):
+  - Every setting, grouped (trial & billing, uploads, sign-ups, templates, support targets, maintenance) and edited by type.
+  - "Reset to default" for changed ones. Each change is audited.
+- Maintenance mode is now enforced:
+  - While it's on, the main site answers with a 503 maintenance page (`maintenance_message`, `Retry-After`). Payment webhooks, media links and the admin portal keep working.
+  - Staff can use "View the site anyway": a signed 12-hour bypass link that sets a host-only cookie, and pages then show a "only staff can see this" banner.
+- Feature flags at `/flags` (`flags.manage`):
+  - Each flag is off, on for chosen customers (added by email), or on for everyone. Changes are audited.
+  - Flags are declared in `Keepsakes.Flags`, which `enabled?/2` checks. They start off and will gate custom domains, guest uploads, slideshow music, and reactions & guestbook as those are built.
+- The dashboard's open-tickets tile links to the inbox, and customer profiles link their tickets to it.
+- Custom domains, in Settings › Domains (`/app/settings/domains`):
+  - Customers add their own domain and see the two DNS records to create (TXT `_keepsake.<domain>` with a token, plus a CNAME to the edge host, or A records for a root domain), with copy buttons.
+  - Each domain shows its status and why it isn't connected yet, with "Check now" and remove.
+  - A switch per album chooses which shared albums appear on their site.
+  - Needs the `custom_domains` feature flag and a plan with custom domains (Pro); shows "Coming soon" or an upgrade prompt otherwise. A domain someone already has stays manageable.
+- New tables: `domains` (with `pending` / `verified` / `failed` / `blocked`), `blocked_hostnames`, and `albums.show_on_site`. `Keepsakes.Domains` checks DNS through a swappable resolver (`:inet_res`).
+- DNS polling (`Keepsakes.Domains.CheckWorker`, every 10 minutes):
+  - New domains are checked every 10 minutes for a day, then hourly for a week, then marked not connected.
+  - Connected domains are re-checked daily and fail after three bad checks in a row.
+  - Customers are emailed when a domain connects and when it fails.
+- A customer's verified domain serves their public site:
+  - `/` lists their chosen albums; `/<album>` opens the usual access, timeline, slideshow and report pages, with access codes still required.
+  - Served by a new `KeepsakesWeb.SiteRouter`, picked per request by `KeepsakesWeb.HostRouter`.
+  - Unconnected or blocked domains get a 404, and so do domains of suspended or deleting owners.
+- `GET /internal/tls/ask?domain=` for OpenResty's on-demand certificates (Stage 8b): 200 only for our hosts and verified domains, answered only on loopback or private networks, plus an optional `TLS_ASK_TOKEN` header.
+- Admin Domains at `/domains` (`domains.manage`):
+  - Every domain with owner, status, last check and error.
+  - Check now, block with a reason (the site stops at once) and unblock.
+  - A blocked-names list; adding `*.example.com` also blocks matching domains. Audited.
+- `EDGE_HOST`, `EDGE_IPS` and `TLS_ASK_TOKEN` settings, documented in `.env.example` and the production checklist; a section on the second router in `docs/learning/admin-subdomain.md`.
+- Local Docker stack in `compose.yaml`: Postgres 18.4 (`db`), the app running `mix phx.server` from the mounted source (`app`, `Dockerfile.dev`, port 4100) and OpenResty (`openresty`, `deploy/openresty`, port 8088). `PHX_BIND_IP` (dev only) lets Phoenix listen on all interfaces inside the container.
+- OpenResty learning route step 1 (`docs/learning/openresty/01-reverse-proxy.md`): OpenResty reverse-proxies every host to Phoenix, so the main site, `admin.localhost:8088` and customer domains all work through it.
+- OpenResty learning route step 2 (`docs/learning/openresty/02-websockets-and-real-ips.md`): LiveView WebSocket upgrades through the proxy, `X-Forwarded-For`/`X-Forwarded-Proto` set (overwritten) at the edge, and `/internal/` refused at the edge.
+- OpenResty learning route step 3 (`docs/learning/openresty/03-acme-and-http-01.md`): Pebble (Let's Encrypt's test CA, `deploy/pebble/pebble-config.json`) and challtestsrv (test DNS pointing every name at OpenResty's fixed address 172.30.0.10) in compose; OpenResty serves `/.well-known/acme-challenge/`.
+- OpenResty learning route step 4 (`docs/learning/openresty/04-on-demand-tls.md`): HTTPS on port 443 (8443 locally) with certificates issued on the first visit by lua-resty-acme 0.16.0, after asking `/internal/tls/ask` (`deploy/openresty/lua/keepsake/ask.lua`, answers cached 60 s, `TLS_ASK_TOKEN` sent when set). Names the app doesn't approve, and clients without SNI, get a throwaway fallback certificate; blocking a domain takes it off HTTPS within a minute. The ACME account key and certificates live in the `certs` volume; `ACME_DIRECTORY_URL` and `ACME_EMAIL` configure the CA, documented in `.env.example`.
+- OpenResty learning route step 5 (`docs/learning/openresty/05-storage-and-renewal.md`): certificates are renewed with 30 days left (`ACME_RENEW_DAYS`), checked every 6 hours (`ACME_RENEW_CHECK_SECONDS`), ready for Let's Encrypt's 64-day (2027) and 45-day (2028) certificates; failed orders back off 15 min → 1 h → 6 h → daily to stay inside Let's Encrypt's failed-validation limits; certificates the app stops approving are skipped, never deleted. The ask timeout is configurable (`TLS_ASK_TIMEOUT_MS`, 2 s; 10 s for the dev server in compose). Local Pebble keeps only a 90-day profile, as Let's Encrypt issues when no profile is named.
+- OpenResty learning route step 6 (`docs/learning/openresty/06-abuse-protection.md`): edge rate limits on sign-in POSTs (main `/auth/log-in`, `/auth/two-step`, `/auth/restore`; admin `/log-in`, `/two-step…`) and access-code POSTs (`/a/<slug>/access`, `/<album>/access`), 10 a minute per address with a burst of 10, then 429; page loads are never limited. A cap on brand-new certificates (`ACME_NEW_PER_MINUTE` 10, `ACME_NEW_PER_HOUR` 90; renewals don't count), so a burst of new names can't use up Let's Encrypt's order limit.
+- OpenResty learning route step 7 (`docs/learning/openresty/07-debugging-and-full-stack.md`): debugging with `openssl s_client -servername`, `curl --resolve` and the edge's log messages, an end-to-end check of a customer domain over HTTPS, and the production settings for the edge (Let's Encrypt staging then production, ports 80/443, DNS, backing up the `certs` volume).
+- Production `Dockerfile`: a multi-stage Elixir release (Erlang 29, Elixir 1.19.5) on Debian slim, running as `nobody`, with assets built by `mix assets.deploy` and local photos in a `/var/lib/keepsakes/uploads` volume. `bin/server` runs pending migrations (`bin/migrate`, `Keepsakes.Release.migrate/0`) and then starts the app; `Keepsakes.Release.rollback/2` rolls back. The `app_release` compose service (`--profile release`, port 4200, its own `keepsakes_release` database) runs the image locally.
+- `DEPLOYMENT.md`: setting up the local Docker stack step by step, and the production DNS, firewall, `.env` values, certificate go-live and post-deploy checklist (Stage 11 completes it with the production compose file, CI/CD and backups).
+- Dev seeds add a verified customer domain, `photos.adaobi.test`, showing the sample album, for trying custom domains through the Docker stack.
+- `KeepsakesWeb.ClientIP` plug: takes the visitor's address and scheme from the proxy's forwarded headers, only when the connection comes from a private-network address. LiveView sockets get the same through `connect_info: [:x_headers]`, so rate limits, the audit log and the `/internal/tls/ask` caller check see the real visitor. IPv4 callers on the release's IPv6 socket (`::ffff:a.b.c.d`) are judged by their IPv4 address.
+- Terms of use at `/terms` (`[LEGAL REVIEW]` draft, version `Accounts.terms_version/0`), including that people must own or have permission for everything they upload, music included. Sign-up requires agreeing (`users.terms_accepted_at`, `users.terms_version`); accounts from before agree the first time they add music.
+- Collaborators (`Keepsakes.Albums.Members`, `album_members`): the owner invites people to an album by email as an editor (adds and edits photos, reviews guest photos and notes) or a viewer (sees every photo) at `/app/albums/:slug/people`. Invitations are emailed, last 14 days and only work for the invited email (`/invites/:token`, joined with a button). Seats (`collaborator_seats`) count distinct people across the owner's albums. Joined albums appear under "Shared with me" in the sidebar and open at `/app/shared/:album_id`, with a Leave album action.
+- Guest uploads: with "Let guests add photos" on (share link `guest_uploads`, plus the `guest_uploads` flag and plan feature), guests who unlocked the link add photos at `/a/:slug/add` (and `/:album/add` on customers' domains) with their name and a rights confirmation; optional details apply to the whole batch. Photos are stored as `submitted` (`memories.source`, `guest_name`, `rights_confirmed_at`), count toward the owner's storage at once, are limited to 20 an hour per visitor, and wait in a "Waiting for approval" section on the album page (approve one, approve all, decline).
+- Hearts and guestbook: with the share link's `reactions_guestbook` switch (and flag and plan), guests heart photos on the timeline (`memory_reactions`, one per browser via a random `guest_visitor` session key, live for everyone) and sign `/a/:slug/guestbook` (`guestbook_entries`, 3 notes an hour per visitor). Notes show to others once the owner or an editor approves them; the album page lists pending and approved notes, and the guest-activity email counts what's waiting.
+- Time capsule (plans with `time_capsule`): an album (`albums.reveal_at`, Share page) or a single memory (`memories.reveal_at`, photo editor) stays sealed for guests until a date and time set in the owner's timezone. A sealed album shows "Opens on …" with a countdown; a sealed memory shows a sealed polaroid whose photo, title and caption are never sent, and it's left out of the slideshow, downloads and hearts. Owners and collaborators always see everything.
+- Slideshow music (`Keepsakes.Music`, `music_tracks`, `albums.music_track_id`): the owner uploads one MP3 or M4A (up to 15 MB, checked by its bytes, counted in storage) on the Share page, and guests get a "Play with music" button in the slideshow when the link's `slideshow_music` switch is on. Built for a future built-in library (`source: "library"` tracks). Exports include the track.
+- Printable QR card at `/app/albums/:slug/share/card` (cover, QR code, short link, optionally the code, plus an "Add your photos" card when guest uploads are on) and the QR code as a PNG at `/app/albums/:slug/share/qr.png`.
+- Installable app: `manifest.webmanifest`, icons (`priv/static/images/icons/`), and a service worker (`sw.js`) that caches static assets and shows `offline.html` when there's no connection. Pages and photos are never cached by it (photos rely on the browser cache).
+- Exports add each album's approved guestbook notes (`guestbook.json`).
+- The admin customer profile shows collaborators used against the plan's seats.
+- Landing page at `/` (`KeepsakesWeb.HomeLive`): hero, how it works, features (plan-gated ones marked), use cases, template showcase, pricing, FAQ and a final call to action, with real screenshots of the sample album (`priv/static/images/landing/`, retaken per `docs/setup/landing-screenshots.md`). Pricing comes live from the public plans in NGN or USD, monthly or yearly, with the yearly saving worked out from the prices; the trial and grace lengths in the copy and FAQ come from `Keepsakes.Settings`. Signed-in visitors still go straight to their albums.
+- Privacy notice at `/privacy`: a `[LEGAL REVIEW]` draft written from what the app stores (accounts, photos with location removed for guests, encrypted codes and 2FA secrets, guests' names and browser keys, Flutterwave card references, processors, cookies, retention, NDPA 2023 rights), with `[COMPANY NAME]`-style placeholders.
+- Search and sharing: per-page description, canonical URL, Open Graph and Twitter card tags with a 1200×630 preview image (`/images/og.png`), and JSON-LD for the product with its live prices on the landing page. `/sitemap.xml` lists the public pages from the endpoint's URL; `/robots.txt` opens the public site and closes the portal, guest albums, sign-in, invitations and media, and tells crawlers to stay off the admin host and customers' domains.
+- A `:marketing` layout shell (header with section links and Start free, footer with Terms, Privacy and Log in) for the landing and legal pages.
+- `GET /healthz` (`KeepsakesWeb.Healthz`, first in the endpoint): 200 `ok` when the app can reach its database within a second, 503 otherwise, on every host and without sessions or logging. The release image's Docker `HEALTHCHECK` uses it.
+- Admin › Errors (`admin.<host>/errors`, `/errors/:id`): the errors ErrorTracker recorded, shown in the admin layout with a sidebar link (`Keepsakes.Errors`, `ErrorLive.Index`/`Show`): unresolved by default, filter by status, search, times seen; each error's full message, occurrences, stack trace (our own frames in bold), request context and breadcrumbs. New permissions `errors.view` (look) and `errors.manage` (resolve, reopen, mute, unmute; audited as `error.*`).
+- Prometheus metrics (`Keepsakes.PromEx`: BEAM, Phoenix, LiveView, Ecto, Oban) served by `KeepsakesWeb.MetricsEndpoint` on port 4021 when `METRICS_ENABLED` is on (the default in production, never in dev or tests); the port is only reachable on the server's Docker network.
+- Production and staging on one server (`deploy/server/`): `compose.infra.yaml` (the edge on 80/443, Postgres 18.4 with a database and login per environment made by `postgres/init.sh`, nightly backups, and an optional metrics profile) and `compose.app.yaml` (one app per environment from GHCR), with `.env` templates in `deploy/server/env/` (`REQUIRE_STAFF_TWO_STEP=true` in both apps).
+- Zero-downtime deploys with `deploy/server/bin/deploy <env> <tag>`: the new container starts next to the old one, takes over once `/healthz` passes, and is removed (with the old one left serving) if it never does. `bin/rollback`, `bin/infra-up`, `bin/console` and `bin/backup` alongside it; the first deploy on a server starts the shared services itself.
+- Nightly encrypted backups (`deploy/backup/`): `pg_dump` of each database, the edge's certificates and any local-disk photos, encrypted with `age` to a public key and stored in R2 by `rclone` (7 daily, 4 weekly, 6 monthly), plus an add-only copy of each media bucket and an optional healthchecks.io ping. `bin/backup drill` restores the newest dump into a scratch database, counts rows and drops it; `bin/backup restore` restores into a new database.
+- The metrics profile, off by default and switched with `bin/metrics on|off`: Prometheus scraping both apps, Grafana with PromEx's dashboards provisioned from `deploy/server/monitoring/`, and Uptime Kuma, all on `127.0.0.1` behind an SSH tunnel.
+- CI builds the app, edge and backup images on pushes to `staging` and `master`, pushes them to GHCR tagged with the commit, and deploys over SSH (staging from `staging`; shared services then production from `master`), one deploy per environment at a time. Production pushes then keep only the newest ten versions of each image.
+- `DEPLOYMENT.md` Part 2 is now a full runbook: droplet, hardening (deploy user, SSH keys only, ufw, fail2ban, unattended upgrades), Docker with log rotation, DNS (including `admin.staging`), buckets and the age key, the settings files, GitHub secrets, first deploys with Let's Encrypt's staging CA then real certificates, backups and drills, monitoring (UptimeRobot, healthchecks.io, ErrorTracker, metrics), everyday commands, safe migrations, restoring, and moving staging to its own server.
+
+### Changed
+- Album access goes by role (`Keepsakes.Albums.role/2`, `authorize!/3`: view, edit, manage) instead of matching the owner's id, so collaborators can act on albums they joined; anyone else gets `Keepsakes.Albums.NotAllowed` (404). Plan limits and storage stay the owner's whoever uploads, and memory events also go to an `album:<id>` topic. `Albums.get_memory!/3` now takes the album.
+- The Share page's "Background music, coming soon" switch is replaced by a "For your guests" section: guest uploads, hearts and guestbook, music, time capsule and the QR card.
+- The template renderer contract (`KeepsakesWeb.Templates.Renderer`) adds `add/1`, `guestbook/1` and `sealed/1`, plus hearts and sealed memories in `timeline/1` and music in `slideshow/1`; the Trail renderer implements them.
+- `.m4a` files are served as `audio/mp4` (`config :mime, :types`).
+- The Terms of use at `/terms` are expanded into a full draft (accounts, uploads, sharing, payments and trials, removal, leaving, liability, changes) with placeholders; the uploads and music-rights clause keeps its meaning, so the terms version is unchanged.
+- Plan cards on the billing page and the landing page share `KeepsakesWeb.PlanComponents`; the comparison now includes collaborators, guest uploads, hearts and guestbook, slideshow music, the time capsule and custom domains.
+- Dependencies updated: dns_cluster 0.2.0 → 0.3.1 and phoenix_live_dashboard 0.8.7 → 0.9.1 (requirements raised in `mix.exs`), plus hammer 7.5.1, swoosh 1.29.3, tailwind 0.5.2, websock_adapter 0.7.0 and elixir_make 0.10.1.
+- Migrations default to UUID primary keys, UUID foreign keys and `utc_datetime` timestamps via `migration_primary_key` / `migration_foreign_key` Repo config.
+- AGENTS.md now prefers daisyUI components themed with the Keepsake themes instead of forbidding daisyUI.
+- Interim app layout uses the Keepsake logo and theme toggle in place of the Phoenix scaffold header.
+- `Layouts.app` takes a `shell` attribute (`:owner`, `:auth`, `:plain`); the auth pages use the split form + polaroid panel from the design.
+- `/` shows an interim home with sign-up and log-in links and redirects logged-in users to `/albums`; the Phoenix scaffold page is gone.
+- After logging in, users land on `/albums` instead of `/`.
+- Signed storage URLs are rounded to a 15-minute window, so re-renders reuse the same image URL and the browser cache.
+- The sidebar lists real albums with memory counts, and the storage meter shows actual usage (against a 1 GB placeholder until plans arrive).
+- `modal` accepts `box_class` for wider dialogs.
+- Upload queue rows show the Ready/Needs badge above the title, so long names keep the full width.
+- The album page's Share album and Preview as guest buttons are live once the album has a photo.
+- Copy buttons fall back to a classic copy when the Clipboard API is missing or refused, and ask for Ctrl+C if both fail.
+- The guest access, timeline and slideshow pages are drawn by the album's template renderer and themed through `ks-guest-*` colour tokens (replacing `ks-night-card`/`-line`/`-field`/`-bar` and hard-coded white), with the theme applied on the guest root layout and `color-scheme` following the template.
+- The dev seed album uses the real photos in the gitignored `test_imgs/` folder when present, instead of plain colour cards.
+- `test_imgs/` (local photos for manual and visual testing) is gitignored.
+- The sidebar storage meter uses the plan's storage limit instead of a fixed 1 GB and shows the plan status with a link to Plans & billing.
+- The upload size limit comes from the plan (Free 10 MB, Plus and Pro 25 MB); the system-wide `max_upload_mb` ceiling setting now defaults to 25.
+- Daylight is a premium template. Premium templates need Plus or Pro to choose (the picker offers "Upgrade to use", the settings list marks them), and albums or defaults set to one fall back to the system default when the plan no longer includes them.
+- Guest downloads need a plan with guest downloads: the Share page switch is disabled with a link to plans, and downloads stop if the plan drops them.
+- "Made with Keepsake" on the guest timeline is hidden on plans with remove branding.
+- Support attachments no longer bloat storage: photos (JPG, PNG, HEIC, WebP up to 10 MB sent) are stored as one WebP with the longest side at most 1600 px and metadata stripped; PDFs are checked to be real PDFs and limited to 5 MB. A file that can't be used is explained and nothing is saved.
+- Account settings moved into tabs: email and password at `/app/settings/account` (email confirmation links now `/app/settings/account/confirm-email/:token`, password form posts to `/app/settings/account/update-password`), the template for new albums at `/app/settings/templates`, and Plans & billing at `/app/settings/billing` (receipts at `/app/settings/billing/invoices/:id`); `/app/billing` redirects there and emails link to the new paths.
+- Changing your password no longer asks for a two-step code again, since you're already signed in.
+- The owner portal moved under `/app`: `/app/albums/...`, `/app/billing/...` (including the Flutterwave return page `/app/billing/return`), `/app/settings` (was `/users/settings`), `/app/settings/update-password` and `/app/confirm-email/resend`; `/app` on its own opens the album list.
+- Sign-in pages moved under `/auth`: `/auth/register`, `/auth/log-in`, `/auth/log-in/:token`, `/auth/reset-password` and `/auth/log-out` (were under `/users`). The landing page (`/`), guest links (`/a/...`), webhooks and media URLs are unchanged.
+- Every owner-portal page (upload screen, Share, Template, Plans & billing, settings) now shows the header and album sidebar; the `sidebar={false}` option on `Layouts.app` is gone.
+- The owner header sticks to the top, and the album sidebar stays in view at viewport height while the page scrolls; a long album list scrolls inside the sidebar so New album and the storage meter stay visible.
+- `Scope` no longer carries unused `subscription`/`entitlements` fields; `Keepsakes.Format.bytes/1` is shared by pages and messages.
+- A suspended account can't log in by password or emailed link ("This account is suspended…"), its sessions are ended, its shared links stop opening, and its renewals and retries are skipped until it's unsuspended.
+- Invoices and payments are kept when a deleted account is purged: `invoices.user_id` and `payments.user_id` are set to nil instead of the rows being deleted. Invoices now keep `billing_name` and `billing_email` (backfilled for existing ones).
+- Changing a price adds a new price row and retires the old one (one active price per plan, currency and interval), so subscribers renew at the price they signed up for. They can still "Pay now" on that price after a failed renewal; new buyers only see the new one.
+- The guest access form posts to its page's own path (`<base>/access`), and `GuestAccessController` serves both `/a/:slug` and a customer domain's `/:album`. LiveView `check_origin` in production is now `KeepsakesWeb.Origin.allowed?/1`, and maintenance mode leaves `/internal` open.
+- Staff internal notes and new tickets now broadcast too, so every open page sees them; `Support.set_status/4` is shared by owners and staff.
+- Tests read feature flags straight from the database (FunWithFlags cache off in test), so flag state can't leak between tests.
+- A plan given by staff ends on its date and moves the customer to Free without a charge. Plans & billing describes it as a gift and has no "Keep my plan" button for it. Paying for any plan replaces it.
+- The edge picks the app per hostname from `APP_UPSTREAM`, `STAGING_HOSTS` and `STAGING_UPSTREAM` (a `map` written by `entrypoint.sh`, and `lua/keepsake/backends.lua` for the certificate check, which now asks the app the name belongs to) instead of a fixed `app:4100` upstream; locally nothing changes. It looks the app up through Docker's DNS every 5 seconds and retries a request that couldn't connect on the other container, so a rolling deploy drops nothing. Text responses are gzipped.
+
+### Removed
+- The interim home page (`PageController.home`, `home.html.heex`) and the static `priv/static/robots.txt`, replaced by the landing page and the dynamic robots file.
+
+### Fixed
+- The owner sidebar no longer stretches past the screen on long pages, which pushed the storage meter out of view.
+- Global `body` and heading font rules moved into the base CSS layer; they were overriding utilities such as `font-hand` on headings.
+- Dark mode: the soft teal/amber surfaces and muted text now have night-theme values, so selected rows, notes and badges stay readable; text on white polaroids uses fixed ink colours in both themes.
+- Production HTTPS redirects (`force_ssl` in `config/prod.exs`) keep the host that was asked for (`host: nil`); they sent `http://admin.<host>` and customers' domains to the main site.
+- `/internal/tls/ask` is no longer redirected to HTTPS in production; OpenResty calls it over plain HTTP inside the Docker network, and the redirect would have stopped every certificate being issued.
+
+### Security
+- Production and staging require staff two-step login (`REQUIRE_STAFF_TWO_STEP=true` in the server templates). Backups are encrypted before they leave the server, which holds only the public key, and the deploy job logs the server in to GHCR with its own short-lived token, so no long-lived GitHub credential is stored there.
+- Bandit (the web server) 1.13.1 → 1.14.1, fixing published HTTP/1.1, HTTP/2 and WebSocket advisories (denial of service, request smuggling). The Cloak advisories Hex reports don't apply: the app uses the authenticated AES-GCM cipher and no PBKDF2 fields.
+- Opening an emailed link for an unconfirmed account from a browser that isn't logged in as that account confirms it, removes any password and expires every session. This blocks someone who pre-registered another person's email from keeping access.

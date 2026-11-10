@@ -1,29 +1,232 @@
 defmodule KeepsakesWeb.Router do
   use KeepsakesWeb, :router
 
+  import KeepsakesWeb.UserAuth
+  import KeepsakesWeb.Hosts, only: [only_main_host: 2, only_admin_host: 2]
+  import KeepsakesWeb.Admin.Auth, only: [fetch_staff: 2, require_staff: 2, redirect_if_staff: 2]
+
   pipeline :browser do
     plug :accepts, ["html"]
+    plug :only_main_host
     plug :fetch_session
     plug :fetch_live_flash
     plug :put_root_layout, html: {KeepsakesWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_scope_for_user
+  end
+
+  # The staff portal on admin.<host>: its own session (host-only cookie),
+  # never indexed. See KeepsakesWeb.Hosts and docs/learning/admin-subdomain.md.
+  pipeline :admin_browser do
+    plug :accepts, ["html"]
+    plug :only_admin_host
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {KeepsakesWeb.Layouts, :admin_root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers, %{"x-robots-tag" => "noindex, nofollow"}
+    plug :fetch_staff
   end
 
   pipeline :api do
     plug :accepts, ["json"]
   end
 
+  # For crawlers, on every host (no session or pipeline): the main site is
+  # open to them; the admin portal says no (KeepsakesWeb.SeoController)
+  scope "/", KeepsakesWeb do
+    get "/robots.txt", SeoController, :robots
+    get "/sitemap.xml", SeoController, :sitemap
+  end
+
+  ## Admin portal (matched by host first, so its "/" isn't the landing page)
+
+  scope "/", KeepsakesWeb.Admin, host: "admin." do
+    pipe_through [:admin_browser, :redirect_if_staff]
+
+    get "/log-in", SessionController, :new
+    post "/log-in", SessionController, :create
+    get "/two-step", SessionController, :code
+    post "/two-step", SessionController, :verify
+    get "/two-step/setup", SessionController, :setup
+    post "/two-step/setup", SessionController, :enable
+    post "/two-step/finish", SessionController, :finish
+  end
+
+  scope "/", KeepsakesWeb.Admin, host: "admin." do
+    pipe_through [:admin_browser, :require_staff]
+
+    delete "/log-out", SessionController, :delete
+
+    live_session :staff,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [{KeepsakesWeb.Admin.Auth, :require_staff}] do
+      live "/", DashboardLive, :index
+    end
+
+    live_session :staff_customers,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "users.view"}}
+      ] do
+      live "/customers", CustomerLive.Index, :index
+      live "/customers/:id", CustomerLive.Show, :show
+    end
+
+    live_session :staff_plans,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "plans.manage"}}
+      ] do
+      live "/plans", PlanLive.Index, :index
+      live "/plans/new", PlanLive.Form, :new
+      live "/plans/:id", PlanLive.Form, :edit
+    end
+
+    live_session :staff_discounts,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "discounts.manage"}}
+      ] do
+      live "/discounts", DiscountLive.Index, :index
+      live "/discounts/new", DiscountLive.Form, :new
+      live "/discounts/:id", DiscountLive.Form, :edit
+    end
+
+    live_session :staff_finance,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "finance.view"}}
+      ] do
+      live "/finance", FinanceLive.Index, :index
+      live "/finance/payments", FinanceLive.Payments, :index
+      live "/finance/invoices/:id", FinanceLive.Invoice, :show
+    end
+
+    # CSV downloads; Keepsakes.Finance checks finance.export (403 without)
+    get "/finance/export/payments.csv", FinanceExportController, :payments
+    get "/finance/export/refunds.csv", FinanceExportController, :refunds
+
+    live_session :staff_support,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "support.view"}}
+      ] do
+      live "/support", SupportLive.Index, :index
+      # Before /support/:number, which would otherwise match it
+      live "/support/replies", SupportLive.Replies, :index
+      live "/support/:number", SupportLive.Show, :show
+    end
+
+    live_session :staff_templates,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "templates.manage"}}
+      ] do
+      live "/templates", TemplateLive.Index, :index
+      live "/templates/new", TemplateLive.Form, :new
+      live "/templates/:id", TemplateLive.Form, :edit
+    end
+
+    live_session :staff_domains,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "domains.manage"}}
+      ] do
+      live "/domains", DomainLive, :index
+    end
+
+    live_session :staff_settings,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "config.manage"}}
+      ] do
+      live "/settings", SettingsLive, :index
+    end
+
+    live_session :staff_flags,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "flags.manage"}}
+      ] do
+      live "/flags", FlagsLive, :index
+    end
+
+    live_session :staff_roles,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "roles.manage"}}
+      ] do
+      live "/staff", StaffLive.Index, :index
+      live "/roles", RoleLive.Index, :index
+      live "/roles/new", RoleLive.Form, :new
+      live "/roles/:id", RoleLive.Form, :edit
+    end
+
+    live_session :staff_audit,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "audit.view"}}
+      ] do
+      live "/audit", AuditLive.Index, :index
+    end
+
+    # Errors ErrorTracker recorded, shown in the admin layout (Keepsakes.Errors)
+    live_session :staff_errors,
+      root_layout: {KeepsakesWeb.Layouts, :admin_root},
+      on_mount: [
+        {KeepsakesWeb.Admin.Auth, :require_staff},
+        {KeepsakesWeb.Admin.Auth, {:permission, "errors.view"}}
+      ] do
+      live "/errors", ErrorLive.Index, :index
+      live "/errors/:id", ErrorLive.Show, :show
+    end
+  end
+
+  # Photos on local disk, authorised by the signed token in the URL itself
+  # (no session), so the same links work for owners and guests.
+  scope "/media", KeepsakesWeb do
+    get "/:token", MediaController, :show
+  end
+
   scope "/", KeepsakesWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    # The landing page (signed-in visitors go to their albums)
+    live_session :public, on_mount: [{KeepsakesWeb.UserAuth, :mount_current_scope}] do
+      live "/", HomeLive, :index
+    end
+
+    get "/terms", PageController, :terms
+    get "/privacy", PageController, :privacy
+    # Collaborator invitations (Keepsakes.Albums.Members)
+    get "/invites/:token", InviteController, :show
+    post "/invites/:token", InviteController, :accept
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", KeepsakesWeb do
-  #   pipe_through :api
-  # end
+  # OpenResty asks before issuing a certificate (private network only)
+  scope "/internal", KeepsakesWeb do
+    get "/tls/ask", TlsAskController, :show
+  end
+
+  # Payment provider callbacks: no session or CSRF; each provider signs its own
+  scope "/webhooks", KeepsakesWeb do
+    pipe_through :api
+
+    post "/flutterwave", WebhookController, :flutterwave
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:keepsakes, :dev_routes) do
@@ -40,5 +243,131 @@ defmodule KeepsakesWeb.Router do
       live_dashboard "/dashboard", metrics: KeepsakesWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+
+    scope "/dev", KeepsakesWeb.Dev do
+      pipe_through :browser
+
+      live "/components", ComponentsLive
+    end
+  end
+
+  ## Guest pages for shared albums (always the night theme, never indexed)
+
+  scope "/a", KeepsakesWeb do
+    pipe_through :browser
+
+    post "/:slug/access", GuestAccessController, :create
+    get "/:slug/photos/:id/download", GuestAccessController, :download
+
+    # The owner previews how guests will see an album, shared or not
+    live_session :guest_preview,
+      root_layout: {KeepsakesWeb.Layouts, :guest_root},
+      on_mount: [
+        {KeepsakesWeb.UserAuth, :mount_current_scope},
+        {KeepsakesWeb.GuestAccess, :preview}
+      ] do
+      live "/preview/:album_slug/timeline", GuestLive.Timeline, :preview
+      live "/preview/:album_slug/slideshow", GuestLive.Slideshow, :preview
+      # The same, in a template the album doesn't use yet (template picker)
+      live "/preview/:album_slug/:template/timeline", GuestLive.Timeline, :preview
+      live "/preview/:album_slug/:template/slideshow", GuestLive.Slideshow, :preview
+    end
+
+    # Anyone with the link; the code unlocks timeline and slideshow
+    live_session :guest,
+      root_layout: {KeepsakesWeb.Layouts, :guest_root},
+      on_mount: [
+        {KeepsakesWeb.UserAuth, :mount_current_scope},
+        {KeepsakesWeb.GuestAccess, :link}
+      ] do
+      live "/:slug", GuestLive.Access, :access
+      live "/:slug/timeline", GuestLive.Timeline, :timeline
+      live "/:slug/slideshow", GuestLive.Slideshow, :slideshow
+      # Guests add photos (for approval) and sign the guestbook, when the
+      # owner turned them on
+      live "/:slug/add", GuestLive.Add, :add
+      live "/:slug/guestbook", GuestLive.Guestbook, :guestbook
+      # Anyone with the link, code or not, can report the album
+      live "/:slug/report", GuestLive.Report, :report
+    end
+  end
+
+  ## Authentication routes
+
+  # Owner portal under /app: everything here needs a logged-in user
+  # (the super-admin portal lives on its own admin.<host> subdomain)
+  scope "/app", KeepsakesWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    get "/", PageController, :app
+    get "/settings", PageController, :settings
+    get "/billing", PageController, :billing
+
+    live_session :require_authenticated_user,
+      on_mount: [{KeepsakesWeb.UserAuth, :require_authenticated}, KeepsakesWeb.OwnerShell] do
+      live "/albums", AlbumLive.Index, :index
+      # One LiveView for the album, its upload screen and the memory editor,
+      # so files picked on the album page keep uploading across the patch
+      live "/albums/:slug", AlbumLive.Show, :show
+      live "/albums/:slug/upload", AlbumLive.Show, :upload
+      live "/albums/:slug/memories/:id", AlbumLive.Show, :edit
+      live "/albums/:slug/share", AlbumLive.Share, :share
+      live "/albums/:slug/share/card", AlbumLive.Card, :card
+      live "/albums/:slug/template", AlbumLive.Template, :template
+      live "/albums/:slug/people", AlbumLive.People, :people
+      # Albums others shared with the caller as a collaborator (by id: slugs
+      # are only unique per owner)
+      live "/shared/:album_id", AlbumLive.Show, :show
+      live "/shared/:album_id/upload", AlbumLive.Show, :upload
+      live "/shared/:album_id/memories/:id", AlbumLive.Show, :edit
+      # Settings: one LiveView per tab (KeepsakesWeb.SettingsComponents)
+      live "/settings/profile", SettingsLive.Profile, :profile
+      live "/settings/account", SettingsLive.Account, :edit
+      live "/settings/account/confirm-email/:token", SettingsLive.Account, :confirm_email
+      live "/settings/security", SettingsLive.Security, :security
+      live "/settings/notifications", SettingsLive.Notifications, :notifications
+      live "/settings/sharing", SettingsLive.Sharing, :sharing
+      live "/settings/templates", SettingsLive.Templates, :templates
+      live "/settings/billing", BillingLive.Index, :index
+      live "/settings/billing/invoices/:id", BillingLive.Invoice, :show
+      live "/settings/referrals", SettingsLive.Referrals, :referrals
+      live "/settings/domains", SettingsLive.Domains, :domains
+      live "/settings/privacy", SettingsLive.Privacy, :privacy
+
+      live "/help", SupportLive.Index, :index
+      live "/help/:number", SupportLive.Show, :show
+    end
+
+    # Flutterwave's card page sends the owner back here
+    get "/billing/return", BillingController, :return
+    get "/settings/privacy/exports/:id", DataExportController, :show
+    get "/albums/:slug/share/qr.png", QrController, :show
+    post "/settings/account/update-password", UserSessionController, :update_password
+    post "/confirm-email/resend", UserConfirmationController, :create
+  end
+
+  # Sign-in pages under /auth: work logged out, but know about the current
+  # user if any
+  scope "/auth", KeepsakesWeb do
+    pipe_through [:browser]
+
+    live_session :current_user,
+      on_mount: [{KeepsakesWeb.UserAuth, :mount_current_scope}] do
+      live "/register", UserLive.Registration, :new
+      live "/log-in", UserLive.Login, :new
+      live "/log-in/:token", UserLive.Confirmation, :new
+      live "/reset-password", UserLive.ResetPassword, :new
+    end
+
+    post "/log-in", UserSessionController, :create
+    delete "/log-out", UserSessionController, :delete
+
+    # After a correct password or link: two-step code, or restoring a
+    # paused account (KeepsakesWeb.LoginStepController)
+    get "/two-step", LoginStepController, :two_step
+    post "/two-step", LoginStepController, :verify_two_step
+    delete "/two-step/cancel", LoginStepController, :cancel
+    get "/restore", LoginStepController, :restore
+    post "/restore", LoginStepController, :do_restore
   end
 end

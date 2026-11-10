@@ -37,6 +37,53 @@ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
+// JS.dispatch("ks:clear", to: "#input") empties an input after a submit,
+// which a server re-render can't do while the input has focus
+window.addEventListener("ks:clear", e => { e.target.value = "" })
+
+// JS.dispatch("ks:print") opens the browser's print dialog (receipts)
+window.addEventListener("ks:print", () => window.print())
+
+// JS.dispatch("ks:reveal") on an item in a horizontally scrolling row
+// centres it by scrolling only the row (scrollIntoView can shift the page)
+window.addEventListener("ks:reveal", e => {
+  const row = e.target.parentElement
+  if (row.scrollWidth <= row.clientWidth) return
+  row.scrollLeft = e.target.offsetLeft - row.offsetLeft - (row.clientWidth - e.target.offsetWidth) / 2
+})
+
+// JS.dispatch("ks:copy", detail: %{from: "#selector"}) on a button copies the
+// target's value (or text) and briefly swaps the button's
+// [data-copy-label] text to "Copied"
+// Older/insecure contexts (plain http off localhost) have no Clipboard API:
+// copy through a selected, off-screen textarea instead
+const legacyCopy = text => {
+  const area = Object.assign(document.createElement("textarea"), {value: text, readOnly: true})
+  area.style.cssText = "position:fixed;left:-9999px;opacity:0"
+  document.body.appendChild(area)
+  area.select()
+  const ok = document.execCommand("copy")
+  area.remove()
+  return ok ? Promise.resolve() : Promise.reject(new Error("copy failed"))
+}
+
+window.addEventListener("ks:copy", e => {
+  const source = document.querySelector(e.detail.from)
+  if (!source) return
+  const text = ("value" in source ? source.value : source.textContent).trim()
+  const copy = navigator.clipboard ? navigator.clipboard.writeText(text).catch(() => legacyCopy(text)) : legacyCopy(text)
+  const label = e.target.querySelector("[data-copy-label]") || e.target
+  label.dataset.original ||= label.textContent
+
+  copy
+    .then(() => { label.textContent = "Copied" })
+    .catch(() => { label.textContent = "Press Ctrl+C"; if (source.select) source.select() })
+    .finally(() => {
+      clearTimeout(label.copyTimer)
+      label.copyTimer = setTimeout(() => { label.textContent = label.dataset.original }, 2000)
+    })
+})
+
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 
@@ -45,6 +92,14 @@ liveSocket.connect()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
+
+// Installable app + offline page (priv/static/sw.js). Not in development,
+// where a cached asset would hide your latest change.
+if ("serviceWorker" in navigator && process.env.NODE_ENV !== "development") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {})
+  })
+}
 
 // The lines below enable quality of life phoenix_live_reload
 // development features:

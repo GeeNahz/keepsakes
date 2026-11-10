@@ -11,9 +11,14 @@ defmodule KeepsakesWeb.Endpoint do
     same_site: "Lax"
   ]
 
+  # :x_headers carries the edge proxy's X-Forwarded-For (KeepsakesWeb.ClientIP)
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options]],
-    longpoll: [connect_info: [session: @session_options]]
+    websocket: [connect_info: [:peer_data, :x_headers, session: @session_options]],
+    longpoll: [connect_info: [:peer_data, :x_headers, session: @session_options]]
+
+  # Up or down, for Docker, the deploy script and uptime monitors. First, so
+  # health checks skip logging, sessions and maintenance mode
+  plug KeepsakesWeb.Healthz
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -41,6 +46,8 @@ defmodule KeepsakesWeb.Endpoint do
     cookie_key: "request_logger"
 
   plug Plug.RequestId
+  # Behind the edge proxy: the visitor's real address and scheme
+  plug KeepsakesWeb.ClientIP
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
   plug Plug.Parsers,
@@ -50,6 +57,9 @@ defmodule KeepsakesWeb.Endpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
+  # 503 page while maintenance mode is on (main site only; staff can bypass)
+  plug KeepsakesWeb.Maintenance
   plug Plug.Session, @session_options
-  plug KeepsakesWeb.Router
+  # Customers' own domains go to KeepsakesWeb.SiteRouter, the rest to Router
+  plug KeepsakesWeb.HostRouter
 end

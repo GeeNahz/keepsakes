@@ -1,0 +1,33 @@
+<Layouts.app flash={@flash} shell={:admin}>
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1.5">
+      <h1 class="text-2xl font-bold">Staff sign-in</h1>
+      <p class="text-ks-muted">Use your Keepsake account email and password.</p>
+    </div>
+
+    <.form for={%{}} id="staff-login-form" action={~p"/log-in"} class="flex flex-col gap-3">
+      <label for="staff-email" class="text-sm font-medium">Email</label>
+      <input
+        id="staff-email"
+        name="email"
+        type="email"
+        value={@email}
+        autocomplete="username"
+        autofocus
+        required
+        class="input w-full border-ks-field bg-base-100"
+      />
+      <label for="staff-password" class="text-sm font-medium">Password</label>
+      <input
+        id="staff-password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        required
+        class="input w-full border-ks-field bg-base-100"
+      />
+      <p :if={@error} id="staff-login-error" class="text-sm text-error">{@error}</p>
+      <.button variant="primary" size="lg" class="mt-2 w-full">Continue</.button>
+    </.form>
+  </div>
+</Layouts.app>

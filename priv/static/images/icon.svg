@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- The Keepsake mark (two tilted polaroids) on the paper colour, with a
+       safe zone for maskable icons. Source of icon-192/512 and maskable. -->
+  <rect width="512" height="512" fill="#F5F6F8"/>
+  <g transform="translate(256 256) scale(9.5) translate(-14.5 -14.5)">
+    <rect x="5" y="4" width="16" height="19" rx="2" fill="#E8A33D" transform="rotate(-10 13 13)"/>
+    <rect x="8" y="6" width="16" height="19" rx="2" fill="#1F5F5B" transform="rotate(6 16 15)"/>
+  </g>
+</svg>

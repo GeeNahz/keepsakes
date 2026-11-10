@@ -1,0 +1,8 @@
+#!/bin/sh
+# The release's start command (Dockerfile CMD): bring the database up to
+# date, then run the web server in the foreground.
+set -eu
+
+cd -P -- "$(dirname -- "$0")"
+./migrate
+PHX_SERVER=true exec ./keepsakes start

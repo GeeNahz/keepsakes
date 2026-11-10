@@ -4,13 +4,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="Keepsakes" suffix=" · Phoenix Framework" phx-no-format>{assigns[:page_title]}</.live_title>
+    <.live_title default="Keepsake" suffix=" · Keepsake" phx-no-format>{assigns[:page_title]}</.live_title>
+    <.seo_meta
+      page_title={assigns[:page_title]}
+      description={assigns[:meta_description] || live_meta(assigns, :description)}
+      path={Phoenix.Controller.current_path(@conn, %{})}
+      json_ld={live_meta(assigns, :json_ld)}
+    />
+    <link rel="manifest" href={~p"/manifest.webmanifest"} />
+    <meta name="theme-color" content="#1F5F5B" />
+    <link rel="apple-touch-icon" href={~p"/images/icons/icon-192.png"} />
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
     <script>
       (() => {
-        const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "keepsake-night" : "keepsake";
 
         const setTheme = (theme) => {
           if (theme === "system") {
@@ -39,6 +48,7 @@
     </script>
   </head>
   <body>
+    <.maintenance_banner :if={assigns[:maintenance_bypass]} />
     {@inner_content}
   </body>
 </html>

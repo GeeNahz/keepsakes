@@ -1,0 +1,37 @@
+<Layouts.app flash={@flash} shell={:auth}>
+  <div class="flex flex-col gap-2">
+    <h1 class="text-4xl font-bold leading-[1.1] sm:text-[40px]">Two-step login</h1>
+    <p class="text-[17px] text-ks-muted">
+      Enter the 6-digit code from your authenticator app.
+    </p>
+  </div>
+
+  <div class="flex max-w-[440px] flex-col gap-5">
+    <.form for={%{}} id="two-step-form" action={~p"/auth/two-step"} class="flex flex-col gap-3">
+      <label for="two-step-code" class="text-sm font-medium">Code</label>
+      <input
+        id="two-step-code"
+        name="code"
+        type="text"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        autofocus
+        required
+        placeholder="123 456"
+        class="input h-14 w-full border-ks-field bg-base-100 text-center font-mono text-2xl tracking-[0.3em]"
+      />
+      <p :if={@error} id="two-step-error" class="text-sm text-error">{@error}</p>
+      <.button variant="primary" size="lg" class="w-full">Continue</.button>
+    </.form>
+
+    <p class="text-sm text-ks-muted">
+      Lost your phone? Enter one of your recovery codes instead (like ABCD-EFGH).
+    </p>
+
+    <.form for={%{}} action={~p"/auth/two-step/cancel"} method="delete">
+      <button type="submit" class="cursor-pointer text-sm font-bold text-primary">
+        Use a different account
+      </button>
+    </.form>
+  </div>
+</Layouts.app>

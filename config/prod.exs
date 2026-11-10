@@ -10,11 +10,18 @@ config :keepsakes, KeepsakesWeb.Endpoint, cache_static_manifest: "priv/static/ca
 # Force using SSL in production. This also sets the "strict-security-transport" header,
 # known as HSTS. If you have a health check endpoint, you may want to exclude it below.
 # Note `:force_ssl` is required to be set at compile-time.
+#
+# - host: nil redirects to https on the host that was asked for. Phoenix's
+#   default is the main host, which would send admin.<host> and customers'
+#   domains to the main site.
+# - /internal/tls/ask is called by OpenResty over plain HTTP inside the
+#   Docker network; a redirect there would read as "no certificate".
 config :keepsakes, KeepsakesWeb.Endpoint,
   force_ssl: [
+    host: nil,
     rewrite_on: [:x_forwarded_proto],
     exclude: [
-      # paths: ["/health"],
+      paths: ["/internal/tls/ask", "/healthz"],
       hosts: ["localhost", "127.0.0.1"]
     ]
   ]

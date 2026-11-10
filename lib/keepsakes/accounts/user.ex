@@ -1,0 +1,275 @@
+defmodule Keepsakes.Accounts.User do
+  use Keepsakes.Schema
+
+  @type t :: %__MODULE__{}
+
+  schema "users" do
+    field :first_name, :string
+    field :last_name, :string
+    field :email, :string
+    field :avatar_key, :string
+    field :password, :string, virtual: true, redact: true
+    field :hashed_password, :string, redact: true
+    field :confirmed_at, :utc_datetime
+    field :authenticated_at, :utc_datetime, virtual: true
+
+    # Template new albums get (nil: the system default)
+    belongs_to :default_template, Keepsakes.Templates.Template
+
+    # Referrals: their own invite code, who invited them, and free months
+    # earned before they started paying
+    field :referral_code, :string
+    field :referral_rewarded_at, :utc_datetime
+    field :free_months_banked, :integer, default: 0
+    belongs_to :referred_by, __MODULE__
+
+    field :bio, :string
+
+    # Two-step login (Keepsakes.Accounts.TwoStep)
+    field :totp_secret, Keepsakes.Encrypted.Binary, redact: true
+    field :totp_enabled_at, :utc_datetime
+    field :recovery_codes, {:array, :string}, default: [], redact: true
+
+    # Email preferences
+    field :notify_product_news, :boolean, default: false
+    field :notify_guest_activity, :boolean, default: true
+    field :notify_billing_reminders, :boolean, default: true
+
+    # Defaults for new share links
+    field :share_code_mode, :string, default: "auto"
+    field :share_expires_in, :string, default: "never"
+    field :share_default_view, :string, default: "timeline"
+    field :share_show_details, :boolean, default: true
+    field :share_allow_downloads, :boolean, default: false
+
+    field :deletion_requested_at, :utc_datetime
+
+    # Set by staff (Keepsakes.Customers): no sign-in, shared links stop
+    field :suspended_at, :utc_datetime
+    field :suspension_reason, :string
+
+    # Terms of use (Keepsakes.Accounts.terms_version/0); `terms` is the
+    # sign-up checkbox
+    field :terms_accepted_at, :utc_datetime
+    field :terms_version, :string
+    field :terms, :boolean, virtual: true
+
+    timestamps()
+  end
+
+  @doc """
+  The user's display name: first name, plus last name when present.
+  """
+  def full_name(%__MODULE__{first_name: first, last_name: last}) do
+    [first, last]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" ")
+  end
+
+  @doc """
+  A changeset for registering with name, email and password.
+
+  Accepts the same options as `email_changeset/3` and `password_changeset/3`.
+  """
+  def registration_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:first_name, :last_name, :email, :password, :terms])
+    |> validate_name()
+    |> validate_email(opts)
+    |> validate_password(opts)
+    |> validate_acceptance(:terms, message: "please agree to the Terms of use")
+    |> put_terms_acceptance()
+  end
+
+  defp put_terms_acceptance(changeset) do
+    if get_change(changeset, :terms) == true,
+      do: terms_changeset(changeset),
+      else: changeset
+  end
+
+  @doc "Records agreement to the current Terms of use."
+  def terms_changeset(user_or_changeset) do
+    change(user_or_changeset,
+      terms_accepted_at: DateTime.utc_now(:second),
+      terms_version: Keepsakes.Accounts.terms_version()
+    )
+  end
+
+  @doc """
+  A changeset for changing the first and last name.
+  """
+  def name_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:first_name, :last_name])
+    |> validate_name()
+  end
+
+  @doc "Profile tab: name and a short bio."
+  def profile_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:first_name, :last_name, :bio])
+    |> validate_name()
+    |> update_change(:bio, &trim/1)
+    |> validate_length(:bio, max: 160)
+  end
+
+  @doc "Notifications tab."
+  def notifications_changeset(user, attrs) do
+    cast(user, attrs, [:notify_product_news, :notify_guest_activity, :notify_billing_reminders])
+  end
+
+  @doc "Sharing defaults tab: what new share links start with."
+  def sharing_defaults_changeset(user, attrs) do
+    user
+    |> cast(attrs, [
+      :share_code_mode,
+      :share_expires_in,
+      :share_default_view,
+      :share_show_details,
+      :share_allow_downloads
+    ])
+    |> validate_inclusion(:share_code_mode, ~w(auto manual))
+    |> validate_inclusion(:share_expires_in, ~w(never 7 30))
+    |> validate_inclusion(:share_default_view, ~w(timeline autoscroll slideshow))
+  end
+
+  defp validate_name(changeset) do
+    changeset
+    |> update_change(:first_name, &trim/1)
+    |> update_change(:last_name, &trim/1)
+    |> validate_required([:first_name])
+    |> validate_length(:first_name, max: 80)
+    |> validate_length(:last_name, max: 80)
+  end
+
+  # Blank form fields cast to nil, so only trim strings
+  defp trim(value) when is_binary(value), do: String.trim(value)
+  defp trim(value), do: value
+
+  @doc """
+  Removes the password. Used when an unconfirmed account is claimed through
+  an emailed link, so a password set by whoever registered the email stops
+  working. See `Keepsakes.Accounts.login_user_by_magic_link/2`.
+  """
+  def clear_password_changeset(changeset) do
+    change(changeset, hashed_password: nil)
+  end
+
+  @doc """
+  A user changeset for registering or changing the email.
+
+  It requires the email to change otherwise an error is added.
+
+  ## Options
+
+    * `:validate_unique` - Set to false if you don't want to validate the
+      uniqueness of the email, useful when displaying live validations.
+      Defaults to `true`.
+  """
+  def email_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:email])
+    |> validate_email(opts)
+  end
+
+  defp validate_email(changeset, opts) do
+    changeset =
+      changeset
+      |> validate_required([:email])
+      |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
+        message: "must have the @ sign and no spaces"
+      )
+      |> validate_length(:email, max: 160)
+
+    if Keyword.get(opts, :validate_unique, true) do
+      changeset
+      |> unsafe_validate_unique(:email, Keepsakes.Repo)
+      |> unique_constraint(:email)
+      |> validate_email_changed()
+    else
+      changeset
+    end
+  end
+
+  defp validate_email_changed(changeset) do
+    if get_field(changeset, :email) && get_change(changeset, :email) == nil do
+      add_error(changeset, :email, "did not change")
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  A user changeset for changing the password.
+
+  It is important to validate the length of the password, as long passwords may
+  be very expensive to hash for certain algorithms.
+
+  ## Options
+
+    * `:hash_password` - Hashes the password so it can be stored securely
+      in the database and ensures the password field is cleared to prevent
+      leaks in the logs. If password hashing is not needed and clearing the
+      password field is not desired (like when using this changeset for
+      validations on a LiveView form), this option can be set to `false`.
+      Defaults to `true`.
+  """
+  def password_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:password])
+    |> validate_confirmation(:password, message: "does not match password")
+    |> validate_password(opts)
+  end
+
+  defp validate_password(changeset, opts) do
+    changeset
+    |> validate_required([:password])
+    |> validate_length(:password, min: 12, max: 72)
+    # Examples of additional password validation:
+    # |> validate_format(:password, ~r/[a-z]/, message: "at least one lower case character")
+    # |> validate_format(:password, ~r/[A-Z]/, message: "at least one upper case character")
+    # |> validate_format(:password, ~r/[!?@#$%^&*_0-9]/, message: "at least one digit or punctuation character")
+    |> maybe_hash_password(opts)
+  end
+
+  defp maybe_hash_password(changeset, opts) do
+    hash_password? = Keyword.get(opts, :hash_password, true)
+    password = get_change(changeset, :password)
+
+    if hash_password? && password && changeset.valid? do
+      changeset
+      # If using Bcrypt, then further validate it is at most 72 bytes long
+      |> validate_length(:password, max: 72, count: :bytes)
+      # Hashing could be done with `Ecto.Changeset.prepare_changes/2`, but that
+      # would keep the database transaction open longer and hurt performance.
+      |> put_change(:hashed_password, Bcrypt.hash_pwd_salt(password))
+      |> delete_change(:password)
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  Confirms the account by setting `confirmed_at`.
+  """
+  def confirm_changeset(user) do
+    now = DateTime.utc_now(:second)
+    change(user, confirmed_at: now)
+  end
+
+  @doc """
+  Verifies the password.
+
+  If there is no user or the user doesn't have a password, we call
+  `Bcrypt.no_user_verify/0` to avoid timing attacks.
+  """
+  def valid_password?(%Keepsakes.Accounts.User{hashed_password: hashed_password}, password)
+      when is_binary(hashed_password) and byte_size(password) > 0 do
+    Bcrypt.verify_pass(password, hashed_password)
+  end
+
+  def valid_password?(_, _) do
+    Bcrypt.no_user_verify()
+    false
+  end
+end
