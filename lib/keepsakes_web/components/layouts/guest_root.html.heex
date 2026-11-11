@@ -11,6 +11,8 @@
     <meta name="referrer" content="same-origin" />
     <meta name="color-scheme" content={assigns[:color_scheme] || "dark"} />
     <.live_title default="Keepsake" suffix=" · Keepsake" phx-no-format>{assigns[:page_title]}</.live_title>
+    <link rel="icon" href={~p"/favicon.ico"} sizes="48x48" />
+    <link rel="icon" href={~p"/images/favicon.svg"} type="image/svg+xml" />
     <link rel="manifest" href={~p"/manifest.webmanifest"} />
     <meta name="theme-color" content="#14161C" />
     <link rel="apple-touch-icon" href={~p"/images/icons/icon-192.png"} />

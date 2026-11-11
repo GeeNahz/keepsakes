@@ -32,7 +32,7 @@ defmodule KeepsakesWeb.UserLive.Registration do
               field={@form[:first_name]}
               label="First name"
               autocomplete="given-name"
-              placeholder="Godswill"
+              placeholder="Ada"
               required
               phx-mounted={JS.focus()}
             />
@@ -40,7 +40,7 @@ defmodule KeepsakesWeb.UserLive.Registration do
               field={@form[:last_name]}
               label="Last name"
               autocomplete="family-name"
-              placeholder="Nasara"
+              placeholder="Obi"
             />
           </div>
           <.input

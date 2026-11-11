@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-11
+
+The first release: Keepsake running in production at
+keepsakes.geenahz.site, with staging beside it.
+
 ### Added
 - `.env` loading via Dotenvy in `config/runtime.exs` (real env vars win); every variable is documented in the committed `.env.example`, and dev/test DB credentials come from `DB_USER`/`DB_PASS`/`DB_HOST`/`DB_PORT`.
 - Project `.tool-versions` pinning Erlang 29.0, Elixir 1.19.5 and Node.js 26.12.1.
@@ -222,8 +227,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The metrics profile, off by default and switched with `bin/metrics on|off`: Prometheus scraping both apps, Grafana with PromEx's dashboards provisioned from `deploy/server/monitoring/`, and Uptime Kuma, all on `127.0.0.1` behind an SSH tunnel.
 - CI builds the app, edge and backup images on pushes to `staging` and `master`, pushes them to GHCR tagged with the commit, and deploys over SSH (staging from `staging`; shared services then production from `master`), one deploy per environment at a time. Production pushes then keep only the newest ten versions of each image.
 - `DEPLOYMENT.md` Part 2 is now a full runbook: droplet, hardening (deploy user, SSH keys only, ufw, fail2ban, unattended upgrades), Docker with log rotation, DNS (including `admin.staging`), buckets and the age key, the settings files, GitHub secrets, first deploys with Let's Encrypt's staging CA then real certificates, backups and drills, monitoring (UptimeRobot, healthchecks.io, ErrorTracker, metrics), everyday commands, safe migrations, restoring, and moving staging to its own server.
+- A favicon from the Keepsake mark (the two tilted polaroids): `/images/favicon.svg` and a 48 px `/favicon.ico` (PNG data, replacing Phoenix's blank placeholder), linked from the main, guest and admin root layouts; the admin layout also gets the Apple touch icon.
 
 ### Changed
+- `DEPLOYMENT.md` updated from the first go-live: deploys run as your own sudo user (no separate `deploy` user), 2 GB is the minimum droplet, the app can live on a subdomain (DNS table for both cases, no wildcard), the from-address must be on a domain Resend verified, one R2 token per job with the backup token never shared with an app, a secret-generation block and a no-secrets check for the `.env` files, `docker exec` commands for the edge and Postgres, how to check certificates and the fallback certificate, errors the backup and drill can show, healthchecks.io's cron schedule, and a new step 13 that switches SSH to keys only.
+- GitHub Actions moved to their Node 24 releases: `actions/checkout` v7, `actions/cache` v6, `docker/setup-buildx-action` v4, `docker/login-action` v4 and `docker/build-push-action` v7. `actions/delete-package-versions` stays on v5, its newest release.
+- The sign-up form's name placeholders, the avatar examples and the guest test fixtures use the made-up name "Ada Obi".
 - Album access goes by role (`Keepsakes.Albums.role/2`, `authorize!/3`: view, edit, manage) instead of matching the owner's id, so collaborators can act on albums they joined; anyone else gets `Keepsakes.Albums.NotAllowed` (404). Plan limits and storage stay the owner's whoever uploads, and memory events also go to an `album:<id>` topic. `Albums.get_memory!/3` now takes the album.
 - The Share page's "Background music, coming soon" switch is replaced by a "For your guests" section: guest uploads, hearts and guestbook, music, time capsule and the QR card.
 - The template renderer contract (`KeepsakesWeb.Templates.Renderer`) adds `add/1`, `guestbook/1` and `sealed/1`, plus hearts and sealed memories in `timeline/1` and music in `slideshow/1`; the Trail renderer implements them.
@@ -270,6 +279,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - The interim home page (`PageController.home`, `home.html.heex`) and the static `priv/static/robots.txt`, replaced by the landing page and the dynamic robots file.
+- `priv/static/images/logo.svg`, the unused Phoenix logo.
 
 ### Fixed
 - The owner sidebar no longer stretches past the screen on long pages, which pushed the storage meter out of view.
@@ -277,6 +287,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dark mode: the soft teal/amber surfaces and muted text now have night-theme values, so selected rows, notes and badges stay readable; text on white polaroids uses fixed ink colours in both themes.
 - Production HTTPS redirects (`force_ssl` in `config/prod.exs`) keep the host that was asked for (`host: nil`); they sent `http://admin.<host>` and customers' domains to the main site.
 - `/internal/tls/ask` is no longer redirected to HTTPS in production; OpenResty calls it over plain HTTP inside the Docker network, and the redirect would have stopped every certificate being issued.
+- An empty `ACME_DIRECTORY_URL` (the documented way to use Let's Encrypt) stopped every certificate being issued: compose passes it as an empty string, and lua-resty-acme failed with "bad uri" instead of using its Let's Encrypt default. The edge now treats empty as unset.
+- Backups upload without R2's "501 Not Implemented" on every first attempt: the backup image installs rclone 1.76.0 from rclone's releases (pinned, checksum-verified) instead of Debian's 1.60.
+- `bin/deploy`, `bin/rollback` and `bin/infra-up` run by hand on the server work again: they pull an image only when it isn't already there (tags are commit hashes), so they no longer fail while CI has logged the server out of GHCR.
 
 ### Security
 - Production and staging require staff two-step login (`REQUIRE_STAFF_TWO_STEP=true` in the server templates). Backups are encrypted before they leave the server, which holds only the public key, and the deploy job logs the server in to GHCR with its own short-lived token, so no long-lived GitHub credential is stored there.

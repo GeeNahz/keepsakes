@@ -77,7 +77,7 @@ defmodule KeepsakesWeb.Dev.ComponentsLive do
             <.badge variant="ready">Ready</.badge>
             <.badge variant="pending">Needs date</.badge>
             <.badge variant="muted">Draft</.badge>
-            <.avatar name="Godswill Nasara" />
+            <.avatar name="Ada Obi" />
             <.logo />
           </div>
         </section>
@@ -106,7 +106,7 @@ defmodule KeepsakesWeb.Dev.ComponentsLive do
         <section id="gallery-form" class="flex max-w-md flex-col gap-3">
           <h2 class="text-xl font-bold">Form fields</h2>
           <.form for={@form} id="gallery-demo-form">
-            <.input field={@form[:name]} label="Full name" placeholder="Godswill Nasara" />
+            <.input field={@form[:name]} label="Full name" placeholder="Ada Obi" />
             <.input field={@form[:email]} type="email" label="Email" placeholder="you@example.com" />
             <.input
               field={@form[:month]}

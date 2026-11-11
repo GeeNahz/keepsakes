@@ -31,6 +31,11 @@ valid_env() {
   esac
 }
 
+# Whether an image is already on this machine
+has_image() {
+  docker image inspect "$1" >/dev/null 2>&1
+}
+
 valid_tag() {
   [[ "${1:-}" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || die "not an image tag: '${1:-}'"
 }
