@@ -34,8 +34,11 @@ fi
 
 export IMAGE_TAG="$tag"
 
-# SKIP_PULL=1 uses an image already on this machine (local rehearsals)
-if [ "${SKIP_PULL:-}" != "1" ]; then
+# Tags are commit hashes and never change, so an image already on this
+# machine is the right one: pull only when it's missing. That keeps
+# rollbacks and redeploys by hand working while the server is logged out
+# of GHCR (CI logs it out after every deploy). SKIP_PULL=1 never pulls.
+if [ "${SKIP_PULL:-}" != "1" ] && ! has_image "$KS_REGISTRY/keepsakes:$tag"; then
   say "$env: pulling $KS_REGISTRY/keepsakes:$tag"
   app_compose "$env" pull --quiet app
 fi

@@ -7,7 +7,7 @@ name: CI
 #
 # Repository secrets used by the deploy job:
 #   SSH_HOST         the droplet's address
-#   SSH_USER         the deploy user (deploy)
+#   SSH_USER         the server user that deploys (your own sudo user)
 #   SSH_KEY          a private key only for deploys (its public half is in
 #                    the deploy user's authorized_keys)
 #   SSH_KNOWN_HOSTS  the droplet's host key line (ssh-keyscan <host>), so
@@ -54,7 +54,7 @@ jobs:
       DB_PORT: "5432"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Elixir/OTP from .tool-versions
         uses: erlef/setup-beam@v1
@@ -63,7 +63,7 @@ jobs:
           version-type: strict
 
       - name: Cache deps and build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             deps
@@ -99,7 +99,7 @@ jobs:
       environment: ${{ steps.meta.outputs.environment }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Pick the tag and environment
         id: meta
@@ -111,9 +111,9 @@ jobs:
             echo "environment=staging" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -122,7 +122,7 @@ jobs:
       # Layers are cached between runs (GitHub's cache), so a code-only
       # change skips the dependency layers
       - name: App image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -136,7 +136,7 @@ jobs:
       # whichever it is, can start them) but only production deploys update
       # them afterwards
       - name: Edge image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: deploy/openresty
           push: true
@@ -145,7 +145,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=edge
 
       - name: Backup image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: deploy/backup
           push: true
@@ -171,7 +171,7 @@ jobs:
       SSH_USER: ${{ secrets.SSH_USER }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up SSH
         env:
@@ -221,6 +221,8 @@ jobs:
       matrix:
         package: [keepsakes, keepsakes-edge, keepsakes-backup]
     steps:
+      # v5 is the newest release and still targets Node 20; GitHub runs it
+      # on Node 24 with a warning until the action publishes a new version
       - uses: actions/delete-package-versions@v5
         with:
           package-name: ${{ matrix.package }}

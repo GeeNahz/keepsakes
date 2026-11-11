@@ -8,7 +8,7 @@ defmodule KeepsakesWeb.GuestLiveTest do
   alias Keepsakes.Sharing
 
   setup do
-    owner = user_fixture(%{first_name: "Godswill"})
+    owner = user_fixture(%{first_name: "Ada"})
     scope = Keepsakes.Accounts.Scope.for_user(owner)
     album = album_fixture(scope, name: "Our Little One")
     %{owner: owner, scope: scope, album: album}
@@ -52,7 +52,7 @@ defmodule KeepsakesWeb.GuestLiveTest do
       {:ok, lv, html} = conn |> as_guest(link) |> live(~p"/a/#{link.slug}/timeline")
 
       assert has_element?(lv, "#timeline-summary", "3 MEMORIES · APR 2019 – SEP 2021")
-      assert html =~ "An album by Godswill"
+      assert html =~ "An album by Ada"
       assert html =~ ~r/First birthday.*Beach day.*First day of school/s
       refute html =~ "No date"
 

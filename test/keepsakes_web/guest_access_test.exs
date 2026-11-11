@@ -10,7 +10,7 @@ defmodule KeepsakesWeb.GuestAccessTest do
   alias KeepsakesWeb.GuestAccess
 
   setup do
-    owner = user_fixture(%{first_name: "Godswill"})
+    owner = user_fixture(%{first_name: "Ada"})
     scope = Keepsakes.Accounts.Scope.for_user(owner)
     album = album_fixture(scope, name: "Our Little One")
     guest_memory_fixture(scope, album, %{title: "First birthday"})
@@ -24,7 +24,7 @@ defmodule KeepsakesWeb.GuestAccessTest do
       {:ok, lv, _html} = live(conn, ~p"/a/#{link.slug}")
 
       assert has_element?(lv, "#access-album-name", "Our Little One")
-      assert render(lv) =~ "Godswill shared an album with you"
+      assert render(lv) =~ "Ada shared an album with you"
       assert has_element?(lv, ~s(#access-form[action="/a/#{link.slug}/access"]))
       assert has_element?(lv, "#access-digits input[name='code[]']")
     end
