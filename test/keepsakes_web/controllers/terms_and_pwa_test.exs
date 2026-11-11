@@ -50,4 +50,40 @@ defmodule KeepsakesWeb.TermsAndPwaTest do
       assert conn |> get(~p"/terms") |> html_response(200) =~ ~s(rel="manifest")
     end
   end
+
+  describe "favicon" do
+    test "is served as PNG (.ico) and SVG", %{conn: conn} do
+      ico = get(conn, "/favicon.ico")
+      assert ico.status == 200
+      assert <<0x89, "PNG", _::binary>> = ico.resp_body
+
+      svg = get(build_conn(), "/images/favicon.svg")
+      assert svg.status == 200
+      assert svg.resp_body =~ "<svg"
+    end
+
+    test "every root layout links it: main site, guest pages, admin portal", %{conn: conn} do
+      scope = Keepsakes.Accounts.Scope.for_user(Keepsakes.AccountsFixtures.user_fixture())
+      album = Keepsakes.AlbumsFixtures.album_fixture(scope)
+      link = Keepsakes.AlbumsFixtures.share_link_fixture(scope, album)
+
+      pages = [
+        conn |> get(~p"/terms") |> html_response(200),
+        build_conn() |> get(~p"/a/#{link.slug}") |> html_response(200),
+        build_conn()
+        |> Keepsakes.StaffFixtures.admin_host()
+        |> get("/log-in")
+        |> html_response(200)
+      ]
+
+      for html <- pages do
+        doc = LazyHTML.from_document(html)
+        refute doc |> LazyHTML.query(~s(link[rel="icon"][href^="/favicon.ico"])) |> Enum.empty?()
+
+        refute doc
+               |> LazyHTML.query(~s(link[rel="icon"][href="/images/favicon.svg"]))
+               |> Enum.empty?()
+      end
+    end
+  end
 end

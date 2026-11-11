@@ -405,7 +405,7 @@ defmodule KeepsakesWeb.CoreComponents do
   @doc """
   Initials avatar.
 
-      <.avatar name="Godswill Nasara" />
+      <.avatar name="Ada Obi" />
   """
   attr :name, :string, required: true
   attr :src, :string, default: nil, doc: "profile photo URL; initials show without one"

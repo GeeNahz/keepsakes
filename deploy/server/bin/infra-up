@@ -13,7 +13,10 @@ tag="${1:-}"
 valid_tag "$tag"
 export INFRA_TAG="$tag"
 
-if [ "${SKIP_PULL:-}" != "1" ]; then
+# Pull only what's missing (tags never change; see bin/deploy), so running
+# this by hand works while the server is logged out of GHCR
+if [ "${SKIP_PULL:-}" != "1" ] &&
+  ! { has_image "$KS_REGISTRY/keepsakes-edge:$tag" && has_image "$KS_REGISTRY/keepsakes-backup:$tag"; }; then
   say "infra: pulling the edge and backup images ($tag)"
   infra pull --quiet openresty backup
 fi
